@@ -49,10 +49,14 @@ def process_enso():
     label_longterm_phase(df["phase_trimester"], "elnino")
     label_longterm_phase(df["phase_trimester"], "lanina")
 
-    blob_name = f"{blob.PROJECT_PREFIX}/processed/enso/enso.parquet"
-    blob.upload_parquet_to_blob(blob_name, df, stage="dev")
+    blob_name = "noaa/enso.parquet"
+    blob.upload_parquet_to_blob(
+        blob_name, df, stage="dev", container_name="global"
+    )
 
 
 def load_enso():
-    blob_name = f"{blob.PROJECT_PREFIX}/processed/enso/enso.parquet"
-    return blob.load_parquet_from_blob(blob_name, stage="dev")
+    blob_name = "noaa/enso.parquet"
+    return blob.load_parquet_from_blob(
+        blob_name, stage="dev", container_name="global"
+    )
