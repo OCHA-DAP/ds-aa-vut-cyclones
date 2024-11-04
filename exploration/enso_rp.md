@@ -108,6 +108,7 @@ for d_thresh in d_threshs:
 ```python
 df_counts = pd.DataFrame(dicts)
 df_counts["per_year"] = df_counts["count"] / df["season"].nunique()
+df_counts["rp"] = (df["season"].nunique() + 1) / df_counts["count"]
 ```
 
 ```python
