@@ -149,3 +149,7 @@ token.json
 sandbox
 
 temp/
+
+# local diretories used by GH Action
+inputs
+outputs

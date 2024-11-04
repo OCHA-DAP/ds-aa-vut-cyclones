@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+from pathlib import Path
 from typing import Literal
 
 import geopandas as gpd
@@ -104,16 +105,40 @@ def upload_gdf_to_blob(gdf, blob_name, stage: Literal["prod", "dev"] = "dev"):
 
 
 def load_gdf_from_blob(
-    blob_name, shapefile: str = None, stage: Literal["prod", "dev"] = "dev"
+    blob_name,
+    shapefile: str = None,
+    stage: Literal["prod", "dev"] = "dev",
+    container_name: str = "projects",
+    clobber: bool = False,
+    verbose: bool = False,
 ):
-    blob_data = load_blob_data(blob_name, stage=stage)
-    with zipfile.ZipFile(io.BytesIO(blob_data), "r") as zip_ref:
-        zip_ref.extractall("temp")
-        if shapefile is None:
-            shapefile = [f for f in zip_ref.namelist() if f.endswith(".shp")][
-                0
-            ]
-        gdf = gpd.read_file(f"temp/{shapefile}")
+    local_temp_dir = Path(f"temp/{blob_name}")
+    if not clobber and os.path.exists(local_temp_dir):
+        if verbose:
+            print(f"{local_temp_dir} already exists, skipping download")
+    else:
+        blob_data = load_blob_data(
+            blob_name, stage=stage, container_name=container_name
+        )
+        with zipfile.ZipFile(io.BytesIO(blob_data), "r") as zip_ref:
+            zip_ref.extractall(local_temp_dir)
+    if shapefile is None:
+        if verbose:
+            print("shapefile not specified, using first .shp file found")
+            print("iterating over all subdirectories")
+        for root, dirs, files in os.walk(local_temp_dir):
+            for file in files:
+                if verbose:
+                    print(f"checking {file}")
+                if file.endswith(".shp"):
+                    shapefile = file
+                    break
+            if shapefile is not None:
+                break
+    local_temp_path = local_temp_dir / shapefile
+    if not local_temp_path.exists():
+        local_temp_path = local_temp_dir / shapefile.removesuffix(".shp")
+    gdf = gpd.read_file(local_temp_path)
     return gdf
 
 

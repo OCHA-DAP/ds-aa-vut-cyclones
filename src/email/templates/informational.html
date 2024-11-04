@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="font-size:10px;padding: 6px 10px 6px 10px;background-color:#CCCCCC;color:#FFFFFF">
+  <p style="margin:0;">
+    This email is purely advisory, and does not serve as an official forecast. Under the World Meteorological Organization's Tropical Cyclone Programme, RSMC Nadi is responsible for monitoring tropical cyclones in the region; the <a href="https://www.met.gov.fj/index.php?page=trackmap">forecast track map</a> published on their website should be treated as authoritative.
+  </p>
+</div>
+<div>
+  <p>Dear colleagues,</p>
+  <p>
+    The forecast for cyclone {{ name }} produced at {{ pub_time }} on {{ pub_date }} (Vanuatu local time) has been shared with us by the Fiji Meteorological Service, operators of Regional Specialized Meteorological Centre (RSMC) Nadi.
+  </p>
+  <p>
+    A plot of the forecast is shown below. The leadtime, in hours, is shown in brackets below some of the points. Due to the increased uncertainty of forecasting tropical cyclones beyond 72 hours, this portion of the forecast should be treated with caution.
+  </p>
+  <img src="cid:{{ map_cid }}" width="600"/>
+  <p>
+    The plot below shows the distance of each Province to the forecasted cyclone path, including the approximate uncertainty of the cyclone's path at its closest pass to the Province. Attached to this email is a CSV with this data, and another one with the distances to each Municipality. Note that the CSV filenames are based on the UTC publication time of this forecast.
+  </p>
+  <img src="cid:{{ distances_cid }}" width="600"/>
+  <p>
+    The code used to produce this alert is available on GitHub <a href="https://github.com/OCHA-DAP/ds-aa-vut-cyclones">here</a>.
+  </p>
+  <p>Best wishes,</p>
+  <p>OCHA Center for Humanitarian Data</p>
+</div>
+{% endblock content %}
