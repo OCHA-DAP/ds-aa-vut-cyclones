@@ -1,0 +1,56 @@
+name: Send Info Email
+
+on:
+  workflow_dispatch:
+    inputs:
+      csv:
+        description: 'Base64 string CSV file of forecast'
+        default: ""
+      flags:
+        description: 'Flags passed to Python script'
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "add-monitoring"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: monitoring-requirements.txt
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install -r monitoring-requirements.txt
+      - name: Download artifact
+        id: download-artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: inputs
+          path: inputs/
+          if_no_artifact_found: warn
+      - name: Run Check Trigger Script
+        run: python pipelines/update_info_emails.py ${{ github.event.inputs.flags }} ${{ github.event.inputs.csv }}
+        env:
+          CHD_DS_EMAIL_ADDRESS: ${{ secrets.CHD_DS_EMAIL_ADDRESS }}
+          CHD_DS_EMAIL_USERNAME: ${{ secrets.CHD_DS_EMAIL_USERNAME }}
+          CHD_DS_EMAIL_PASSWORD: ${{ secrets.CHD_DS_EMAIL_PASSWORD }}
+          CHD_DS_HOST: ${{ secrets.CHD_DS_HOST }}
+          CHD_DS_PORT: ${{ secrets.CHD_DS_PORT }}
+          INFO_ALWAYS_TO: ${{ vars.INFO_ALWAYS_TO }}
+          DEV_BLOB_SAS: ${{ secrets.DEV_BLOB_SAS }}
+          PROD_BLOB_SAS: ${{ secrets.PROD_BLOB_SAS }}
+          TEST_LIST: ${{ vars.TEST_LIST }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inputs
+          path: inputs/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outputs
+          path: outputs/
