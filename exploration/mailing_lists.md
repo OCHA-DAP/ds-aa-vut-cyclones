@@ -51,8 +51,8 @@ df_test
 df_actual = pd.DataFrame(
     columns=["email", "name", "trigger", "info"],
     data=[
-        ["tristan.downing@un.org", "TEST_NAME", "to", "to"],
-        ["downing.tristan@gmail.com", "TEST_NAME", "to", "to"],
+        ["sara.manni@un.org", "Sara Manni", "to", "to"],
+        ["tristan.downing@un.org", "Tristan Downing", "cc", "cc"],
     ],
 )
 print("invalid emails: ")
