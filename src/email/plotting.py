@@ -47,7 +47,7 @@ def plot_forecast(
     )
     forecast["formatted_datetime"] = (
         forecast["forecast_time_vut"].apply(
-            lambda x: x.strftime("<br><br>%H:%M")
+            lambda x: x.strftime("<br><br><br>%H:%M")
         )
         + "<br>("
         + forecast["leadtime"].astype(str)
@@ -56,9 +56,12 @@ def plot_forecast(
     first_dts = forecast.groupby(forecast["forecast_time_vut"].dt.date)[
         "forecast_time_vut"
     ].idxmin()
-    forecast.loc[
-        forecast.index.isin(first_dts), "formatted_datetime"
-    ] = forecast["forecast_time_vut"].dt.strftime("%b %d<br><br>%H:%M")
+    forecast.loc[forecast.index.isin(first_dts), "formatted_datetime"] = (
+        forecast["forecast_time_vut"].dt.strftime("<br>%b %d<br><br>%H:%M")
+        + "<br>("
+        + forecast["leadtime"].astype(str)
+        + " hrs)"
+    )
 
     official = forecast[forecast["leadtime"] <= 72]
     unofficial = forecast[forecast["leadtime"] >= 72]
@@ -136,20 +139,21 @@ def plot_forecast(
     )
 
     # plot unofficial forecast line
-    fig.add_trace(
-        go.Scattermapbox(
-            lat=unofficial["Latitude"],
-            lon=unofficial["Longitude"],
-            mode="lines",
-            line=dict(width=1.5, color="white"),
-            name="Best Track",
-            customdata=unofficial[["Category", "forecast_time_vut"]],
-            hovertemplate="Category: %{customdata[0]}<br>"
-            "Datetime: %{customdata[1]}",
-            legendgroup="unofficial",
-            legendgrouptitle_text="Unofficial 120-hour forecast",
+    if len(unofficial) > 1:
+        fig.add_trace(
+            go.Scattermapbox(
+                lat=unofficial["Latitude"],
+                lon=unofficial["Longitude"],
+                mode="lines",
+                line=dict(width=1.5, color="white"),
+                name="Best Track",
+                customdata=unofficial[["Category", "forecast_time_vut"]],
+                hovertemplate="Category: %{customdata[0]}<br>"
+                "Datetime: %{customdata[1]}",
+                legendgroup="unofficial",
+                legendgrouptitle_text="Unofficial 120-hour forecast",
+            )
         )
-    )
     # plot forecast points by category
     for color in CAT2COLOR:
         dff = forecast[forecast["Category"] == color[0]]

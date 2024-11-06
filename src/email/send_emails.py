@@ -86,7 +86,8 @@ def send_info_email(
         msg = EmailMessage()
         msg["Subject"] = (
             f"{test_subject}Vanuatu cyclone monitoring – "
-            f"{cyclone_name} forecast information"
+            f"{cyclone_name} forecast issued {report_str.get('vut_time')}, "
+            f"{report_str.get('vut_date')} "
         )
         msg["From"] = Address(
             "OCHA Centre for Humanitarian Data",

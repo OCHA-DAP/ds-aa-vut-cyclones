@@ -45,6 +45,8 @@ if __name__ == "__main__":
     forecast = process_fms_forecast(
         path=filepath, save_local=True, save_blob=False
     )
+    # truncate forecast to 72 hours
+    forecast = forecast[forecast["leadtime"] <= 72]
     report = get_report(forecast)
     plot_forecast(report, forecast, save_html=True)
     distances = calculate_distances(report, forecast)
