@@ -30,6 +30,7 @@ from src.email.email_utils import (
 def send_info_email(
     report: dict,
     min_distance: float = 0,
+    min_hours: float = 0,
     suppress_send: bool = False,
     save: bool = True,
     test_email: bool = False,
@@ -43,6 +44,8 @@ def send_info_email(
     min_distance: float = 0
         If min_distance is above INFO_EMAIL_DISTANCE_THRESHOLD,
         email only sends to INFO_ALWAYS_TO
+    min_hours: float = 0
+        leadtime to closest pass
     suppress_send: bool = False
         If True, does not actually send email
     save: bool = True
@@ -111,6 +114,8 @@ def send_info_email(
             name=cyclone_name,
             pub_date=report_str.get("vut_date"),
             pub_time=report_str.get("vut_time"),
+            min_distance=min_distance,
+            min_hours=min_hours,
             map_cid=map_cid[1:-1],
             distances_cid=distances_cid[1:-1],
             chd_banner_cid=chd_banner_cid[1:-1],

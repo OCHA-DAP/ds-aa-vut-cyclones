@@ -48,12 +48,19 @@ if __name__ == "__main__":
     report = get_report(forecast)
     plot_forecast(report, forecast, save_html=True)
     distances = calculate_distances(report, forecast)
-    min_distance = distances["distance (km)"].min()
-    print(f"Minimum distance: {min_distance} km")
+    min_distance = distances["distance_km"].min()
+    min_row = distances.loc[
+        distances[distances["distance_km"] == min_distance][
+            "hours_to_closest"
+        ].idxmin()
+    ]
+    print("Min distance row:")
+    print(min_row)
     plot_distances(report, distances)
     send_info_email(
         report,
-        min_distance=min_distance,
+        min_distance=min_row["distance_km"],
+        min_hours=min_row["hours_to_closest"],
         suppress_send=args.suppress_send,
         test_email=args.test_email,
     )

@@ -203,21 +203,46 @@ def calculate_distances(
         if level == 2:
             cols.extend(["ADM2_PCODE", "ADM2_EN"])
         distances = adm[cols].copy()
-        distances["distance (km)"] = np.round(
+        distances["distance_km"] = np.round(
             track.distance(adm.geometry) / 1000
         ).astype(int)
-        distances["uncertainty (km)"] = None
+        distances["uncertainty_km"] = None
         distances["category"] = None
         # find closest point to use for uncertainty
         for i, row in distances.iterrows():
             forecast["distance"] = row.geometry.distance(forecast.geometry)
             i_min = forecast["distance"].idxmin()
-            distances.loc[i, "uncertainty (km)"] = np.round(
+            distances.loc[i, "uncertainty_km"] = np.round(
                 forecast.loc[i_min, "Uncertainty"]
             ).astype(int)
             distances.loc[i, "category"] = forecast.loc[i_min, "Category"]
+        # interpolate forecast to 30min
+        cols = ["Latitude", "Longitude", "leadtime"]
+        forecast_interp = forecast.set_index("forecast_time")[cols]
+        forecast_interp = (
+            forecast_interp.resample("30T").interpolate().reset_index()
+        )
+        forecast_interp = gpd.GeoDataFrame(
+            forecast_interp,
+            geometry=gpd.points_from_xy(
+                forecast_interp["Longitude"], forecast_interp["Latitude"]
+            ),
+            crs=4326,
+        )
+        forecast_interp = forecast_interp.to_crs(3832)
+        for i, row in distances.iterrows():
+            forecast_interp["distance"] = row.geometry.distance(
+                forecast_interp.geometry
+            )
+            i_min = forecast_interp["distance"].idxmin()
+            distances.loc[i, "hours_to_closest"] = forecast_interp.loc[
+                i_min, "leadtime"
+            ]
+            distances.loc[i, "time_closest"] = (
+                forecast_interp.loc[i_min, "forecast_time"].isoformat() + "Z"
+            )
         distances = distances.drop(columns="geometry")
-        distances = distances.sort_values("distance (km)")
+        distances = distances.sort_values("distance_km")
         if save:
             distances.to_csv(
                 OUTPUT_DIR

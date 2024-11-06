@@ -263,7 +263,7 @@ def plot_distances(report: dict, distances: pd.DataFrame) -> go.Figure:
     """
     report_str = str_from_report(report)
     fig = go.Figure()
-    distances = distances.sort_values("distance (km)", ascending=False)
+    distances = distances.sort_values("distance_km", ascending=False)
     adm_order = distances["ADM1_EN"]
     for color in CAT2COLOR:
         dff = distances[distances["category"] == color[0]]
@@ -271,18 +271,16 @@ def plot_distances(report: dict, distances: pd.DataFrame) -> go.Figure:
         fig.add_trace(
             go.Scatter(
                 y=dff["ADM1_EN"],
-                x=dff["distance (km)"],
+                x=dff["distance_km"],
                 mode="markers",
                 error_x=dict(
-                    type="data", array=dff["uncertainty (km)"], visible=True
+                    type="data", array=dff["uncertainty_km"], visible=True
                 ),
                 marker=dict(size=8, color=color[1]),
                 name=name,
             )
         )
-    max_dist = (
-        distances["distance (km)"] + distances["uncertainty (km)"]
-    ).max()
+    max_dist = (distances["distance_km"] + distances["uncertainty_km"]).max()
     fig.update_yaxes(categoryorder="array", categoryarray=adm_order)
     fig.update_xaxes(
         range=(0, max_dist * 1.01),

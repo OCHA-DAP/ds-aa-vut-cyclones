@@ -3,13 +3,17 @@
 {% block content %}
 <div style="font-size:10px;padding: 6px 10px 6px 10px;background-color:#CCCCCC;color:#FFFFFF">
   <p style="margin:0;">
-    This email is purely advisory, and does not serve as an official forecast. Under the World Meteorological Organization's Tropical Cyclone Programme, RSMC Nadi is responsible for monitoring tropical cyclones in the region; the <a href="https://www.met.gov.fj/index.php?page=trackmap">forecast track map</a> published on their website should be treated as authoritative.
+    This email is purely advisory, and does not serve as an official forecast, or as an official alert or trigger mechanism. Under the World Meteorological Organization's Tropical Cyclone Programme, RSMC Nadi is responsible for monitoring tropical cyclones in the region; the <a href="https://www.met.gov.fj/index.php?page=trackmap">forecast track map</a> published on their website should be treated as authoritative. For local information, please note that the official meteorological authority in Vanuatu is the Vanuatu Meteorology & Geo-Hazard Department. You are strongly advised to check <a href="https://www.vmgd.gov.vu/vmgd/index.php">their website</a> for local warnings and forecasts.
   </p>
 </div>
 <div>
   <p>Dear colleagues,</p>
   <p>
     The forecast for cyclone {{ name }} produced at {{ pub_time }} on {{ pub_date }} (Vanuatu local time) has been shared with us by the Fiji Meteorological Service, operators of Regional Specialized Meteorological Centre (RSMC) Nadi.
+  </p>
+  <p>
+    Forecasted closest pass to Vanuatu: <b>{{ min_distance }} km</b><br>
+    Time to forecasted closest pass: <b>{{ min_hours }} hours</b>
   </p>
   <p>
     A plot of the forecast is shown below. The leadtime, in hours, is shown in brackets below some of the points. Due to the increased uncertainty of forecasting tropical cyclones beyond 72 hours, this portion of the forecast should be treated with caution.
