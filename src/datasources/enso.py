@@ -20,7 +20,9 @@ def process_enso():
     df = pd.read_csv(data, sep=r"\s+")
 
     def anom_to_phase(anom):
-        if anom >= 0.5:
+        if pd.isna(anom):
+            return ""
+        elif anom >= 0.5:
             return "elnino"
         elif anom <= -0.5:
             return "lanina"
@@ -44,7 +46,9 @@ def process_enso():
     df["ANOM_trimester"] = df["ANOM"].rolling(window=3).mean().shift(-2)
     df["ANOM_trimester_round"] = df["ANOM_trimester"].round(1)
     df["phase_trimester"] = df["ANOM_trimester_round"].apply(anom_to_phase)
-    df["phase_longterm"] = "neutral"
+    df["phase_longterm"] = df["phase_trimester"].apply(
+        lambda x: "" if x == "" else "neutral"
+    )
 
     label_longterm_phase(df["phase_trimester"], "elnino")
     label_longterm_phase(df["phase_trimester"], "lanina")

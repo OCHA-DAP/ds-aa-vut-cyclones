@@ -12,8 +12,8 @@ import rioxarray as rxr
 import xarray as xr
 from azure.storage.blob import ContainerClient, ContentSettings
 
-PROD_BLOB_SAS = os.getenv("PROD_BLOB_SAS")
-DEV_BLOB_SAS = os.getenv("DEV_BLOB_SAS")
+PROD_BLOB_SAS = os.getenv("DSCI_AZ_BLOB_PROD_SAS_WRITE")
+DEV_BLOB_SAS = os.getenv("DSCI_AZ_BLOB_DEV_SAS_WRITE")
 
 PROJECT_PREFIX = "ds-aa-vut-cyclones"
 

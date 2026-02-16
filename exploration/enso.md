@@ -40,5 +40,17 @@ df
 ```
 
 ```python
+df[df["YR"] == 2023]
+```
+
+```python
+export_path = "../outputs/enso.csv"
+```
+
+```python
+df.to_csv(export_path, index=False)
+```
+
+```python
 
 ```
