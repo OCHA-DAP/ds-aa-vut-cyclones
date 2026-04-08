@@ -3,6 +3,7 @@ import re
 
 import pandas as pd
 
+import src.constants
 from src.utils import blob
 
 TEST_LIST = os.getenv("TEST_LIST")
@@ -33,9 +34,13 @@ def is_valid_email(email):
 def get_distribution_list() -> pd.DataFrame:
     """Load distribution list from blob storage."""
     if TEST_LIST:
-        blob_name = f"{blob.PROJECT_PREFIX}/email/test_distribution_list.csv"
+        blob_name = (
+            f"{src.constants.PROJECT_PREFIX}/email/test_distribution_list.csv"
+        )
     else:
-        blob_name = f"{blob.PROJECT_PREFIX}/email/distribution_list.csv"
+        blob_name = (
+            f"{src.constants.PROJECT_PREFIX}/email/distribution_list.csv"
+        )
     df = blob.load_csv_from_blob(blob_name)
     df["name"] = df["name"].fillna("").astype(str)
     return df

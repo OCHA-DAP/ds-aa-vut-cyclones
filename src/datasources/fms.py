@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from shapely.geometry import LineString
 
+import src.constants
 from src.constants import FJI_CRS, LOCAL_TIMEZONE, OUTPUT_DIR
 from src.datasources.codab import load_codab_from_blob
 from src.utils import blob
@@ -92,7 +93,7 @@ def process_fms_forecast(
         )
     if save_blob:
         blob_name = (
-            f"{blob.PROJECT_PREFIX}/raw/fms/2024_2025/forecast_"
+            f"{src.constants.PROJECT_PREFIX}/raw/fms/2024_2025/forecast_"
             f"{base_time_file_str}.parquet"
         )
         blob.upload_blob_data(blob_name, df_data)

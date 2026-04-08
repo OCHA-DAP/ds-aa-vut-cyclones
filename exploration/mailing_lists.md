@@ -31,6 +31,8 @@ from src.email.email_utils import is_valid_email
 ## Test list
 
 ```python
+import src.constants
+
 df_test = pd.DataFrame(
     columns=["email", "name", "trigger", "info"],
     data=[
@@ -40,7 +42,7 @@ df_test = pd.DataFrame(
 )
 print("invalid emails: ")
 display(df_test[~df_test["email"].apply(is_valid_email)])
-blob_name = f"{blob.PROJECT_PREFIX}/email/test_distribution_list.csv"
+blob_name = f"{src.constants.PROJECT_PREFIX}/email/test_distribution_list.csv"
 blob.upload_csv_to_blob(blob_name, df_test)
 df_test
 ```
@@ -61,7 +63,9 @@ df_actual
 ```
 
 ```python
-blob_name = f"{blob.PROJECT_PREFIX}/email/distribution_list.csv"
+import src.constants
+
+blob_name = f"{src.constants.PROJECT_PREFIX}/email/distribution_list.csv"
 blob.upload_csv_to_blob(blob_name, df_actual)
 df_actual
 ```
