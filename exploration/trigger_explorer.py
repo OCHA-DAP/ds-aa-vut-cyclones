@@ -269,7 +269,8 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _df_disp[_trig_col] = _df_disp["triggered"].map({True: "Yes", False: "No"})
     _df_disp[_cerf_col] = _df_disp["cerf"].map({True: "Yes", False: "No"})
     _df_disp = _df_disp.sort_values(
-        [_trig_col, _impact_col], ascending=[True, False]
+        [_impact_col, _cerf_col, _wind_col, _rain_col],
+        ascending=[False, True, False, False],
     )
 
     def _color_cerf(val):
