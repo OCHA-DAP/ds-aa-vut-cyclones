@@ -20,11 +20,13 @@ def _(mo, pd):
     with mo.status.spinner(subtitle="Loading data..."):
         if sys.platform == "emscripten":
             # Pyodide/WASM: load pre-computed bundled CSV.
-            # ocha_stratus has binary deps (psycopg2) that can't run in
-            # Pyodide, so we skip it entirely rather than letting marimo's
-            # static import scanner try to micropip-install it.
-            _path = mo.notebook_location() / "public" / "trigger_data.csv"
-            df = pd.read_csv(str(_path))
+            # Use pyodide.http.open_url (returns StringIO) instead of a path
+            # to avoid the double-decompression issue where GitHub Pages
+            # serves with gzip transfer encoding and pandas then also tries
+            # to gzip-decompress the already-decoded content.
+            _pyodide_http = importlib.import_module("pyodide.http")
+            _buf = _pyodide_http.open_url("public/trigger_data.csv")
+            df = pd.read_csv(_buf)
             df["cerf"] = df["cerf"].astype(bool)
         else:
             # Local: load live from blob storage and DB.
