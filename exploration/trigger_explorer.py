@@ -137,7 +137,7 @@ def _(df, mo):
         start=0,
         stop=_max_exp,
         step=1000,
-        value=0,
+        value=10000,
         label="Wind exposure threshold (people)",
         show_value=True,
     )
@@ -151,7 +151,7 @@ def _(df, mo):
     )
     logic = mo.ui.radio(
         options=["AND", "OR"],
-        value="OR",
+        value="AND",
         label="Trigger logic",
     )
     return logic, rain_thresh, wind_knots, wind_thresh
