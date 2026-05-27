@@ -19,15 +19,16 @@ def _(mo, pd):
 
     with mo.status.spinner(subtitle="Loading data..."):
         if sys.platform == "emscripten":
-            # Pyodide/WASM: load pre-computed bundled CSV.
-            # Read via open() then wrap in StringIO so pandas never sees a
-            # path or URL — avoids its auto gzip-detection firing on the
-            # VFS path, and avoids relative-URL Worker-scope issues.
+            # Pyodide/WASM: mo.notebook_location() returns the page URL.
+            # urllib.request is patched by pyodide-http to use XHR, which
+            # handles gzip content-encoding. Wrapping in StringIO prevents
+            # pandas from seeing the URL and applying its own gzip logic.
             import io
+            import urllib.request
 
-            _path = str(mo.notebook_location() / "public" / "trigger_data.csv")
-            with open(_path) as _f:
-                df = pd.read_csv(io.StringIO(_f.read()))
+            _url = str(mo.notebook_location() / "public" / "trigger_data.csv")
+            with urllib.request.urlopen(_url) as _resp:
+                df = pd.read_csv(io.StringIO(_resp.read().decode("utf-8")))
             df["cerf"] = df["cerf"].astype(bool)
         else:
             # Local: load live from blob storage and DB.
