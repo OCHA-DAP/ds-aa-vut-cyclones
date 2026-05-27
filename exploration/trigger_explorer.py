@@ -160,6 +160,9 @@ def _(logic, mo, rain_thresh, wind_knots, wind_thresh):
 
 @app.cell
 def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
+    import matplotlib.colors as _mcolors
+    import numpy as _np
+
     _xcol = f"exp{wind_knots.value}"
     _df = df.copy()
 
@@ -175,11 +178,9 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _rp = (total_seasons + 1) / _n if _n > 0 else None
     _rp_str = f"{_rp:.1f}" if _rp is not None else "∞"
 
+    # Color only indicates CERF; bold indicates triggered
     _point_colors = [
-        "crimson"
-        if row["cerf"]
-        else ("#8e44ad" if row["triggered"] else "#aaaaaa")
-        for _, row in _df.iterrows()
+        "crimson" if row["cerf"] else "k" for _, row in _df.iterrows()
     ]
 
     _max_impact = max(float(_df["Total Affected"].max()), 1.0)
@@ -191,7 +192,7 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
         _df["roll2_mean"],
         s=_bubble_sizes,
         c=_point_colors,
-        alpha=0.5,
+        alpha=0.4,
         edgecolors="none",
         zorder=2,
     )
@@ -202,9 +203,10 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
             ha="center",
             va="center",
             fontsize=6,
+            fontweight="bold" if _row["triggered"] else "normal",
             color=_color,
             zorder=3,
-            alpha=0.85,
+            alpha=0.9,
         )
     _ax.axvline(
         wind_thresh.value,
@@ -232,6 +234,68 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _ax.spines["right"].set_visible(False)
     plt.tight_layout()
 
+    # --- Styled table (following quick_trigger_aoi.md) ---
+    def _lighten_cmap(cmap_name, blend=0.3):
+        _cmap = plt.get_cmap(cmap_name)
+        _colors = _cmap(_np.linspace(0, 1, 256))
+        _white = _np.array([1, 1, 1, 1])
+        _colors = _colors * (1 - blend) + _white * blend
+        return _mcolors.LinearSegmentedColormap.from_list(
+            f"{cmap_name}_light", _colors
+        )
+
+    _light_oranges = _lighten_cmap("Oranges")
+    _light_blues = _lighten_cmap("Blues")
+
+    _wind_col = f"Pop. exposed {wind_knots.value}kt wind (AOI)"
+    _rain_col = "2-day rainfall (mm)"
+    _trig_col = "Trigger?"
+    _cerf_col = "CERF?"
+    _impact_col = "Total Affected"
+
+    _df_disp = _df.copy()
+    _df_disp["Cyclone"] = (
+        _df_disp["name"].fillna("Unnamed").str.capitalize()
+        + " "
+        + _df_disp["season"].astype(str)
+    )
+    _df_disp = _df_disp.rename(
+        columns={
+            _xcol: _wind_col,
+            "roll2_mean": _rain_col,
+            "Total Affected": _impact_col,
+        }
+    )
+    _df_disp[_trig_col] = _df_disp["triggered"].map({True: "Yes", False: "No"})
+    _df_disp[_cerf_col] = _df_disp["cerf"].map({True: "Yes", False: "No"})
+    _df_disp = _df_disp.sort_values(
+        [_trig_col, _impact_col], ascending=[True, False]
+    )
+
+    def _color_cerf(val):
+        return (
+            "background-color: crimson; color: white;" if val == "Yes" else ""
+        )
+
+    def _color_trig(val):
+        return (
+            "background-color: #8e44ad; color: white;" if val == "Yes" else ""
+        )
+
+    _styled = (
+        _df_disp.set_index("Cyclone")[
+            [_wind_col, _rain_col, _trig_col, _cerf_col, _impact_col]
+        ]
+        .style.bar(subset=_impact_col, color="#b8a3e0", props="width: 120px;")
+        .background_gradient(subset=_wind_col, cmap=_light_oranges)
+        .background_gradient(subset=_rain_col, cmap=_light_blues)
+        .map(_color_cerf, subset=_cerf_col)
+        .map(_color_trig, subset=_trig_col)
+        .format(
+            {_impact_col: "{:,.0f}", _wind_col: "{:,.0f}", _rain_col: "{:.0f}"}
+        )
+    )
+
     mo.vstack(
         [
             mo.hstack(
@@ -244,6 +308,7 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
                 justify="start",
             ),
             _fig,
+            mo.as_html(_styled),
         ]
     )
 
