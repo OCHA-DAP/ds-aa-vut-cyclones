@@ -33,3 +33,15 @@ CERF_SIDS = [
     LOLA,
 ]
 PROJECT_PREFIX = "ds-aa-vut-cyclones"
+
+# ADMIN1 PCODES
+
+SHEFA1 = "VU05"
+SANMA1 = "VU02"
+TAFEA1 = "VU06"
+
+ADM1_AOI_PCODES = [
+    SHEFA1,
+    SANMA1,
+    TAFEA1,
+]

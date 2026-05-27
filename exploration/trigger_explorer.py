@@ -7,55 +7,66 @@ app = mo.App(width="medium")
 def _():
     import marimo as mo
     import matplotlib.pyplot as plt
-    import ocha_stratus as stratus
     import pandas as pd
 
-    from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
-    from src.datasources import codab
-
-    return ADM1_AOI_PCODES, PROJECT_PREFIX, codab, mo, pd, plt, stratus
+    return mo, pd, plt
 
 
 @app.cell
-def _(ADM1_AOI_PCODES, PROJECT_PREFIX, codab, mo, pd, stratus):
+def _(mo, pd):
     with mo.status.spinner(subtitle="Loading data..."):
-        _blob_stats = f"{PROJECT_PREFIX}/processed/impact_stats.parquet"
-        df_stats = stratus.load_parquet_from_blob(_blob_stats)
+        try:
+            import ocha_stratus as stratus
 
-        _adm2 = codab.load_codab_from_blob(admin_level=2)
-        _aoi_pcodes = _adm2[_adm2["ADM1_PCODE"].isin(ADM1_AOI_PCODES)][
-            "ADM2_PCODE"
-        ].unique()
+            from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
+            from src.datasources import codab
 
-        _blob_exp = (
-            f"{PROJECT_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
-        )
-        _df_exp = stratus.load_parquet_from_blob(_blob_exp)
-        _df_exp_aoi = _df_exp[_df_exp["ADM2_PCODE"].isin(_aoi_pcodes)]
+            _blob_stats = f"{PROJECT_PREFIX}/processed/impact_stats.parquet"
+            _df_stats = stratus.load_parquet_from_blob(_blob_stats)
 
-        with stratus.get_engine(stage="prod").connect() as _con:
-            _df_storms = pd.read_sql(
-                "SELECT sid, name, season FROM storms.ibtracs_storms", _con
+            _adm2 = codab.load_codab_from_blob(admin_level=2)
+            _aoi_pcodes = _adm2[_adm2["ADM1_PCODE"].isin(ADM1_AOI_PCODES)][
+                "ADM2_PCODE"
+            ].unique()
+
+            _blob_exp = (
+                f"{PROJECT_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
             )
+            _df_exp = stratus.load_parquet_from_blob(_blob_exp)
+            _df_exp_aoi = _df_exp[_df_exp["ADM2_PCODE"].isin(_aoi_pcodes)]
 
-        _df_exp_aoi = _df_exp_aoi.merge(_df_storms, on="sid", how="left")
-        _df_exp_aoi_recent = _df_exp_aoi[_df_exp_aoi["season"] >= 2001]
+            with stratus.get_engine(stage="prod").connect() as _con:
+                _df_storms = pd.read_sql(
+                    "SELECT sid, name, season FROM storms.ibtracs_storms",
+                    _con,
+                )
 
-        _df_exp_sid = (
-            _df_exp_aoi_recent.groupby(["sid", "buffer_speed"])["pop_exposed"]
-            .sum()
-            .reset_index()
-            .pivot(columns="buffer_speed", values="pop_exposed", index="sid")
-            .reset_index()
-        )
-        _df_exp_sid.columns.name = None
-        _df_exp_sid = _df_exp_sid.rename(
-            columns={x: f"exp{x}" for x in [34, 50, 64]}
-        )
-        _df_exp_sid = _df_exp_sid.fillna(0)
+            _df_exp_aoi = _df_exp_aoi.merge(_df_storms, on="sid", how="left")
+            _df_exp_aoi = _df_exp_aoi[_df_exp_aoi["season"] >= 2001]
 
-        df = df_stats.merge(_df_exp_sid, on="sid", how="inner")
-        df = df[df["season"] >= 2001].reset_index(drop=True)
+            _df_exp_sid = (
+                _df_exp_aoi.groupby(["sid", "buffer_speed"])["pop_exposed"]
+                .sum()
+                .reset_index()
+                .pivot(
+                    columns="buffer_speed",
+                    values="pop_exposed",
+                    index="sid",
+                )
+                .reset_index()
+            )
+            _df_exp_sid.columns.name = None
+            _df_exp_sid = _df_exp_sid.rename(
+                columns={x: f"exp{x}" for x in [34, 50, 64]}
+            )
+            _df_exp_sid = _df_exp_sid.fillna(0)
+
+            df = _df_stats.merge(_df_exp_sid, on="sid", how="inner")
+            df = df[df["season"] >= 2001].reset_index(drop=True)
+        except (ImportError, Exception):
+            _path = mo.notebook_location() / "public" / "trigger_data.csv"
+            df = pd.read_csv(str(_path))
+            df["cerf"] = df["cerf"].astype(bool)
 
     total_seasons = 2025 - 2001 + 1
     return df, total_seasons

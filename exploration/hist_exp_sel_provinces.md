@@ -173,8 +173,24 @@ adm2_expanded.plot(ax=ax)
 ```
 
 ```python
+adm2_expanded
+```
+
+```python
+adm2_expanded_aoi = adm2_expanded[
+    adm2_expanded["ADM1_PCODE"].isin(ADM1_AOI_PCODES)
+]
+```
+
+```python
+adm2_expanded_aoi.plot()
+```
+
+```python
 da_wp_expanded = (
-    da_wp_global.rio.clip(adm2_expanded.geometry).squeeze(drop=True).compute()
+    da_wp_global.rio.clip(adm2_expanded_aoi.geometry)
+    .squeeze(drop=True)
+    .compute()
 )
 ```
 
