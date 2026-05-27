@@ -14,28 +14,44 @@ def _():
 
 @app.cell
 def _(mo, pd):
+    import importlib
+    import sys
+
     with mo.status.spinner(subtitle="Loading data..."):
-        try:
-            import ocha_stratus as stratus
+        if sys.platform == "emscripten":
+            # Pyodide/WASM: load pre-computed bundled CSV.
+            # ocha_stratus has binary deps (psycopg2) that can't run in
+            # Pyodide, so we skip it entirely rather than letting marimo's
+            # static import scanner try to micropip-install it.
+            _path = mo.notebook_location() / "public" / "trigger_data.csv"
+            df = pd.read_csv(str(_path))
+            df["cerf"] = df["cerf"].astype(bool)
+        else:
+            # Local: load live from blob storage and DB.
+            # importlib hides these from marimo's AST scanner so the WASM
+            # bundle doesn't try to install them in Pyodide.
+            _stratus = importlib.import_module("ocha_stratus")
+            _constants = importlib.import_module("src.constants")
+            _codab = importlib.import_module("src.datasources.codab")
 
-            from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
-            from src.datasources import codab
+            _AOI_PCODES = _constants.ADM1_AOI_PCODES
+            _PREFIX = _constants.PROJECT_PREFIX
 
-            _blob_stats = f"{PROJECT_PREFIX}/processed/impact_stats.parquet"
-            _df_stats = stratus.load_parquet_from_blob(_blob_stats)
+            _df_stats = _stratus.load_parquet_from_blob(
+                f"{_PREFIX}/processed/impact_stats.parquet"
+            )
 
-            _adm2 = codab.load_codab_from_blob(admin_level=2)
-            _aoi_pcodes = _adm2[_adm2["ADM1_PCODE"].isin(ADM1_AOI_PCODES)][
+            _adm2 = _codab.load_codab_from_blob(admin_level=2)
+            _aoi_pcodes = _adm2[_adm2["ADM1_PCODE"].isin(_AOI_PCODES)][
                 "ADM2_PCODE"
             ].unique()
 
-            _blob_exp = (
-                f"{PROJECT_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
+            _df_exp = _stratus.load_parquet_from_blob(
+                f"{_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
             )
-            _df_exp = stratus.load_parquet_from_blob(_blob_exp)
             _df_exp_aoi = _df_exp[_df_exp["ADM2_PCODE"].isin(_aoi_pcodes)]
 
-            with stratus.get_engine(stage="prod").connect() as _con:
+            with _stratus.get_engine(stage="prod").connect() as _con:
                 _df_storms = pd.read_sql(
                     "SELECT sid, name, season FROM storms.ibtracs_storms",
                     _con,
@@ -63,10 +79,6 @@ def _(mo, pd):
 
             df = _df_stats.merge(_df_exp_sid, on="sid", how="inner")
             df = df[df["season"] >= 2001].reset_index(drop=True)
-        except (ImportError, Exception):
-            _path = mo.notebook_location() / "public" / "trigger_data.csv"
-            df = pd.read_csv(str(_path))
-            df["cerf"] = df["cerf"].astype(bool)
 
     total_seasons = 2025 - 2001 + 1
     return df, total_seasons
