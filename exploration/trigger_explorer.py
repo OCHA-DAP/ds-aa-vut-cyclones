@@ -20,13 +20,14 @@ def _(mo, pd):
     with mo.status.spinner(subtitle="Loading data..."):
         if sys.platform == "emscripten":
             # Pyodide/WASM: load pre-computed bundled CSV.
-            # Use pyodide.http.open_url (returns StringIO) instead of a path
-            # to avoid the double-decompression issue where GitHub Pages
-            # serves with gzip transfer encoding and pandas then also tries
-            # to gzip-decompress the already-decoded content.
-            _pyodide_http = importlib.import_module("pyodide.http")
-            _buf = _pyodide_http.open_url("public/trigger_data.csv")
-            df = pd.read_csv(_buf)
+            # Read via open() then wrap in StringIO so pandas never sees a
+            # path or URL — avoids its auto gzip-detection firing on the
+            # VFS path, and avoids relative-URL Worker-scope issues.
+            import io
+
+            _path = str(mo.notebook_location() / "public" / "trigger_data.csv")
+            with open(_path) as _f:
+                df = pd.read_csv(io.StringIO(_f.read()))
             df["cerf"] = df["cerf"].astype(bool)
         else:
             # Local: load live from blob storage and DB.
