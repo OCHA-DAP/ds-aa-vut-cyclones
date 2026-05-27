@@ -5,6 +5,7 @@ app = mo.App(width="medium")
 
 @app.cell
 def _():
+    import jinja2  # noqa: F401 — required by pandas.style in Pyodide
     import marimo as mo
     import matplotlib.pyplot as plt
     import pandas as pd
