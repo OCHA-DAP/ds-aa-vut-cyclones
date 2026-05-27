@@ -9,22 +9,11 @@ def _():
     import matplotlib.pyplot as plt
     import ocha_stratus as stratus
     import pandas as pd
-    import plotly.graph_objects as go
 
-    from src.constants import ADM1_AOI_PCODES, CERF_SIDS, PROJECT_PREFIX
+    from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
     from src.datasources import codab
 
-    return (
-        ADM1_AOI_PCODES,
-        CERF_SIDS,
-        PROJECT_PREFIX,
-        codab,
-        go,
-        mo,
-        pd,
-        plt,
-        stratus,
-    )
+    return ADM1_AOI_PCODES, PROJECT_PREFIX, codab, mo, pd, plt, stratus
 
 
 @app.cell
@@ -123,6 +112,7 @@ def _(mo):
 
 @app.cell
 def _(df, mo):
+    _locked = mo.cli_args().get("locked") == "true"
     _max_exp = max(
         int(df["exp34"].max()), int(df["exp50"].max()), int(df["exp64"].max())
     )
@@ -132,6 +122,7 @@ def _(df, mo):
         options=[34, 50, 64],
         value=64,
         label="Wind speed (knots)",
+        disabled=_locked,
     )
     wind_thresh = mo.ui.slider(
         start=0,
@@ -140,6 +131,7 @@ def _(df, mo):
         value=10000,
         label="Wind exposure threshold (people)",
         show_value=True,
+        disabled=_locked,
     )
     rain_thresh = mo.ui.slider(
         start=0,
@@ -148,11 +140,13 @@ def _(df, mo):
         value=0,
         label="Rainfall threshold (mm, 2-day)",
         show_value=True,
+        disabled=_locked,
     )
     logic = mo.ui.radio(
         options=["AND", "OR"],
         value="AND",
         label="Trigger logic",
+        disabled=_locked,
     )
     return logic, rain_thresh, wind_knots, wind_thresh
 
@@ -165,7 +159,7 @@ def _(logic, mo, rain_thresh, wind_knots, wind_thresh):
 
 
 @app.cell
-def _(df, go, logic, mo, rain_thresh, total_seasons, wind_knots, wind_thresh):
+def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _xcol = f"exp{wind_knots.value}"
     _df = df.copy()
 
@@ -181,9 +175,6 @@ def _(df, go, logic, mo, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _rp = (total_seasons + 1) / _n if _n > 0 else None
     _rp_str = f"{_rp:.1f}" if _rp is not None else "∞"
 
-    _max_impact = max(float(_df["Total Affected"].max()), 1.0)
-    _sizes = (_df["Total Affected"].fillna(0) / _max_impact * 50 + 6).tolist()
-
     _point_colors = [
         "crimson"
         if row["cerf"]
@@ -191,72 +182,55 @@ def _(df, go, logic, mo, rain_thresh, total_seasons, wind_knots, wind_thresh):
         for _, row in _df.iterrows()
     ]
 
-    _hover = (
-        _df["name"].fillna("Unnamed").str.capitalize()
-        + " "
-        + _df["season"].astype(str)
-        + "<br>Wind exp (AOI): "
-        + _df[_xcol].apply(lambda x: f"{x:,.0f} people")
-        + "<br>2-day rainfall: "
-        + _df["roll2_mean"].apply(lambda x: f"{x:.0f} mm")
-        + "<br>Total Affected: "
-        + _df["Total Affected"].apply(lambda x: f"{int(x):,}")
-        + "<br>CERF: "
-        + _df["cerf"].map({True: "Yes", False: "No"})
-        + "<br>Triggered: "
-        + _df["triggered"].map({True: "✓", False: "✗"})
-    )
+    _max_impact = max(float(_df["Total Affected"].max()), 1.0)
+    _bubble_sizes = _df["Total Affected"].fillna(0) / _max_impact * 3000 + 30
 
-    _fig = go.Figure()
-    _fig.add_trace(
-        go.Scatter(
-            x=_df[_xcol],
-            y=_df["roll2_mean"],
-            mode="markers+text",
-            marker=dict(
-                size=_sizes,
-                color=_point_colors,
-                opacity=0.65,
-                line=dict(width=0),
-            ),
-            text=(
-                _df["name"].fillna("Unnamed").str.capitalize()
-                + "<br>"
-                + _df["season"].astype(str)
-            ).tolist(),
-            textposition="middle center",
-            textfont=dict(size=6.5, color=_point_colors),
-            hovertext=_hover.tolist(),
-            hoverinfo="text",
-            showlegend=False,
+    _fig, _ax = plt.subplots(figsize=(8, 6), dpi=150)
+    _ax.scatter(
+        _df[_xcol],
+        _df["roll2_mean"],
+        s=_bubble_sizes,
+        c=_point_colors,
+        alpha=0.5,
+        edgecolors="none",
+        zorder=2,
+    )
+    for (_i, _row), _color in zip(_df.iterrows(), _point_colors):
+        _ax.annotate(
+            str(_row["name"]).capitalize() + "\n" + str(_row["season"]),
+            (_row[_xcol], _row["roll2_mean"]),
+            ha="center",
+            va="center",
+            fontsize=6,
+            color=_color,
+            zorder=3,
+            alpha=0.85,
         )
+    _ax.axvline(
+        wind_thresh.value,
+        color="darkorange",
+        linestyle="--",
+        linewidth=1,
     )
-
-    _fig.add_vline(
-        x=wind_thresh.value,
-        line_dash="dash",
-        line_color="darkorange",
-        annotation_text="wind thresh",
-        annotation_position="top right",
+    _ax.axhline(
+        rain_thresh.value,
+        color="steelblue",
+        linestyle="--",
+        linewidth=1,
     )
-    _fig.add_hline(
-        y=rain_thresh.value,
-        line_dash="dash",
-        line_color="steelblue",
-        annotation_text="rain thresh",
-        annotation_position="top right",
+    _ax.set_xlabel(
+        f"Population exposed to {wind_knots.value}-knot wind,"
+        " AOI provinces [IBTrACS]"
     )
-
-    _fig.update_layout(
-        title=f"Vanuatu: {wind_knots.value}kt wind exposure (AOI provinces) vs. 2-day rainfall",
-        xaxis_title=f"Population exposed to {wind_knots.value}-knot wind, AOI provinces [IBTrACS]",
-        yaxis_title="2-day rainfall, mean over country (mm) [IMERG]",
-        height=580,
-        plot_bgcolor="white",
-        xaxis=dict(showgrid=True, gridcolor="#eeeeee", zeroline=True),
-        yaxis=dict(showgrid=True, gridcolor="#eeeeee", zeroline=True),
-        margin=dict(t=60, b=60, l=80, r=40),
+    _ax.set_ylabel("2-day rainfall, mean over country (mm) [IMERG]")
+    _ax.set_title(
+        f"Vanuatu: {wind_knots.value}kt wind exposure (AOI) vs. 2-day rainfall"
     )
+    _ax.set_xlim(left=0)
+    _ax.set_ylim(bottom=0)
+    _ax.spines["top"].set_visible(False)
+    _ax.spines["right"].set_visible(False)
+    plt.tight_layout()
 
     mo.vstack(
         [
@@ -272,6 +246,101 @@ def _(df, go, logic, mo, rain_thresh, total_seasons, wind_knots, wind_thresh):
             _fig,
         ]
     )
+
+
+@app.cell
+def _(mo):
+    mo.md("## Optimal trigger combinations (exactly 6 storms)")
+
+
+@app.cell
+def _(df, mo, pd):
+    _TARGET_N = 6
+    _exp_vals = {k: df[f"exp{k}"].values for k in [34, 50, 64]}
+    _rain_vals = df["roll2_mean"].values
+    _impact_vals = df["Total Affected"].values
+    _storm_labels = (
+        df["name"].fillna("Unnamed").str.capitalize()
+        + " "
+        + df["season"].astype(str)
+    ).values
+
+    _wt_max = max(int(df[f"exp{k}"].max()) for k in [34, 50, 64])
+    _rt_max = int(df["roll2_mean"].max()) + 5
+    _wt_range = range(0, _wt_max + 1001, 1000)
+    _rt_range = range(0, _rt_max + 6, 5)
+
+    def _best_record(scenario, wt_label, rt_label, trig):
+        return {
+            "Scenario": scenario,
+            "Wind thresh": wt_label,
+            "Rain thresh": rt_label,
+            "Total Affected": int(_impact_vals[trig].sum()),
+            "Storms": ", ".join(_storm_labels[trig]),
+        }
+
+    _results = []
+
+    # Wind only (no rain condition)
+    for _k in [34, 50, 64]:
+        _exp = _exp_vals[_k]
+        _best_ta, _best = -1, None
+        for _wt in _wt_range:
+            _trig = _exp >= _wt
+            if _trig.sum() == _TARGET_N:
+                _ta = int(_impact_vals[_trig].sum())
+                if _ta > _best_ta:
+                    _best_ta = _ta
+                    _best = _best_record(
+                        f"Wind only ({_k}kt)", f"{_wt:,}", "—", _trig
+                    )
+        if _best:
+            _results.append(_best)
+
+    # Rain only (no wind condition)
+    _best_ta, _best = -1, None
+    for _rt in _rt_range:
+        _trig = _rain_vals >= _rt
+        if _trig.sum() == _TARGET_N:
+            _ta = int(_impact_vals[_trig].sum())
+            if _ta > _best_ta:
+                _best_ta = _ta
+                _best = _best_record("Rain only", "—", str(_rt), _trig)
+    if _best:
+        _results.append(_best)
+
+    # AND / OR combinations
+    for _logic in ["AND", "OR"]:
+        for _k in [34, 50, 64]:
+            _exp = _exp_vals[_k]
+            _best_ta, _best = -1, None
+            for _wt in _wt_range:
+                _wind_trig = _exp >= _wt
+                for _rt in _rt_range:
+                    _rain_trig = _rain_vals >= _rt
+                    _trig = (
+                        (_wind_trig & _rain_trig)
+                        if _logic == "AND"
+                        else (_wind_trig | _rain_trig)
+                    )
+                    if _trig.sum() == _TARGET_N:
+                        _ta = int(_impact_vals[_trig].sum())
+                        if _ta > _best_ta:
+                            _best_ta = _ta
+                            _best = _best_record(
+                                f"{_logic} ({_k}kt)",
+                                f"{_wt:,}",
+                                str(_rt),
+                                _trig,
+                            )
+            if _best:
+                _results.append(_best)
+
+    _df_opt = pd.DataFrame(_results)
+
+    _df_opt.set_index("Scenario").style.background_gradient(
+        subset=["Total Affected"], cmap="Purples"
+    ).format({"Total Affected": "{:,.0f}"})
 
 
 if __name__ == "__main__":
