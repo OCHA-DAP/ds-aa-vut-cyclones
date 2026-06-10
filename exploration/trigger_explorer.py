@@ -183,7 +183,7 @@ def _(df, mo):
         start=0,
         stop=_max_exp,
         step=5000,
-        value=0,
+        value=100000,
         label=(
             "<span style='color:#8B4513'>"
             "Wind exposure threshold (people)</span>"
@@ -196,7 +196,7 @@ def _(df, mo):
         start=0,
         stop=_max_rain,
         step=5,
-        value=0,
+        value=100,
         label=(
             "<span style='color:#4682b4'>"
             "Rainfall threshold (mm, 2-day)</span>"
