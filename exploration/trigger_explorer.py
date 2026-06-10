@@ -157,9 +157,10 @@ def _(mo):
         sliders, choose whether both (**AND**) or either (**OR**) must be met,
         and pick the wind speed. Storms meeting the rule are **triggered**
         (bold labels). Aim for the **Target** number of triggers — staying at
-        or below it. Watch the **Return period** (how often the trigger fires)
-        and **Total Affected** (people in triggered storms). Red dots = past
-        CERF allocations; dashed lines = your thresholds.
+        or below it. We want to trigger for storms that caused the highest
+        impact; one way to do this is to try and maximize the **Total
+        Affected** output. Red dots = past CERF allocations; dashed lines =
+        your thresholds; the shaded region is the trigger zone.
         """
     )
 
@@ -291,6 +292,24 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     )
     _ax.set_xlim(left=0)
     _ax.set_ylim(bottom=0)
+
+    # Shade the trigger zone. For AND it's the upper-right rectangle (both
+    # thresholds exceeded); for OR it's the L-shape where either is exceeded.
+    _x0, _x1 = _ax.get_xlim()
+    _y0, _y1 = _ax.get_ylim()
+    _wt, _rt = wind_thresh.value, rain_thresh.value
+    _shade = {"color": "green", "alpha": 0.08, "zorder": 0, "linewidth": 0}
+    from matplotlib.patches import Rectangle as _Rectangle
+
+    if logic.value == "AND":
+        _ax.add_patch(_Rectangle((_wt, _rt), _x1 - _wt, _y1 - _rt, **_shade))
+    else:
+        # Right strip + top-left strip = non-overlapping union of the L-shape.
+        _ax.add_patch(_Rectangle((_wt, _y0), _x1 - _wt, _y1 - _y0, **_shade))
+        _ax.add_patch(_Rectangle((_x0, _rt), _wt - _x0, _y1 - _rt, **_shade))
+    _ax.set_xlim(_x0, _x1)
+    _ax.set_ylim(_y0, _y1)
+
     _ax.spines["top"].set_visible(False)
     _ax.spines["right"].set_visible(False)
     plt.tight_layout()
