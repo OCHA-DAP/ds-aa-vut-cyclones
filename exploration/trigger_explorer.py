@@ -184,7 +184,10 @@ def _(df, mo):
         stop=_max_exp,
         step=5000,
         value=0,
-        label="Wind exposure threshold (people)",
+        label=(
+            "<span style='color:#8B4513'>"
+            "Wind exposure threshold (people)</span>"
+        ),
         show_value=True,
         full_width=True,
         disabled=_locked,
@@ -194,7 +197,10 @@ def _(df, mo):
         stop=_max_rain,
         step=5,
         value=0,
-        label="Rainfall threshold (mm, 2-day)",
+        label=(
+            "<span style='color:#4682b4'>"
+            "Rainfall threshold (mm, 2-day)</span>"
+        ),
         show_value=True,
         full_width=True,
         disabled=_locked,
@@ -272,7 +278,7 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
         )
     _ax.axvline(
         wind_thresh.value,
-        color="darkorange",
+        color="#8B4513",
         linestyle="--",
         linewidth=1,
     )
@@ -298,7 +304,7 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _x0, _x1 = _ax.get_xlim()
     _y0, _y1 = _ax.get_ylim()
     _wt, _rt = wind_thresh.value, rain_thresh.value
-    _shade = {"color": "green", "alpha": 0.08, "zorder": 0, "linewidth": 0}
+    _shade = {"color": "gold", "alpha": 0.18, "zorder": 0, "linewidth": 0}
     from matplotlib.patches import Rectangle as _Rectangle
 
     if logic.value == "AND":
@@ -307,6 +313,18 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
         # Right strip + top-left strip = non-overlapping union of the L-shape.
         _ax.add_patch(_Rectangle((_wt, _y0), _x1 - _wt, _y1 - _y0, **_shade))
         _ax.add_patch(_Rectangle((_x0, _rt), _wt - _x0, _y1 - _rt, **_shade))
+
+    # The top-right corner is in the trigger zone under both AND and OR.
+    _ax.annotate(
+        "Trigger zone",
+        (_x1 - (_x1 - _x0) * 0.02, _y1 - (_y1 - _y0) * 0.02),
+        ha="right",
+        va="top",
+        fontsize=9,
+        fontweight="bold",
+        color="#b8860b",
+        zorder=1,
+    )
     _ax.set_xlim(_x0, _x1)
     _ax.set_ylim(_y0, _y1)
 
