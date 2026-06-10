@@ -95,11 +95,6 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
-    mo.md("## Correlations with impact indicators")
-
-
-@app.cell
 def _(df, mo, plt):
     _cols = ["exp34", "exp50", "exp64", "roll2_mean"]
     _labels = [
@@ -130,12 +125,43 @@ def _(df, mo, plt):
         _ax.tick_params(labelsize=9)
 
     plt.tight_layout()
-    _fig_corr
+
+    _corr_note = mo.md(
+        """
+        Pearson correlation of each candidate indicator with **Total Affected**
+        (left) and with whether a **CERF allocation** occurred (right). Taller
+        bars flag indicators that more closely track historical impact, helping
+        decide which to build the trigger on.
+        """
+    )
+
+    mo.accordion(
+        {
+            "Correlations with impact indicators": mo.vstack(
+                [_corr_note, _fig_corr]
+            )
+        }
+    )
 
 
 @app.cell
 def _(mo):
     mo.md("## Interactive trigger explorer")
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        """
+        **How to use:** Set a wind-exposure and/or rainfall threshold with the
+        sliders, choose whether both (**AND**) or either (**OR**) must be met,
+        and pick the wind speed. Storms meeting the rule are **triggered**
+        (bold labels). Aim for the **Target** number of triggers — staying at
+        or below it. Watch the **Return period** (how often the trigger fires)
+        and **Total Affected** (people in triggered storms). Red dots = past
+        CERF allocations; dashed lines = your thresholds.
+        """
+    )
 
 
 @app.cell
@@ -155,10 +181,11 @@ def _(df, mo):
     wind_thresh = mo.ui.slider(
         start=0,
         stop=_max_exp,
-        step=1000,
-        value=10000,
+        step=5000,
+        value=0,
         label="Wind exposure threshold (people)",
         show_value=True,
+        full_width=True,
         disabled=_locked,
     )
     rain_thresh = mo.ui.slider(
@@ -168,6 +195,7 @@ def _(df, mo):
         value=0,
         label="Rainfall threshold (mm, 2-day)",
         show_value=True,
+        full_width=True,
         disabled=_locked,
     )
     logic = mo.ui.radio(
@@ -182,7 +210,10 @@ def _(df, mo):
 @app.cell
 def _(logic, mo, rain_thresh, wind_knots, wind_thresh):
     mo.hstack(
-        [wind_knots, wind_thresh, rain_thresh, logic], justify="start", gap=2
+        [wind_knots, wind_thresh, rain_thresh, logic],
+        justify="start",
+        gap=2,
+        widths=[1, 2, 2, 1],
     )
 
 
@@ -202,9 +233,11 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
         else (_wind_trig | _rain_trig)
     )
 
+    _target = 6
     _n = int(_df["triggered"].sum())
     _rp = (total_seasons + 1) / _n if _n > 0 else None
     _rp_str = f"{_rp:.1f}" if _rp is not None else "∞"
+    _ta_trig = int(_df.loc[_df["triggered"], "Total Affected"].fillna(0).sum())
 
     # Color only indicates CERF; bold indicates triggered
     _point_colors = [
@@ -325,26 +358,38 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
         )
     )
 
-    mo.vstack(
-        [
-            mo.hstack(
-                [
-                    mo.stat(label="Triggered storms", value=str(_n)),
-                    mo.stat(label="Target", value="6"),
-                    mo.stat(label="Return period", value=f"{_rp_str} seasons"),
-                    mo.stat(label="Total seasons", value=str(total_seasons)),
-                ],
-                justify="start",
-            ),
-            _fig,
-            mo.as_html(_styled),
-        ]
+    def _card(label, value, caption="", value_color="#111827", muted=False):
+        _lc = "#9ca3af" if muted else "#6b7280"
+        _vc = "#9ca3af" if muted else value_color
+        _cap = (
+            f'<div style="font-size:0.7rem;color:{value_color};'
+            f'font-weight:600;margin-top:1px;">{caption}</div>'
+            if caption
+            else ""
+        )
+        return (
+            f'<div style="padding:0.25rem 1.25rem 0.25rem 0;min-width:7rem;">'
+            f'<div style="font-size:0.8rem;color:{_lc};">{label}</div>'
+            f'<div style="font-size:1.6rem;font-weight:600;color:{_vc};'
+            f'line-height:1.2;">{value}</div>{_cap}</div>'
+        )
+
+    _trig_too_many = _n > _target
+    _readouts = mo.md(
+        '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;">'
+        + _card("Target", str(_target), muted=True)
+        + _card(
+            "Triggered storms",
+            str(_n),
+            caption="Too many" if _trig_too_many else "",
+            value_color="#dc2626" if _trig_too_many else "#111827",
+        )
+        + _card("Return period", f"{_rp_str} seasons")
+        + _card("Total Affected (triggered)", f"{_ta_trig:,}")
+        + "</div>"
     )
 
-
-@app.cell
-def _(mo):
-    mo.md("## Optimal trigger combinations (exactly 6 storms)")
+    mo.vstack([_readouts, _fig, mo.as_html(_styled)])
 
 
 @app.cell
@@ -432,9 +477,19 @@ def _(df, mo, pd):
 
     _df_opt = pd.DataFrame(_results)
 
-    _df_opt.set_index("Scenario").style.background_gradient(
-        subset=["Total Affected"], cmap="Purples"
-    ).format({"Total Affected": "{:,.0f}"})
+    _opt_styled = (
+        _df_opt.set_index("Scenario")
+        .style.background_gradient(subset=["Total Affected"], cmap="Purples")
+        .format({"Total Affected": "{:,.0f}"})
+    )
+
+    mo.accordion(
+        {
+            "Optimal trigger combinations (exactly 6 storms)": mo.as_html(
+                _opt_styled
+            )
+        }
+    )
 
 
 if __name__ == "__main__":
