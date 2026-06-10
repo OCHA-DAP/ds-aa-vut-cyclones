@@ -346,8 +346,8 @@ def _(df, logic, mo, plt, rain_thresh, total_seasons, wind_knots, wind_thresh):
     _light_oranges = _lighten_cmap("Oranges")
     _light_blues = _lighten_cmap("Blues")
 
-    _wind_col = f"Pop. exposed {wind_knots.value}kt wind (AOI)"
-    _rain_col = "2-day rainfall (mm)"
+    _wind_col = f"Pop. exposed<br>{wind_knots.value}kt wind<br>(AOI)"
+    _rain_col = "2-day rainfall<br>(mm)"
     _trig_col = "Trigger?"
     _cerf_col = "CERF?"
     _impact_col = "Total Affected"
