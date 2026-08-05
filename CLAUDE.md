@@ -1,5 +1,30 @@
 # ds-aa-vut-cyclones — Claude guidance
 
+## Static JS pages under `docs/`
+
+Marimo is **not** the default for anything new (team decision D93). New
+interactive pages here are plain `index.html` + `app.js` + `style.css` in their
+own subdirectory of `docs/`, with data pre-baked as JSON by a script in
+`exploration/`. See `docs/forecast-check/` and
+`exploration/make_forecast_check_data.py`.
+
+Keep them in a **subdirectory** — `marimo export html-wasm -o docs/ -f`
+overwrites `docs/index.html` and `docs/assets/`, so a hand-written page at the
+top level would be clobbered on the next export.
+
+Leaflet and other CDN assets are fine here (unlike Artifacts, GH Pages has no
+CSP restriction).
+
+## The VMGD historical archive
+
+`ds-aa-vut-cyclones/raw/vmgd/vmgd_historical_tc_archive_2026-08-05.zip` (9 GB).
+It is **zip64** — `unzip`/`zipinfo` wrongly report it corrupt; Python's
+`zipfile` reads it fine. Parsers live in `src/datasources/vmgd.py`.
+
+The only forecast wind radii in it are in the JTWC ATCF a-decks (`*.dat`).
+VMGD's own Forecast Track Maps have position and intensity category only — the
+wind boundaries are drawn on the map image, not tabulated.
+
 ## Deploying interactive marimo notebooks to GitHub Pages
 
 GH Pages runs no server, so WASM notebooks can't reach Azure blob storage or

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vanuatu cyclones — would the trigger have fired on forecasts?</title>
+<link rel="icon" href="../favicon.ico" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="page-head">
+  <h1>Would the 64&nbsp;kt trigger have fired on the forecasts?</h1>
+  <p class="lede">
+    The proposed trigger &mdash; <strong>5,000 people exposed to 64&nbsp;kt winds</strong> in Shefa,
+    Sanma and Tafea &mdash; was designed on <em>observed</em> storm tracks. This page re-runs it
+    against the <em>forecasts</em> that were actually on the table at the time, to see which storms
+    would have triggered an activation in real time.
+  </p>
+  <details class="caveat">
+    <summary>What the numbers are, and what they are not</summary>
+    <div>
+      <p>
+        Forecast exposure is computed from <strong>JTWC official forecasts</strong> in the VMGD
+        historical archive: the 34/50/64&nbsp;kt quadrant wind radii from each forecast cycle are
+        swept along the forecast track into a wind swath, and WorldPop population inside the three
+        AOI provinces is summed. This uses the <em>same</em> method and the same population raster
+        as the observed exposure numbers, so the two are directly comparable.
+      </p>
+      <p>
+        <strong>VMGD's own forecast tracks carry no wind radii</strong> &mdash; their Forecast Track
+        Maps give position, intensity category and a position-accuracy figure only, with the wind
+        boundaries drawn on the map image. They are shown here as tracks for context, but they
+        cannot produce an exposure number.
+      </p>
+      <p>
+        Each storm's <strong>peak</strong> value is the highest exposure across all of its forecast
+        cycles &mdash; i.e. would the trigger have fired at <em>any</em> point during the event.
+        Invest-numbered decks (90&ndash;99) are excluded because they duplicate the named storm.
+      </p>
+    </div>
+  </details>
+</header>
+
+<section class="controls" aria-label="Controls">
+  <label>Trigger threshold
+    <input type="number" id="threshold" value="5000" min="0" step="1000" />
+    <span class="unit">people at 64&nbsp;kt</span>
+  </label>
+  <label>Sort
+    <select id="sort">
+      <option value="peak">Peak forecast exposure</option>
+      <option value="season">Season</option>
+      <option value="name">Name</option>
+    </select>
+  </label>
+  <label class="check"><input type="checkbox" id="showZero" /> Show storms with no exposure at all</label>
+</section>
+
+<section class="summary" aria-label="Summary">
+  <div class="stat-row" id="stats"></div>
+  <p class="note" id="cerfNote"></p>
+</section>
+
+<section class="chart-wrap">
+  <h2>Peak forecast exposure vs observed, by storm</h2>
+  <p class="hint">Click a storm to inspect its forecast cycles on the map.
+    <span id="hiddenNote"></span></p>
+  <div id="chart" role="img" aria-label="Peak forecast and observed 64 kt exposure by storm"></div>
+  <details class="tableview">
+    <summary>Table view</summary>
+    <div id="table"></div>
+  </details>
+</section>
+
+<section class="detail" id="detail" hidden>
+  <h2 id="detailTitle">&nbsp;</h2>
+  <div class="detail-grid">
+    <div>
+      <div id="map"></div>
+      <div class="cycle-ctl">
+        <button id="playBtn" type="button" aria-label="Play through forecast cycles">▶</button>
+        <input type="range" id="cycle" min="0" max="0" value="0" />
+        <span id="cycleLabel" class="cycle-label">&nbsp;</span>
+      </div>
+      <ul class="legend" id="mapLegend">
+        <li><span class="sw sw-fcst"></span>Forecast 64&nbsp;kt swath (JTWC, selected cycle)</li>
+        <li><span class="sw sw-obs"></span>Observed 64&nbsp;kt swath (IBTrACS)</li>
+        <li><span class="ln ln-fcst"></span>Forecast track</li>
+        <li><span class="ln ln-obs"></span>Observed track</li>
+        <li><span class="ln ln-vmgd"></span>VMGD forecast track <em>(no radii)</em></li>
+        <li><span class="sw sw-aoi"></span>AOI provinces</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Forecast exposure by cycle</h3>
+      <div id="cycleChart" role="img" aria-label="Forecast exposure by cycle"></div>
+      <div id="cycleInfo" class="cycle-info"></div>
+    </div>
+  </div>
+</section>
+
+<footer class="page-foot">
+  <p>
+    Source: VMGD historical tropical cyclone archive
+    (<code>ds-aa-vut-cyclones/raw/vmgd/</code>), JTWC ATCF a-decks; observed exposure from
+    IBTrACS USA radii; population from WorldPop 1&nbsp;km.
+    <span id="generated"></span>
+  </p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="app.js"></script>
+</body>
+</html>

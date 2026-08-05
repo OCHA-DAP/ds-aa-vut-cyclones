@@ -2,6 +2,27 @@
 
 [![Generic badge](https://img.shields.io/badge/STATUS-UNDER%20DEVELOPMENT-%23007CE0)](https://shields.io/)
 
+## Published pages
+
+Both are served from `docs/` on GitHub Pages:
+
+| Page | What it is |
+|---|---|
+| [`/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/) | Trigger threshold explorer (marimo, exported to WASM) |
+| [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Would the trigger have fired on the *forecasts*? (plain JS + Leaflet) |
+
+The forecast-check page is a static JS app with its data pre-baked into
+`docs/forecast-check/data/` by `exploration/make_forecast_check_data.py`.
+Rebuild it with:
+
+```shell
+uv run python exploration/make_forecast_check_data.py
+```
+
+That script needs a local copy of the VMGD archive zip
+(`ds-aa-vut-cyclones/raw/vmgd/vmgd_historical_tc_archive_2026-08-05.zip` on
+blob) — set the path at the top of the script.
+
 ## Directory structure
 
 The code in this repository is organized as follows:
