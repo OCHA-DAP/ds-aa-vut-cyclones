@@ -51,8 +51,10 @@ def _(mo, pd):
                 "ADM2_PCODE"
             ].unique()
 
+            # _dedup: no boundary double-counting, no dateline tearing —
+            # see exploration/recalc_adm2_exposure.py
             _df_exp = _stratus.load_parquet_from_blob(
-                f"{_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
+                f"{_PREFIX}/processed/ibtracs/adm2_usaradii_exp_dedup.parquet"
             )
             _df_exp_aoi = _df_exp[_df_exp["ADM2_PCODE"].isin(_aoi_pcodes)]
 

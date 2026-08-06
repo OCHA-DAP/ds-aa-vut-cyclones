@@ -42,12 +42,13 @@
       <p>
         Exposure counts <strong>only Shefa, Sanma and Tafea</strong> (39 of Vanuatu's 66 adm2 units),
         total population <strong id="aoiPop">&mdash;</strong>, which is the ceiling for every number
-        on this page. Both the forecast and observed columns are computed by clipping the population
-        raster once to the dissolved AOI. That differs from the per-adm2 exposure table on blob,
-        which clips each adm2 with <code>all_touched</code> and sums &mdash; on 1&nbsp;km pixels and
-        narrow islands that counts shared boundary pixels more than once and puts the AOI total 23%
-        above its true population. Observed figures here will therefore read lower than the
-        blob-derived ones used elsewhere in this framework.
+        on this page. Two artifacts in the original per-adm2 exposure table on blob are corrected
+        here (and in <code>adm2_usaradii_exp_dedup.parquet</code>): per-adm2
+        <code>all_touched</code> clips counted shared boundary pixels more than once (+23% on AOI
+        totals), and swaths crossing the 180&deg; meridian were torn by the coordinate conversion
+        into shapes that spuriously covered Vanuatu &mdash; Fiji storms like Tomas, Yasa, Evan and
+        Keni showed large exposure they never had. All buffers here are handled in a
+        longitude-wrapped frame, so figures read substantially lower than the uncorrected ones.
       </p>
     </div>
   </details>

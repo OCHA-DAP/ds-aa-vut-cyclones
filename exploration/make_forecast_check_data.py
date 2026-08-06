@@ -26,7 +26,7 @@ import pandas as pd
 import shapely
 from shapely.geometry import box
 
-from src.constants import ADM1_AOI_PCODES, CERF_SIDS, PROJECT_PREFIX
+from src.constants import ADM1_AOI_PCODES, CERF_SIDS, FJI_CRS, PROJECT_PREFIX
 from src.datasources import codab, vmgd
 from src.utils.wind_buffers import wind_buffers_from_track
 
@@ -81,13 +81,18 @@ def build_adm2_expanded(adm2: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
 
 def _ring(geom, simplify_m=SIMPLIFY_M):
-    """Simplified GeoJSON-ish coords for the browser, rounded to 3 dp."""
+    """Simplified lon-wrapped coords for the browser, rounded to 3 dp.
+
+    FJI_CRS keeps longitude in [0, 360), so swaths crossing the dateline
+    stay contiguous — a plain to_crs(4326) tears them into a [-180, 180]
+    smear. Leaflet renders longitudes past 180 fine.
+    """
     if geom is None or geom.is_empty:
         return None
     g = (
         gpd.GeoSeries([geom], crs=3832)
         .simplify(simplify_m)
-        .to_crs(4326)
+        .to_crs(FJI_CRS)
         .iloc[0]
     )
     polys = list(g.geoms) if g.geom_type == "MultiPolygon" else [g]
@@ -131,16 +136,20 @@ def main():
     aoi_pop = int(da_aoi.where(da_aoi > 0).sum())
     print(f"  AOI adm2: {len(aoi)}  AOI population: {aoi_pop:,}")
 
-    def exposure(geom_4326):
-        """Population inside a buffer, within the AOI provinces only."""
-        if geom_4326 is None or geom_4326.is_empty:
+    def exposure(geom_wrapped):
+        """Population inside a buffer, within the AOI provinces only.
+
+        ``geom_wrapped`` must be in the lon-wrapped frame (FJI_CRS,
+        longitudes in [0, 360)) to match the raster grid — see _ring.
+        """
+        if geom_wrapped is None or geom_wrapped.is_empty:
             return 0
-        if not geom_4326.is_valid:
-            geom_4326 = shapely.make_valid(geom_4326)
-        if not geom_4326.intersects(aoi_union):
+        if not geom_wrapped.is_valid:
+            geom_wrapped = shapely.make_valid(geom_wrapped)
+        if not geom_wrapped.intersects(aoi_union):
             return 0
         try:
-            clipped = da_aoi.rio.clip([geom_4326])
+            clipped = da_aoi.rio.clip([geom_wrapped])
         except Exception:
             return 0
         return int(clipped.where(clipped > 0).sum())
@@ -185,11 +194,14 @@ def main():
     # double-counting inflation described above and the two columns on the
     # page would not be comparable.
     print("recomputing observed exposure (single-clip, AOI only)...")
-    obs_buf_aoi = obs_buf[obs_buf["sid"].isin(want_sids)].to_crs(4326)
-    # a few of these swaths are self-intersecting and fail union_all
+    # make_valid in the metric CRS first (a few swaths self-intersect),
+    # then convert to the lon-wrapped frame so dateline-crossing swaths
+    # (Winston, Yasa, ...) stay contiguous instead of tearing into a
+    # [-180, 180] smear that spuriously covers Vanuatu
+    obs_buf_aoi = obs_buf[obs_buf["sid"].isin(want_sids)]
     obs_buf_aoi = obs_buf_aoi.assign(
         geometry=obs_buf_aoi.geometry.make_valid()
-    )
+    ).to_crs(FJI_CRS)
     obs_rows = []
     for (sid, speed), g in obs_buf_aoi.groupby(["sid", "buffer_speed"]):
         obs_rows.append(
@@ -235,10 +247,12 @@ def main():
             ring64 = None
             for _, b in bufs.iterrows():
                 sp = int(b["buffer_speed"])
-                geom4326 = (
-                    gpd.GeoSeries([b.geometry], crs=3832).to_crs(4326).iloc[0]
+                geom_w = (
+                    gpd.GeoSeries([b.geometry], crs=3832)
+                    .to_crs(FJI_CRS)
+                    .iloc[0]
                 )
-                exp[sp] = exposure(geom4326)
+                exp[sp] = exposure(geom_w)
                 if sp == 64:
                     ring64 = _ring(b.geometry)
             if not exp:

@@ -14,8 +14,14 @@ df_stats = stratus.load_parquet_from_blob(
     f"{PROJECT_PREFIX}/processed/impact_stats.parquet"
 )
 
+# _dedup: assigns each pixel to exactly one adm2 and keeps dateline-crossing
+# swaths contiguous. The original adm2_usaradii_exp.parquet double counts
+# boundary pixels (all_touched per-adm2 clips) and tears buffers that cross
+# 180deg into a [-180, 180] smear that spuriously covers Vanuatu (Tomas 2010
+# read 288k exposed at 64kt — more than the AOI's population). See
+# exploration/recalc_adm2_exposure.py.
 df_exp = stratus.load_parquet_from_blob(
-    f"{PROJECT_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
+    f"{PROJECT_PREFIX}/processed/ibtracs/adm2_usaradii_exp_dedup.parquet"
 )
 df_exp_aoi = df_exp[df_exp["ADM2_PCODE"].isin(aoi_pcodes)]
 
