@@ -23,6 +23,7 @@ from pathlib import Path
 import geopandas as gpd
 import ocha_stratus as stratus
 import pandas as pd
+import shapely
 from shapely.geometry import box
 
 from src.constants import ADM1_AOI_PCODES, CERF_SIDS, PROJECT_PREFIX
@@ -116,35 +117,33 @@ def main():
     da_wp = da_wp.rio.clip(adm2_exp.geometry).squeeze(drop=True).compute()
     da_wp = da_wp.assign_coords({"x": ((da_wp.x + 360) % 360)}).sortby("x")
 
-    # pre-clip each AOI adm2 once (all_touched=True, as in the observed calc)
-    adm_rasters, adm_geoms = {}, {}
-    for _, r in aoi.iterrows():
-        try:
-            adm_rasters[r["ADM2_PCODE"]] = da_wp.rio.clip(
-                [r.geometry], all_touched=True
-            )
-            adm_geoms[r["ADM2_PCODE"]] = r.geometry
-        except Exception:
-            pass
+    # Clip the population raster to the AOI *once*, on the dissolved geometry.
+    #
+    # NB: the observed pipeline (exploration/hist_exp.md) clips each adm2 with
+    # all_touched=True and then sums across adm2. On 1 km pixels and narrow
+    # islands that double counts boundary pixels — it puts the AOI total at
+    # 302,282 against a true population of 245,332 (+23%), so exposure can
+    # exceed the population that actually lives there. Dissolving first keeps
+    # every coastal pixel (all_touched=True on the union) without counting any
+    # pixel twice.
     aoi_union = aoi.geometry.union_all()
-    print(f"  AOI adm2: {len(adm_rasters)}")
+    da_aoi = da_wp.rio.clip([aoi_union], all_touched=True)
+    aoi_pop = int(da_aoi.where(da_aoi > 0).sum())
+    print(f"  AOI adm2: {len(aoi)}  AOI population: {aoi_pop:,}")
 
     def exposure(geom_4326):
-        """Population in a buffer, summed over AOI adm2 (observed method)."""
+        """Population inside a buffer, within the AOI provinces only."""
         if geom_4326 is None or geom_4326.is_empty:
             return 0
+        if not geom_4326.is_valid:
+            geom_4326 = shapely.make_valid(geom_4326)
         if not geom_4326.intersects(aoi_union):
             return 0
-        total = 0
-        for pcode, da in adm_rasters.items():
-            if not geom_4326.intersects(adm_geoms[pcode]):
-                continue
-            try:
-                clipped = da.rio.clip([geom_4326])
-            except Exception:
-                continue
-            total += int(clipped.where(clipped > 0).sum())
-        return total
+        try:
+            clipped = da_aoi.rio.clip([geom_4326])
+        except Exception:
+            return 0
+        return int(clipped.where(clipped > 0).sum())
 
     print("parsing ATCF decks from the archive...")
     atcf = vmgd.parse_atcf_from_archive(ZIP)
@@ -159,18 +158,17 @@ def main():
     print("parsing VMGD forecast track maps...")
     vm = vmgd.parse_vmgd_forecasts_from_archive(ZIP)
 
-    print("loading observed exposure + buffers...")
-    obs_exp = stratus.load_parquet_from_blob(
-        f"{PROJECT_PREFIX}/processed/ibtracs/adm2_usaradii_exp.parquet"
-    )
-    obs_exp = obs_exp[obs_exp["ADM2_PCODE"].isin(aoi_pcodes)]
-    obs_tot = (
-        obs_exp.groupby(["sid", "buffer_speed"])["pop_exposed"]
-        .sum()
-        .unstack()
-        .fillna(0)
-        .astype(int)
-    )
+    with stratus.get_engine(stage="prod").connect() as con:
+        ib = pd.read_sql(
+            "SELECT sid, atcf_id, name, season FROM storms.ibtracs_storms",
+            con,
+        )
+    ib["atcf_u"] = ib["atcf_id"].str.upper()
+    id2sid = dict(zip(ib["atcf_u"], ib["sid"]))
+    id2name = dict(zip(ib["atcf_u"], ib["name"]))
+    want_sids = {id2sid[s] for s in jtwc["storm"].unique() if s in id2sid}
+
+    print("loading observed buffers...")
     import io as _io
 
     obs_buf = gpd.read_parquet(
@@ -181,14 +179,32 @@ def main():
         )
     )
 
-    with stratus.get_engine(stage="prod").connect() as con:
-        ib = pd.read_sql(
-            "SELECT sid, atcf_id, name, season FROM storms.ibtracs_storms",
-            con,
+    # Recompute observed exposure from the observed buffers with the *same*
+    # single-clip method used for the forecasts, rather than reading the
+    # per-adm2 parquet on blob — otherwise the observed side would carry the
+    # double-counting inflation described above and the two columns on the
+    # page would not be comparable.
+    print("recomputing observed exposure (single-clip, AOI only)...")
+    obs_buf_aoi = obs_buf[obs_buf["sid"].isin(want_sids)].to_crs(4326)
+    # a few of these swaths are self-intersecting and fail union_all
+    obs_buf_aoi = obs_buf_aoi.assign(
+        geometry=obs_buf_aoi.geometry.make_valid()
+    )
+    obs_rows = []
+    for (sid, speed), g in obs_buf_aoi.groupby(["sid", "buffer_speed"]):
+        obs_rows.append(
+            {
+                "sid": sid,
+                "buffer_speed": int(speed),
+                "pop_exposed": exposure(g.geometry.union_all()),
+            }
         )
-    ib["atcf_u"] = ib["atcf_id"].str.upper()
-    id2sid = dict(zip(ib["atcf_u"], ib["sid"]))
-    id2name = dict(zip(ib["atcf_u"], ib["name"]))
+    obs_tot = (
+        pd.DataFrame(obs_rows)
+        .pivot(index="sid", columns="buffer_speed", values="pop_exposed")
+        .fillna(0)
+        .astype(int)
+    )
 
     # observed track points, for drawing the observed track on the map
     obs_track = stratus.load_parquet_from_blob(
@@ -346,6 +362,7 @@ def main():
                     "%Y-%m-%d %H:%M UTC"
                 ),
                 "aoi_provinces": ADM1_AOI_PCODES,
+                "aoi_pop": aoi_pop,
                 "aoi_geom": aoi_geo,
                 "speeds": list(SPEEDS),
                 "storms": storms_out,

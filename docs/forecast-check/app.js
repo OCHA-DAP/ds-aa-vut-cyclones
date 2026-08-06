@@ -20,6 +20,7 @@ fetch("data/core.json")
   .then((d) => {
     CORE = d;
     $("#generated").textContent = "Generated " + d.generated + ".";
+    if (d.aoi_pop) $("#aoiPop").textContent = fmt(d.aoi_pop);
     $("#threshold").addEventListener("input", render);
     $("#sort").addEventListener("change", render);
     $("#showZero").addEventListener("change", render);
