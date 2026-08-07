@@ -1,4 +1,11 @@
-"""Generate exploration/public/trigger_data.csv for WASM export."""
+"""Generate the observed-record trigger data.
+
+Writes:
+    exploration/public/trigger_data.csv     — for the marimo WASM export
+    docs/forecast-check/data/hist.json      — for the static JS page
+"""
+import json
+
 import ocha_stratus as stratus
 import pandas as pd
 
@@ -61,3 +68,36 @@ cols = [
 out_path = "exploration/public/trigger_data.csv"
 df[cols].to_csv(out_path, index=False)
 print(f"Saved {len(df)} rows to {out_path}")
+
+# --- hist.json for the static page (docs/forecast-check/) ---
+# The record used for return periods is the 2003-2025 seasons (23 seasons);
+# see the trigger explorer notes.
+FIRST_SEASON, LAST_SEASON = 2003, 2025
+dfj = df[df["season"] >= FIRST_SEASON].copy()
+storms = [
+    {
+        "sid": r["sid"],
+        "name": r["name"] if pd.notna(r["name"]) else "Unnamed",
+        "season": int(r["season"]),
+        "exp34": int(r["exp34"]),
+        "exp50": int(r["exp50"]),
+        "exp64": int(r["exp64"]),
+        "rain": round(float(r["roll2_mean"]), 1),
+        "affected": (
+            int(r["Total Affected"]) if pd.notna(r["Total Affected"]) else 0
+        ),
+        "cerf": bool(r["cerf"]),
+    }
+    for r in dfj[cols].to_dict("records")
+]
+hist = {
+    "first_season": FIRST_SEASON,
+    "last_season": LAST_SEASON,
+    "n_seasons": LAST_SEASON - FIRST_SEASON + 1,
+    "target": 6,
+    "storms": storms,
+}
+json_path = "docs/forecast-check/data/hist.json"
+with open(json_path, "w") as f:
+    json.dump(hist, f, separators=(",", ":"))
+print(f"Saved {len(storms)} storms to {json_path}")

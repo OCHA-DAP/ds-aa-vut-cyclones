@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vanuatu cyclones — would the trigger have fired on forecasts?</title>
+<title>Vanuatu cyclone trigger — design &amp; forecast check</title>
 <link rel="icon" href="../favicon.ico" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -11,12 +11,114 @@
 </head>
 <body>
 <header class="page-head">
-  <h1>Would the 64&nbsp;kt trigger have fired on the forecasts?</h1>
+  <h1>Vanuatu cyclone trigger</h1>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" role="tab" data-tab="design" id="tabbtn-design">Trigger design (observed record)</button>
+    <button class="tab" role="tab" data-tab="forecast" id="tabbtn-forecast">Forecast check</button>
+  </nav>
+</header>
+
+<!-- ================= TAB 1: trigger design on the observed record ========= -->
+<div class="tabpanel" id="panel-design" role="tabpanel">
+
   <p class="lede">
-    The proposed trigger &mdash; <strong>5,000 people exposed to 64&nbsp;kt winds</strong> in Shefa,
-    Sanma and Tafea &mdash; was designed on <em>observed</em> storm tracks. This page re-runs it
-    against the <em>forecasts</em> that were actually on the table at the time, to see which storms
-    would have triggered an activation in real time.
+    How the trigger was set: every cyclone season since <strong>2003</strong> (23 seasons),
+    each storm placed by its <strong>wind exposure</strong> (population inside the observed
+    IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
+    <strong>2-day rainfall</strong> (IMERG). Pick thresholds and see which storms would have
+    activated, and at what return period.
+  </p>
+  <details class="caveat">
+    <summary>How to use, and where the numbers come from</summary>
+    <div>
+      <p>
+        <strong>How to use:</strong> set a wind-exposure and/or rainfall threshold, choose whether
+        both (<strong>AND</strong>) or either (<strong>OR</strong>) must be met, and pick the wind
+        speed. Storms meeting the rule are <strong>triggered</strong> (bold labels). Aim for the
+        target number of triggers — staying at or below it — while maximising the total people
+        affected by the triggered storms. Red labels are storms that received a CERF allocation;
+        dashed lines are your thresholds; the shaded region is the trigger zone.
+      </p>
+      <p>
+        Wind exposure uses the corrected exposure table
+        (<code>adm2_usaradii_exp_dedup.parquet</code>: no boundary double-counting, no dateline
+        tearing), counting population in Shefa, Sanma and Tafea only. Rainfall is the maximum
+        2-day rolling mean of IMERG daily rain, averaged over the country. Impact
+        (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull:
+        (23&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations.
+      </p>
+    </div>
+  </details>
+
+  <section class="controls" aria-label="Trigger controls">
+    <label>Wind speed
+      <select id="dWind">
+        <option value="34">34 kt</option>
+        <option value="50">50 kt</option>
+        <option value="64" selected>64 kt</option>
+      </select>
+    </label>
+    <label class="thr wind-lab">Wind exposure &ge;
+      <input type="number" id="dWt" value="100000" min="0" step="5000" />
+      <span class="unit">people</span>
+    </label>
+    <label class="thr rain-lab">Rainfall &ge;
+      <input type="number" id="dRt" value="100" min="0" step="5" />
+      <span class="unit">mm / 2d</span>
+    </label>
+    <span class="radio-group" role="radiogroup" aria-label="Trigger logic">
+      <label class="check"><input type="radio" name="dLogic" value="AND" checked /> AND</label>
+      <label class="check"><input type="radio" name="dLogic" value="OR" /> OR</label>
+    </span>
+  </section>
+
+  <section class="summary" aria-label="Trigger summary">
+    <div class="stat-row" id="dStats"></div>
+  </section>
+
+  <section class="chart-wrap">
+    <div id="dScatter" role="img" aria-label="Storms by wind exposure and 2-day rainfall, with trigger zone"></div>
+  </section>
+
+  <section class="chart-wrap">
+    <h2>Storms, ranked by impact</h2>
+    <div id="dTable" class="scroll-x"></div>
+  </section>
+
+  <details class="caveat block">
+    <summary>Correlations with impact indicators</summary>
+    <div>
+      <p>
+        Pearson correlation of each candidate indicator with <strong>Total Affected</strong>
+        (left) and with whether a <strong>CERF allocation</strong> occurred (right). Longer bars
+        flag indicators that more closely track historical impact, helping decide which to build
+        the trigger on.
+      </p>
+      <div id="dCorr" class="corr-grid"></div>
+    </div>
+  </details>
+
+  <details class="caveat block">
+    <summary>Optimal trigger combinations (exactly 6 storms)</summary>
+    <div>
+      <p>
+        For each trigger structure, the threshold combination that activates on
+        <strong>exactly 6 storms</strong> in the 23-season record (return period 4.0 seasons)
+        while maximising the total people affected by the triggered storms.
+      </p>
+      <div id="dOpt" class="scroll-x"></div>
+    </div>
+  </details>
+
+</div>
+
+<!-- ================= TAB 2: forecast check ================================ -->
+<div class="tabpanel" id="panel-forecast" role="tabpanel" hidden>
+
+  <p class="lede">
+    The trigger above was designed on <em>observed</em> storm tracks. This tab re-runs it
+    against the <em>forecasts</em> that were actually on the table at the time, to see which
+    storms would have triggered an activation in real time.
   </p>
   <details class="caveat">
     <summary>What the numbers are, and what they are not</summary>
@@ -52,71 +154,73 @@
       </p>
     </div>
   </details>
-</header>
 
-<section class="controls" aria-label="Controls">
-  <label>Trigger threshold
-    <input type="number" id="threshold" value="5000" min="0" step="1000" />
-    <span class="unit">people at 64&nbsp;kt</span>
-  </label>
-  <label>Sort
-    <select id="sort">
-      <option value="peak">Peak forecast exposure</option>
-      <option value="season">Season</option>
-      <option value="name">Name</option>
-    </select>
-  </label>
-  <label class="check"><input type="checkbox" id="showZero" /> Show storms with no exposure at all</label>
-</section>
+  <section class="controls" aria-label="Controls">
+    <label>Trigger threshold
+      <input type="number" id="threshold" value="5000" min="0" step="1000" />
+      <span class="unit">people at 64&nbsp;kt</span>
+    </label>
+    <label>Sort
+      <select id="sort">
+        <option value="peak">Peak forecast exposure</option>
+        <option value="season">Season</option>
+        <option value="name">Name</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="showZero" /> Show storms with no exposure at all</label>
+  </section>
 
-<section class="summary" aria-label="Summary">
-  <div class="stat-row" id="stats"></div>
-  <p class="note" id="cerfNote"></p>
-</section>
+  <section class="summary" aria-label="Summary">
+    <div class="stat-row" id="stats"></div>
+    <p class="note" id="cerfNote"></p>
+  </section>
 
-<section class="chart-wrap">
-  <h2>Peak forecast exposure vs observed, by storm</h2>
-  <p class="hint">Click a storm to inspect its forecast cycles on the map.
-    <span id="hiddenNote"></span></p>
-  <div id="chart" role="img" aria-label="Peak forecast and observed 64 kt exposure by storm"></div>
-  <details class="tableview">
-    <summary>Table view</summary>
-    <div id="table"></div>
-  </details>
-</section>
+  <section class="chart-wrap">
+    <h2>Peak forecast exposure vs observed, by storm</h2>
+    <p class="hint">Click a storm to inspect its forecast cycles on the map.
+      <span id="hiddenNote"></span></p>
+    <div id="chart" role="img" aria-label="Peak forecast and observed 64 kt exposure by storm"></div>
+    <details class="tableview">
+      <summary>Table view</summary>
+      <div id="table"></div>
+    </details>
+  </section>
 
-<section class="detail" id="detail" hidden>
-  <h2 id="detailTitle">&nbsp;</h2>
-  <div class="detail-grid">
-    <div>
-      <div id="map"></div>
-      <div class="cycle-ctl">
-        <button id="playBtn" type="button" aria-label="Play through forecast cycles">▶</button>
-        <input type="range" id="cycle" min="0" max="0" value="0" />
-        <span id="cycleLabel" class="cycle-label">&nbsp;</span>
+  <section class="detail" id="detail" hidden>
+    <h2 id="detailTitle">&nbsp;</h2>
+    <div class="detail-grid">
+      <div>
+        <div id="map"></div>
+        <div class="cycle-ctl">
+          <button id="playBtn" type="button" aria-label="Play through forecast cycles">▶</button>
+          <input type="range" id="cycle" min="0" max="0" value="0" />
+          <span id="cycleLabel" class="cycle-label">&nbsp;</span>
+        </div>
+        <ul class="legend" id="mapLegend">
+          <li><span class="sw sw-fcst"></span>Forecast 64&nbsp;kt swath (JTWC, selected cycle)</li>
+          <li><span class="sw sw-obs"></span>Observed 64&nbsp;kt swath (IBTrACS)</li>
+          <li><span class="ln ln-fcst"></span>Forecast track</li>
+          <li><span class="ln ln-obs"></span>Observed track</li>
+          <li><span class="ln ln-vmgd"></span>VMGD forecast track <em>(no radii)</em></li>
+          <li><span class="sw sw-aoi"></span>AOI provinces</li>
+        </ul>
       </div>
-      <ul class="legend" id="mapLegend">
-        <li><span class="sw sw-fcst"></span>Forecast 64&nbsp;kt swath (JTWC, selected cycle)</li>
-        <li><span class="sw sw-obs"></span>Observed 64&nbsp;kt swath (IBTrACS)</li>
-        <li><span class="ln ln-fcst"></span>Forecast track</li>
-        <li><span class="ln ln-obs"></span>Observed track</li>
-        <li><span class="ln ln-vmgd"></span>VMGD forecast track <em>(no radii)</em></li>
-        <li><span class="sw sw-aoi"></span>AOI provinces</li>
-      </ul>
+      <div>
+        <h3>Forecast exposure by cycle</h3>
+        <div id="cycleChart" role="img" aria-label="Forecast exposure by cycle"></div>
+        <div id="cycleInfo" class="cycle-info"></div>
+      </div>
     </div>
-    <div>
-      <h3>Forecast exposure by cycle</h3>
-      <div id="cycleChart" role="img" aria-label="Forecast exposure by cycle"></div>
-      <div id="cycleInfo" class="cycle-info"></div>
-    </div>
-  </div>
-</section>
+  </section>
+
+</div>
 
 <footer class="page-foot">
   <p>
-    Source: VMGD historical tropical cyclone archive
-    (<code>ds-aa-vut-cyclones/raw/vmgd/</code>), JTWC ATCF a-decks; observed exposure from
-    IBTrACS USA radii; population from WorldPop 1&nbsp;km.
+    Sources: IBTrACS USA radii (observed swaths); IMERG (rainfall); EM-DAT (impact);
+    VMGD historical tropical cyclone archive
+    (<code>ds-aa-vut-cyclones/raw/vmgd/</code>) and JTWC ATCF a-decks (forecasts);
+    population from WorldPop 1&nbsp;km.
     <span id="generated"></span>
   </p>
 </footer>

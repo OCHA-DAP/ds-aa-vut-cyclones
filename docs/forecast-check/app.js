@@ -14,23 +14,318 @@ let map, layers = {}, playTimer = null;
 const peak = (s) => s.cycles.reduce((m, c) => Math.max(m, +c.exp[SPEED]), 0);
 const thresh = () => Math.max(0, +$("#threshold").value || 0);
 
+/* ------------------------------------------------------------------ tabs */
+function showTab(name, updateHash = true) {
+  document.querySelectorAll(".tab").forEach((b) =>
+    b.classList.toggle("active", b.dataset.tab === name)
+  );
+  $("#panel-design").hidden = name !== "design";
+  $("#panel-forecast").hidden = name !== "forecast";
+  if (updateHash) history.replaceState(null, "", "#" + name);
+  // Leaflet can't size itself inside a hidden panel
+  if (name === "forecast" && map) setTimeout(() => map.invalidateSize(), 0);
+}
+document.querySelectorAll(".tab").forEach((b) =>
+  b.addEventListener("click", () => showTab(b.dataset.tab))
+);
+if (location.hash === "#forecast") showTab("forecast", false);
+
 /* ---------------------------------------------------------------- load */
-fetch("data/core.json")
-  .then((r) => r.json())
-  .then((d) => {
-    CORE = d;
-    $("#generated").textContent = "Generated " + d.generated + ".";
-    if (d.aoi_pop) $("#aoiPop").textContent = fmt(d.aoi_pop);
+let HIST = null;
+
+Promise.all([
+  fetch("data/core.json").then((r) => r.json()),
+  fetch("data/hist.json").then((r) => r.json()),
+])
+  .then(([core, hist]) => {
+    CORE = core;
+    HIST = hist;
+    $("#generated").textContent = "Generated " + core.generated + ".";
+    if (core.aoi_pop) $("#aoiPop").textContent = fmt(core.aoi_pop);
     $("#threshold").addEventListener("input", render);
     $("#sort").addEventListener("change", render);
     $("#showZero").addEventListener("change", render);
     render();
+
+    ["#dWind", "#dWt", "#dRt"].forEach((s) =>
+      $(s).addEventListener("input", renderDesign)
+    );
+    document.querySelectorAll('input[name="dLogic"]').forEach((r) =>
+      r.addEventListener("change", renderDesign)
+    );
+    renderDesign();
+    drawCorr();
+    drawOpt();
   })
   .catch((e) => {
-    $("#chart").innerHTML =
-      '<p style="color:var(--critical)">Could not load data/core.json — ' +
+    $("#chart").innerHTML = $("#dScatter").innerHTML =
+      '<p style="color:var(--critical)">Could not load data — ' +
       e.message + "</p>";
   });
+
+/* =================== TAB 1: trigger design (observed) =================== */
+
+const cap = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+const dParams = () => ({
+  k: $("#dWind").value,
+  wt: Math.max(0, +$("#dWt").value || 0),
+  rt: Math.max(0, +$("#dRt").value || 0),
+  logic: document.querySelector('input[name="dLogic"]:checked').value,
+});
+const dTriggered = (s, p) => {
+  const w = s["exp" + p.k] >= p.wt;
+  const r = s.rain >= p.rt;
+  return p.logic === "AND" ? w && r : w || r;
+};
+
+function renderDesign() {
+  const p = dParams();
+  const storms = HIST.storms.map((s) => ({ ...s, trig: dTriggered(s, p) }));
+  const trig = storms.filter((s) => s.trig);
+  const n = trig.length;
+  const target = HIST.target;
+  const rp = n > 0 ? (HIST.n_seasons + 1) / n : null;
+  const ta = trig.reduce((a, s) => a + s.affected, 0);
+  const cerfHit = trig.filter((s) => s.cerf).length;
+  const nCerf = storms.filter((s) => s.cerf).length;
+
+  $("#dStats").innerHTML = [
+    stat(target, "target activations (≤)", false),
+    stat(n, "storms would have triggered" + (n > target ? " — too many" : ""),
+         n > target),
+    stat(rp ? rp.toFixed(1) : "∞", "seasons return period (Weibull)", false),
+    stat(fmt(ta), "total people affected by triggered storms", false),
+    stat(`${cerfHit}/${nCerf}`, "CERF-allocation storms captured",
+         cerfHit < nCerf),
+  ].join("");
+
+  drawScatter(storms, p);
+  drawDesignTable(storms, p);
+}
+
+function drawScatter(storms, p) {
+  const W = 900, H = 620, padL = 74, padR = 18, padT = 18, padB = 52;
+  const xmax = Math.max(p.wt * 1.15, ...storms.map((s) => s["exp" + p.k])) * 1.06 + 1;
+  const ymax = Math.max(p.rt * 1.15, ...storms.map((s) => s.rain)) * 1.08 + 1;
+  const x = (v) => padL + (v / xmax) * (W - padL - padR);
+  const y = (v) => H - padB - (v / ymax) * (H - padT - padB);
+  const maxTA = Math.max(...storms.map((s) => s.affected), 1);
+
+  let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
+
+  // trigger zone (gold): AND = upper-right rect; OR = L-shape as two strips
+  const zx = x(Math.min(p.wt, xmax)), zy = y(Math.min(p.rt, ymax));
+  const zone = `fill="var(--zone)" opacity="0.16"`;
+  if (p.logic === "AND") {
+    sv += `<rect x="${zx}" y="${padT}" width="${W - padR - zx}" height="${zy - padT}" ${zone}/>`;
+  } else {
+    sv += `<rect x="${zx}" y="${padT}" width="${W - padR - zx}" height="${H - padB - padT}" ${zone}/>`;
+    sv += `<rect x="${padL}" y="${padT}" width="${zx - padL}" height="${zy - padT}" ${zone}/>`;
+  }
+  sv += `<text x="${W - padR - 8}" y="${padT + 16}" text-anchor="end"
+          class="zone-label">Trigger zone</text>`;
+
+  // axes + gridlines
+  niceTicks(xmax, 5).forEach((v) => {
+    sv += `<line class="gridline" x1="${x(v)}" y1="${padT}" x2="${x(v)}" y2="${H - padB}"/>`;
+    sv += `<text class="axis-label" x="${x(v)}" y="${H - padB + 16}" text-anchor="middle">${abbr(v)}</text>`;
+  });
+  niceTicks(ymax, 5).forEach((v) => {
+    sv += `<line class="gridline" x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}"/>`;
+    sv += `<text class="axis-label" x="${padL - 8}" y="${y(v) + 3}" text-anchor="end">${Math.round(v)}</text>`;
+  });
+  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 8}" text-anchor="middle">
+          population exposed to ${p.k} kt wind, AOI provinces [IBTrACS]</text>`;
+  sv += `<text class="axis-title" x="14" y="${(padT + H - padB) / 2}" text-anchor="middle"
+          transform="rotate(-90 14 ${(padT + H - padB) / 2})">2-day rainfall, country mean (mm) [IMERG]</text>`;
+
+  // threshold lines
+  sv += `<line x1="${zx}" y1="${padT}" x2="${zx}" y2="${H - padB}"
+          stroke="var(--wind)" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+  sv += `<line x1="${padL}" y1="${zy}" x2="${W - padR}" y2="${zy}"
+          stroke="var(--rain)" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+
+  // bubbles (impact-sized) + labels. Labelling every storm (as the marimo
+  // did) stacks unreadably at the origin — label only storms that carry
+  // information (triggered, CERF, impact, or meaningful exposure/rain);
+  // the rest keep a dot and a hover tooltip.
+  for (const s of storms) {
+    const cx = x(s["exp" + p.k]), cy = y(s.rain);
+    const r = 5 + Math.sqrt(s.affected / maxTA) * 42;
+    const col = s.cerf ? "var(--critical)" : "var(--text-muted)";
+    sv += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" opacity="0.3">
+            <title>${esc(cap(s.name))} ${s.season} — exp${p.k} ${fmt(s["exp" + p.k])}, rain ${s.rain} mm, affected ${fmt(s.affected)}${s.cerf ? ", CERF" : ""}${s.trig ? " — TRIGGERED" : ""}</title></circle>`;
+    const labelled =
+      s.trig || s.cerf || s.affected > 0 ||
+      s["exp" + p.k] > xmax * 0.05 || s.rain > ymax * 0.55;
+    if (!labelled) {
+      sv += `<circle cx="${cx}" cy="${cy}" r="2.5" fill="var(--text-muted)"/>`;
+      continue;
+    }
+    sv += `<text x="${cx}" y="${cy - 1}" text-anchor="middle"
+            class="pt-label${s.trig ? " trig" : ""}"
+            fill="${s.cerf ? "var(--critical)" : "var(--text-primary)"}">${esc(cap(s.name))}</text>`;
+    sv += `<text x="${cx}" y="${cy + 10}" text-anchor="middle"
+            class="pt-label${s.trig ? " trig" : ""}"
+            fill="${s.cerf ? "var(--critical)" : "var(--text-secondary)"}">${s.season}</text>`;
+  }
+  sv += `</svg>`;
+
+  const legend =
+    `<ul class="legend"><li><span class="dot" style="background:var(--critical)"></span>CERF allocation</li>
+     <li><span class="dot" style="background:var(--text-muted)"></span>no CERF</li>
+     <li><strong>bold</strong>&nbsp;= triggered</li>
+     <li>bubble size = total affected (EM-DAT)</li>
+     <li><span class="ln" style="border-color:var(--wind);border-top-style:dashed"></span>wind threshold</li>
+     <li><span class="ln" style="border-color:var(--rain);border-top-style:dashed"></span>rain threshold</li></ul>`;
+  $("#dScatter").innerHTML = sv + legend;
+}
+
+function drawDesignTable(storms, p) {
+  const maxTA = Math.max(...storms.map((s) => s.affected), 1);
+  const maxW = Math.max(...storms.map((s) => s["exp" + p.k]), 1);
+  const maxR = Math.max(...storms.map((s) => s.rain), 1);
+  const rows = [...storms].sort(
+    (a, b) => b.affected - a.affected ||
+      b["exp" + p.k] - a["exp" + p.k] || b.rain - a.rain
+  );
+  const shade = (v, max, rgb) =>
+    `background:color-mix(in srgb, ${rgb} ${Math.round((v / max) * 45)}%, transparent)`;
+  let h = `<table><thead><tr><th>Cyclone</th>
+    <th>Pop. exposed ${p.k} kt (AOI)</th><th>2-day rainfall (mm)</th>
+    <th>Trigger?</th><th>CERF?</th><th>Total affected</th></tr></thead><tbody>`;
+  for (const s of rows) {
+    h += `<tr class="${s.trig ? "trig-row" : ""}">
+      <td>${esc(cap(s.name))} ${s.season}</td>
+      <td style="${shade(s["exp" + p.k], maxW, "var(--wind)")}">${fmt(s["exp" + p.k])}</td>
+      <td style="${shade(s.rain, maxR, "var(--rain)")}">${Math.round(s.rain)}</td>
+      <td>${s.trig ? '<span class="chip chip-trig">Yes</span>' : "No"}</td>
+      <td>${s.cerf ? '<span class="chip chip-cerf">Yes</span>' : "No"}</td>
+      <td><span class="impact-bar" style="--w:${Math.round((s.affected / maxTA) * 100)}%">${fmt(s.affected)}</span></td>
+    </tr>`;
+  }
+  $("#dTable").innerHTML = h + "</tbody></table>";
+}
+
+/* correlations of each indicator with impact */
+function pearson(xs, ys) {
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+  }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0;
+}
+
+function drawCorr() {
+  const inds = [
+    ["exp34", "Exp 34 kt (AOI)"], ["exp50", "Exp 50 kt (AOI)"],
+    ["exp64", "Exp 64 kt (AOI)"], ["rain", "Rainfall 2d"],
+  ];
+  const ta = HIST.storms.map((s) => s.affected);
+  const cerf = HIST.storms.map((s) => (s.cerf ? 1 : 0));
+  const panel = (title, ys) => {
+    const W = 420, rowH = 28, padL = 120, padT = 24, H = padT + inds.length * rowH + 10;
+    const x = (v) => padL + ((v + 1) / 2) * (W - padL - 12);
+    let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
+    sv += `<text class="axis-title" x="${padL}" y="14">${title}</text>`;
+    sv += `<line class="gridline" x1="${x(0)}" y1="${padT}" x2="${x(0)}" y2="${H - 8}"/>`;
+    [-1, -0.5, 0.5, 1].forEach((v) => {
+      sv += `<text class="axis-label" x="${x(v)}" y="${H - 0}" text-anchor="middle">${v}</text>`;
+    });
+    inds.forEach(([key, label], i) => {
+      const r = pearson(HIST.storms.map((s) => s[key]), ys);
+      const yy = padT + i * rowH + 4;
+      const x0 = Math.min(x(0), x(r)), w = Math.abs(x(r) - x(0));
+      sv += `<text class="axis-label" x="${padL - 8}" y="${yy + 11}" text-anchor="end">${label}</text>`;
+      sv += `<rect x="${x0}" y="${yy}" width="${Math.max(w, 1)}" height="15" rx="3"
+              fill="${r >= 0 ? "var(--rain)" : "var(--critical)"}"/>`;
+      sv += `<text class="axis-label" x="${x(r) + (r >= 0 ? 5 : -5)}" y="${yy + 11}"
+              text-anchor="${r >= 0 ? "start" : "end"}">${r.toFixed(2)}</text>`;
+    });
+    return sv + "</svg>";
+  };
+  $("#dCorr").innerHTML =
+    `<div>${panel("vs Total Affected", ta)}</div>` +
+    `<div>${panel("vs CERF allocation", cerf)}</div>`;
+}
+
+/* grid-search: threshold combos activating exactly `target` storms,
+   maximising total affected — a faithful port of the marimo optimiser */
+function drawOpt() {
+  const N = HIST.target;
+  const S = HIST.storms;
+  const ta = S.map((s) => s.affected);
+  const label = (s) => `${cap(s.name)} ${s.season}`;
+  const maxExp = Math.max(...[34, 50, 64].flatMap((k) => S.map((s) => s["exp" + k])));
+  const maxRain = Math.max(...S.map((s) => s.rain)) + 5;
+
+  const evalMask = (mask) => {
+    let n = 0, t = 0;
+    for (let i = 0; i < S.length; i++) if (mask[i]) { n++; t += ta[i]; }
+    return [n, t];
+  };
+  const results = [];
+  const consider = (best, scenario, wtLabel, rtLabel, mask, t) => {
+    if (!best || t > best.t)
+      return { scenario, wtLabel, rtLabel, t,
+               storms: S.filter((_, i) => mask[i]).map(label).join(", ") };
+    return best;
+  };
+
+  for (const k of [34, 50, 64]) {           // wind only
+    let best = null;
+    const exp = S.map((s) => s["exp" + k]);
+    for (let wt = 0; wt <= maxExp + 1000; wt += 1000) {
+      const mask = exp.map((v) => v >= wt);
+      const [n, t] = evalMask(mask);
+      if (n === N) best = consider(best, `Wind only (${k} kt)`, fmt(wt), "—", mask, t);
+    }
+    if (best) results.push(best);
+  }
+  {                                          // rain only
+    let best = null;
+    for (let rt = 0; rt <= maxRain; rt += 5) {
+      const mask = S.map((s) => s.rain >= rt);
+      const [n, t] = evalMask(mask);
+      if (n === N) best = consider(best, "Rain only", "—", String(rt), mask, t);
+    }
+    if (best) results.push(best);
+  }
+  for (const logic of ["AND", "OR"]) {       // combinations
+    for (const k of [34, 50, 64]) {
+      let best = null;
+      const exp = S.map((s) => s["exp" + k]);
+      for (let wt = 0; wt <= maxExp + 1000; wt += 1000) {
+        const wm = exp.map((v) => v >= wt);
+        for (let rt = 0; rt <= maxRain; rt += 5) {
+          const mask = S.map((s, i) =>
+            logic === "AND" ? wm[i] && s.rain >= rt : wm[i] || s.rain >= rt
+          );
+          const [n, t] = evalMask(mask);
+          if (n === N) best = consider(best, `${logic} (${k} kt)`, fmt(wt), String(rt), mask, t);
+        }
+      }
+      if (best) results.push(best);
+    }
+  }
+
+  const maxT = Math.max(...results.map((r) => r.t), 1);
+  let h = `<table><thead><tr><th>Scenario</th><th>Wind thresh</th>
+    <th>Rain thresh</th><th>Total affected</th><th>Storms</th></tr></thead><tbody>`;
+  for (const r of results) {
+    h += `<tr><td>${r.scenario}</td><td>${r.wtLabel}</td><td>${r.rtLabel}</td>
+      <td><span class="impact-bar" style="--w:${Math.round((r.t / maxT) * 100)}%">${fmt(r.t)}</span></td>
+      <td class="storm-list">${esc(r.storms)}</td></tr>`;
+  }
+  $("#dOpt").innerHTML = h + "</tbody></table>";
+}
+
+/* =================== TAB 2: forecast check ============================== */
 
 /* ------------------------------------------------------------- summary */
 function render() {

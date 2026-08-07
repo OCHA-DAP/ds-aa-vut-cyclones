@@ -8,18 +8,20 @@ Both are served from `docs/` on GitHub Pages:
 
 | Page | What it is |
 |---|---|
-| [`/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/) | Trigger threshold explorer (marimo, exported to WASM) |
-| [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Would the trigger have fired on the *forecasts*? (plain JS + Leaflet) |
+| [`/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/) | Trigger threshold explorer (marimo, exported to WASM) — being superseded by `/forecast-check/` |
+| [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Trigger design on the observed record **and** the forecast check (plain JS + Leaflet, two tabs) |
 
 The forecast-check page is a static JS app with its data pre-baked into
-`docs/forecast-check/data/` by `exploration/make_forecast_check_data.py`.
-Rebuild it with:
+`docs/forecast-check/data/`:
 
 ```shell
+# observed-record trigger data (hist.json + the marimo CSV)
+uv run python exploration/make_trigger_data.py
+# forecast-cycle exposure + map geometry (core.json, geom/)
 uv run python exploration/make_forecast_check_data.py
 ```
 
-That script needs a local copy of the VMGD archive zip
+`make_forecast_check_data.py` needs a local copy of the VMGD archive zip
 (`ds-aa-vut-cyclones/raw/vmgd/vmgd_historical_tc_archive_2026-08-05.zip` on
 blob) — set the path at the top of the script.
 
