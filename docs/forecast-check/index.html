@@ -158,7 +158,7 @@
       </p>
       <p>
         <strong>The two columns mirror the framework's trigger table.</strong> The forecast
-        column corresponds to the <strong>readiness/action triggers</strong>: exposure counted in
+        column corresponds to the <strong>action trigger</strong>: exposure counted in
         <strong>Shefa, Sanma and Tafea</strong> only (population
         <strong id="aoiPop">&mdash;</strong>). The observed column corresponds to the
         <strong>observational trigger</strong>: exposure counted over <strong>all of
@@ -168,12 +168,13 @@
         exposure method and population raster are otherwise identical.
       </p>
       <p>
-        Two approximations against the framework as written: the framework's forecast sources are
-        the RSMC Nadi extended track (readiness) and the VMHS track forecast (action), but
-        <strong>neither carries historical wind radii</strong> — JTWC official forecasts are the
-        proxy here. And each cycle's swath is built from the <strong>full 0&ndash;120&nbsp;h</strong>
-        forecast track, not yet segmented into the 24&ndash;72&nbsp;h (action) and
-        72&ndash;120&nbsp;h (readiness) leadtime windows.
+        Against the framework as written: the forecast column evaluates the
+        <strong>action leg only</strong>, from each cycle's 24&ndash;72&nbsp;h track segment. The
+        <strong>readiness leg (72&ndash;120&nbsp;h) is deliberately not assessed</strong> —
+        historical 64&nbsp;kt wind radii at those leadtimes are too sparse to score it fairly.
+        And the framework's forecast sources are the RSMC Nadi extended track (readiness) and the
+        VMHS track forecast (action), but <strong>neither carries historical wind radii</strong> —
+        JTWC official forecasts are the proxy here.
       </p>
       <p>
         <strong>VMGD's own forecast tracks carry no wind radii</strong> &mdash; their Forecast Track
@@ -217,7 +218,7 @@
   </section>
 
   <section class="chart-wrap">
-    <h2>Peak forecast exposure (AOI) vs observed (whole country), by storm</h2>
+    <h2>Action-leg forecast peak (24&ndash;72&nbsp;h, AOI) vs observed (whole country), by storm</h2>
     <p class="hint">Click a storm to inspect its forecast cycles on the map.
       <span id="hiddenNote"></span></p>
     <div id="chart" role="img" aria-label="Peak forecast and observed 64 kt exposure by storm"></div>
@@ -247,8 +248,8 @@
         </ul>
       </div>
       <div>
-        <h3>Forecast exposure by cycle</h3>
-        <div id="cycleChart" role="img" aria-label="Forecast exposure by cycle"></div>
+        <h3>Action-window exposure by cycle (24&ndash;72&nbsp;h, AOI)</h3>
+        <div id="cycleChart" role="img" aria-label="Action-window exposure by cycle"></div>
         <div id="cycleInfo" class="cycle-info"></div>
       </div>
     </div>
