@@ -13,8 +13,9 @@ let map, layers = {}, playTimer = null;
 let dMap, dLayers = {}, dSelected = null, obsGeomCache = {};
 
 // the proposed trigger — locked on the forecast tab
-const THRESH = 5000;
+const THRESH = 3000;
 const peak = (s) => s.cycles.reduce((m, c) => Math.max(m, +c.exp[SPEED]), 0);
+const peakLeg = (s, k) => s.cycles.reduce((m, c) => Math.max(m, +(c[k] || 0)), 0);
 const thresh = () => THRESH;
 
 /* ------------------------------------------------------------------ tabs */
@@ -419,28 +420,34 @@ function render() {
   let rows = CORE.storms.map((s) => ({
     s,
     peak: peak(s),
+    pR: peakLeg(s, "expR64"),
+    pA: peakLeg(s, "expA64"),
     obs: +(s.obs[SPEED] || 0),
   }));
+  rows.forEach((r) => (r.fcst = r.pR >= t || r.pA >= t));
 
-  const trig = rows.filter((r) => r.peak >= t);
-  const falseAlarm = rows.filter((r) => r.peak >= t && r.obs < t);
-  const missed = rows.filter((r) => r.peak < t && r.obs >= t);
+  const readi = rows.filter((r) => r.pR >= t);
+  const act = rows.filter((r) => r.pA >= t);
+  const trig = rows.filter((r) => r.fcst);
+  const falseAlarm = rows.filter((r) => r.fcst && r.obs < t);
+  const obsOnly = rows.filter((r) => !r.fcst && r.obs >= t);
   const cerf = rows.filter((r) => r.s.cerf);
-  const cerfHit = cerf.filter((r) => r.peak >= t);
+  const cerfHit = cerf.filter((r) => r.fcst);
 
   $("#stats").innerHTML = [
-    stat(trig.length, "storms would have triggered the forecast legs (readiness/action, AOI)", trig.length > 0),
-    stat(falseAlarm.length, "of those stayed below threshold observed, anywhere in the country", falseAlarm.length > 0),
-    stat(missed.length, "caught only by the observational trigger (national, no leadtime)", missed.length > 0),
-    stat(`${cerfHit.length}/${cerf.length}`, "CERF-allocation storms would have triggered the forecast legs",
+    stat(readi.length, "would have triggered readiness (72–120 h, AOI)", readi.length > 0),
+    stat(act.length, "would have triggered action (24–72 h, AOI)", act.length > 0),
+    stat(falseAlarm.length, "forecast-leg triggers below threshold observed, anywhere in the country", falseAlarm.length > 0),
+    stat(obsOnly.length, "caught only by the observational trigger (national, no leadtime)", obsOnly.length > 0),
+    stat(`${cerfHit.length}/${cerf.length}`, "CERF-allocation storms captured by a forecast leg",
          cerfHit.length < cerf.length),
   ].join("");
 
-  const cerfMiss = cerf.filter((r) => r.peak < t);
+  const cerfMiss = cerf.filter((r) => !r.fcst);
   $("#cerfNote").innerHTML = cerfMiss.length
     ? "CERF storm" + (cerfMiss.length > 1 ? "s" : "") + " below the forecast-leg threshold: " +
       cerfMiss.map((r) =>
-        `<strong>${esc(r.s.name)}</strong> (forecast peak ${fmt(r.peak)} in the AOI, observed ${fmt(r.obs)} country-wide` +
+        `<strong>${esc(r.s.name)}</strong> (readiness peak ${fmt(r.pR)}, action peak ${fmt(r.pA)} in the AOI; observed ${fmt(r.obs)} country-wide` +
         (r.obs >= t
           ? " — it would still have activated the framework via the observational trigger, whose scope is all of Vanuatu, but with no leadtime"
           : "") +
@@ -455,10 +462,11 @@ function render() {
     ? ""
     : `${hidden} further storms had zero forecast and zero observed exposure and are hidden.`;
   const sort = $("#sort").value;
+  const legMax = (r) => Math.max(r.pR, r.pA);
   rows.sort((a, b) =>
     sort === "season" ? a.s.season - b.s.season || a.s.name.localeCompare(b.s.name)
     : sort === "name" ? a.s.name.localeCompare(b.s.name)
-    : b.peak - a.peak || b.obs - a.obs
+    : legMax(b) - legMax(a) || b.peak - a.peak || b.obs - a.obs
   );
 
   drawChart(rows, t);
@@ -471,9 +479,10 @@ function stat(v, k, alert) {
 }
 
 function drawChart(rows, t) {
-  const W = 900, padL = 108, padR = 56, padT = 26, rowH = 22;
+  const W = 900, padL = 108, padR = 76, padT = 26, rowH = 30;
   const H = padT + rows.length * rowH + 30;
-  const max = Math.max(t * 1.15, ...rows.map((r) => Math.max(r.peak, r.obs)), 1);
+  const max = Math.max(t * 1.15,
+    ...rows.map((r) => Math.max(r.pR, r.pA, r.obs)), 1);
   const x = (v) => padL + (v / max) * (W - padL - padR);
 
   const ticks = niceTicks(max, 5);
@@ -483,20 +492,21 @@ function drawChart(rows, t) {
     sv += `<line class="gridline" x1="${x(v)}" y1="${padT - 6}" x2="${x(v)}" y2="${H - 30}"/>`;
     sv += `<text class="axis-label" x="${x(v)}" y="${H - 16}" text-anchor="middle">${abbr(v)}</text>`;
   });
-  sv += `<text class="axis-label" x="${padL}" y="${H - 3}" text-anchor="start">people exposed to ${SPEED} kt (forecast: AOI provinces &#183; observed: whole country)</text>`;
+  sv += `<text class="axis-label" x="${padL}" y="${H - 3}" text-anchor="start">people exposed to ${SPEED} kt (forecast legs: AOI provinces &#183; observed: whole country)</text>`;
 
   rows.forEach((r, i) => {
     const y = padT + i * rowH;
-    const over = r.peak >= t;
+    const over = r.fcst;
     sv += `<g class="bar-row${r.s.id === selected ? " sel" : ""}" data-id="${r.s.id}">`;
     sv += `<rect class="hit" x="0" y="${y - 2}" width="${W}" height="${rowH}" fill="transparent"/>`;
-    // forecast bar (upper), observed bar (lower) — 2px surface gap between
-    sv += bar(padL, y + 1, x(r.peak) - padL, 7, "var(--fcst)");
-    sv += bar(padL, y + 10, x(r.obs) - padL, 7, "var(--obs)");
+    // readiness / action / observed — 2px surface gaps
+    sv += bar(padL, y + 1, x(r.pR) - padL, 6, "var(--fcst-r)");
+    sv += bar(padL, y + 9, x(r.pA) - padL, 6, "var(--fcst)");
+    sv += bar(padL, y + 17, x(r.obs) - padL, 6, "var(--obs)");
     const label = r.s.name + (r.s.cerf ? " ★" : "");
-    sv += `<text class="storm-label${over ? " over" : ""}" x="${padL - 8}" y="${y + 13}" text-anchor="end">${esc(label)}</text>`;
-    sv += `<text class="val-label" x="${Math.max(x(r.peak), x(r.obs)) + 6}" y="${y + 13}">${abbr(r.peak)} / ${abbr(r.obs)}</text>`;
-    sv += `<title>${esc(r.s.name)} ${r.s.season} — forecast peak ${fmt(r.peak)}, observed ${fmt(r.obs)}</title>`;
+    sv += `<text class="storm-label${over ? " over" : ""}" x="${padL - 8}" y="${y + 15}" text-anchor="end">${esc(label)}</text>`;
+    sv += `<text class="val-label" x="${Math.max(x(r.pR), x(r.pA), x(r.obs)) + 6}" y="${y + 15}">${abbr(r.pR)} / ${abbr(r.pA)} / ${abbr(r.obs)}</text>`;
+    sv += `<title>${esc(r.s.name)} ${r.s.season} — readiness peak ${fmt(r.pR)}, action peak ${fmt(r.pA)} (AOI); observed ${fmt(r.obs)} (country)</title>`;
     sv += `</g>`;
   });
 
@@ -505,8 +515,9 @@ function drawChart(rows, t) {
   sv += `</svg>`;
 
   const legend =
-    `<ul class="legend"><li><span class="sw" style="background:var(--fcst)"></span>Peak forecast (JTWC, AOI) — readiness/action scope</li>
-     <li><span class="sw" style="background:var(--obs)"></span>Observed (IBTrACS, whole country) — observational-trigger scope</li>
+    `<ul class="legend"><li><span class="sw" style="background:var(--fcst-r)"></span>Readiness leg peak (72–120 h, JTWC, AOI)</li>
+     <li><span class="sw" style="background:var(--fcst)"></span>Action leg peak (24–72 h, JTWC, AOI)</li>
+     <li><span class="sw" style="background:var(--obs)"></span>Observed (IBTrACS, whole country) — observational trigger</li>
      <li>★ = CERF-allocation storm</li></ul>`;
   $("#chart").innerHTML = sv + legend;
 
@@ -525,13 +536,16 @@ function bar(x0, y, w, h, fill) {
 
 function drawTable(rows, t) {
   let h = `<table><thead><tr><th>Storm</th><th>Season</th>
-    <th>Peak forecast 64kt (AOI)</th><th>Observed 64kt (country)</th>
-    <th>Observed 50kt (country)</th><th>Observed 34kt (country)</th><th>Cycles</th></tr></thead><tbody>`;
+    <th>Readiness 64kt (72–120h, AOI)</th><th>Action 64kt (24–72h, AOI)</th>
+    <th>Any-leadtime 64kt (AOI)</th><th>Observed 64kt (country)</th>
+    <th>Observed 34kt (country)</th><th>Cycles</th></tr></thead><tbody>`;
   rows.forEach((r) => {
     h += `<tr><td>${esc(r.s.name)}${r.s.cerf ? " ★" : ""}</td><td>${r.s.season}</td>
-      <td class="${r.peak >= t ? "over" : ""}">${fmt(r.peak)}</td>
+      <td class="${r.pR >= t ? "over" : ""}">${fmt(r.pR)}</td>
+      <td class="${r.pA >= t ? "over" : ""}">${fmt(r.pA)}</td>
+      <td>${fmt(r.peak)}</td>
       <td class="${r.obs >= t ? "over" : ""}">${fmt(r.obs)}</td>
-      <td>${fmt(+(r.s.obs["50"] || 0))}</td><td>${fmt(+(r.s.obs["34"] || 0))}</td>
+      <td>${fmt(+(r.s.obs["34"] || 0))}</td>
       <td>${r.s.cycles.length}</td></tr>`;
   });
   $("#table").innerHTML = h + "</tbody></table>";
@@ -656,13 +670,17 @@ function showCycle(s, i) {
   }
 
   const t = thresh();
-  const e = +c.exp[SPEED];
+  const eR = +(c.expR64 || 0), eA = +(c.expA64 || 0);
+  const mark = (v) =>
+    `<strong style="color:${v >= t ? "var(--critical)" : "inherit"}">${fmt(v)}</strong>${v >= t ? " — over threshold" : ""}`;
   $("#cycleInfo").innerHTML = `<dl>
     <dt>Forecast issued</dt><dd>${c.init}</dd>
     <dt>Peak forecast wind</dt><dd>${c.vmax} kt</dd>
-    <dt>Exposed at 64 kt (AOI)</dt><dd><strong style="color:${e >= t ? "var(--critical)" : "inherit"}">${fmt(e)}</strong>${e >= t ? " — over threshold" : ""}</dd>
-    <dt>Exposed at 50 kt (AOI)</dt><dd>${fmt(+c.exp["50"])}</dd>
-    <dt>Exposed at 34 kt (AOI)</dt><dd>${fmt(+c.exp["34"])}</dd>
+    <dt>Readiness window 64 kt (72–120 h, AOI)</dt><dd>${mark(eR)}</dd>
+    <dt>Action window 64 kt (24–72 h, AOI)</dt><dd>${mark(eA)}</dd>
+    <dt>Any leadtime 64 kt (AOI)</dt><dd>${fmt(+c.exp["64"])}</dd>
+    <dt>Exposed at 50 kt (AOI, any leadtime)</dt><dd>${fmt(+c.exp["50"])}</dd>
+    <dt>Exposed at 34 kt (AOI, any leadtime)</dt><dd>${fmt(+c.exp["34"])}</dd>
     <dt>Observed at 64 kt (country)</dt><dd>${fmt(+(s.obs["64"] || 0))}</dd></dl>`;
 
   drawCycleChart(s, i);

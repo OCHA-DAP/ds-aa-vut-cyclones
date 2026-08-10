@@ -367,11 +367,33 @@ def main():
                     ring64 = _ring(b.geometry)
             if not exp:
                 continue
+
+            # per-leg 64 kt exposure, from the framework's leadtime windows:
+            # action = the 24-72 h track segment, readiness = 72-120 h
+            leg = {}
+            # NB: loop variable must not shadow the storm-level `name`
+            for leg_key, lo, hi in (("A", 24, 72), ("R", 72, 120)):
+                seg = g[(g["tau"] >= lo) & (g["tau"] <= hi)]
+                leg[leg_key] = 0
+                if seg.empty:
+                    continue
+                sb = wind_buffers_from_track(seg, speeds=(64,))
+                if sb.empty:
+                    continue
+                gw = (
+                    gpd.GeoSeries([sb.geometry.iloc[0]], crs=3832)
+                    .to_crs(FJI_CRS)
+                    .iloc[0]
+                )
+                leg[leg_key] = exposure(gw)
+
             key = init.strftime("%Y%m%d%H")
             cycles.append(
                 {
                     "init": init.strftime("%Y-%m-%dT%H:%MZ"),
                     "exp": {str(s): int(exp.get(s, 0)) for s in SPEEDS},
+                    "expA64": int(leg["A"]),
+                    "expR64": int(leg["R"]),
                     "vmax": int(g["vmax"].max()),
                 }
             )

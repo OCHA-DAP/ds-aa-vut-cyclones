@@ -8,6 +8,7 @@
   --text-muted: #767570;
   /* series slots 1 & 2 (validated adjacent + all-pairs, both modes) */
   --fcst: #2a78d6;
+  --fcst-r: #8ab5e8;
   --obs: #eb6834;
   --vmgd: #767570;
   --critical: #c02526;
@@ -27,6 +28,7 @@
     --text-secondary: #c3c2b7;
     --text-muted: #9a998f;
     --fcst: #3987e5;
+    --fcst-r: #5f93cf;
     --obs: #d95926;
     --vmgd: #9a998f;
     --critical: #e66767;
@@ -45,6 +47,7 @@
   --text-secondary: #c3c2b7;
   --text-muted: #9a998f;
   --fcst: #3987e5;
+  --fcst-r: #5f93cf;
   --obs: #d95926;
   --vmgd: #9a998f;
   --critical: #e66767;
