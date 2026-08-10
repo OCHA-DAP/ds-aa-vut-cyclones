@@ -34,6 +34,16 @@
     <summary>How to use, and where the numbers come from</summary>
     <div>
       <p>
+        <strong>The framework in development defines three triggers</strong>, all at
+        &ge;64&nbsp;kt / &ge;5,000 people exposed: a <strong>readiness trigger</strong>
+        (72&ndash;120&nbsp;h leadtime, RSMC Nadi extended track forecast, Shefa/Sanma/Tafea), an
+        <strong>action trigger</strong> (24&ndash;72&nbsp;h, VMHS track forecast, same provinces),
+        and an <strong>observational trigger</strong> (no leadtime, VMHS observed track,
+        <em>all of Vanuatu</em>). This tab explores how forecast-trigger thresholds behave on the
+        observed record; the forecast-check tab tests the forecast legs against historical
+        forecasts and shows the observational trigger's national scope.
+      </p>
+      <p>
         <strong>How to use:</strong> set a wind-exposure and/or rainfall threshold, choose whether
         both (<strong>AND</strong>) or either (<strong>OR</strong>) must be met, and pick the wind
         speed. Storms meeting the rule are <strong>triggered</strong> (bold labels). Aim for the
@@ -145,13 +155,23 @@
         summed.
       </p>
       <p>
-        <strong>The two columns deliberately use different scopes.</strong> Forecast exposure
-        counts only <strong>Shefa, Sanma and Tafea</strong> — the trigger's domain
-        (population <strong id="aoiPop">&mdash;</strong>). Observed exposure counts the
-        <strong>whole country</strong> (population <strong id="natPop">&mdash;</strong>), so
-        verification asks whether the storm actually hit Vanuatu — a storm striking Torba or
-        Penama shows its real observed exposure even though the trigger does not count those
-        provinces. The exposure method and population raster are otherwise identical.
+        <strong>The two columns mirror the framework's trigger table.</strong> The forecast
+        column corresponds to the <strong>readiness/action triggers</strong>: exposure counted in
+        <strong>Shefa, Sanma and Tafea</strong> only (population
+        <strong id="aoiPop">&mdash;</strong>). The observed column corresponds to the
+        <strong>observational trigger</strong>: exposure counted over <strong>all of
+        Vanuatu</strong> (population <strong id="natPop">&mdash;</strong>) — a storm striking
+        Torba or Penama shows its real observed exposure and can activate the framework through
+        the observational leg even though the forecast legs do not count those provinces. The
+        exposure method and population raster are otherwise identical.
+      </p>
+      <p>
+        Two approximations against the framework as written: the framework's forecast sources are
+        the RSMC Nadi extended track (readiness) and the VMHS track forecast (action), but
+        <strong>neither carries historical wind radii</strong> — JTWC official forecasts are the
+        proxy here. And each cycle's swath is built from the <strong>full 0&ndash;120&nbsp;h</strong>
+        forecast track, not yet segmented into the 24&ndash;72&nbsp;h (action) and
+        72&ndash;120&nbsp;h (readiness) leadtime windows.
       </p>
       <p>
         <strong>VMGD's own forecast tracks carry no wind radii</strong> &mdash; their Forecast Track

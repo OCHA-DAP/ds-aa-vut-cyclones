@@ -429,20 +429,20 @@ function render() {
   const cerfHit = cerf.filter((r) => r.peak >= t);
 
   $("#stats").innerHTML = [
-    stat(trig.length, "storms would have triggered on forecast (AOI)", trig.length > 0),
+    stat(trig.length, "storms would have triggered the forecast legs (readiness/action, AOI)", trig.length > 0),
     stat(falseAlarm.length, "of those stayed below threshold observed, anywhere in the country", falseAlarm.length > 0),
-    stat(missed.length, "hit the country over threshold but never triggered (AOI forecast)", missed.length > 0),
-    stat(`${cerfHit.length}/${cerf.length}`, "CERF-allocation storms would have triggered",
+    stat(missed.length, "caught only by the observational trigger (national, no leadtime)", missed.length > 0),
+    stat(`${cerfHit.length}/${cerf.length}`, "CERF-allocation storms would have triggered the forecast legs",
          cerfHit.length < cerf.length),
   ].join("");
 
   const cerfMiss = cerf.filter((r) => r.peak < t);
   $("#cerfNote").innerHTML = cerfMiss.length
-    ? "CERF storm" + (cerfMiss.length > 1 ? "s" : "") + " below the forecast threshold: " +
+    ? "CERF storm" + (cerfMiss.length > 1 ? "s" : "") + " below the forecast-leg threshold: " +
       cerfMiss.map((r) =>
         `<strong>${esc(r.s.name)}</strong> (forecast peak ${fmt(r.peak)} in the AOI, observed ${fmt(r.obs)} country-wide` +
         (r.obs >= t
-          ? " — its impact fell outside Shefa/Sanma/Tafea, so this is the AOI scope, not the forecast, missing it"
+          ? " — it would still have activated the framework via the observational trigger, whose scope is all of Vanuatu, but with no leadtime"
           : "") +
         ")").join("; ") + "."
     : "";
@@ -505,8 +505,8 @@ function drawChart(rows, t) {
   sv += `</svg>`;
 
   const legend =
-    `<ul class="legend"><li><span class="sw" style="background:var(--fcst)"></span>Peak forecast (JTWC, AOI provinces)</li>
-     <li><span class="sw" style="background:var(--obs)"></span>Observed (IBTrACS, whole country)</li>
+    `<ul class="legend"><li><span class="sw" style="background:var(--fcst)"></span>Peak forecast (JTWC, AOI) — readiness/action scope</li>
+     <li><span class="sw" style="background:var(--obs)"></span>Observed (IBTrACS, whole country) — observational-trigger scope</li>
      <li>★ = CERF-allocation storm</li></ul>`;
   $("#chart").innerHTML = sv + legend;
 
