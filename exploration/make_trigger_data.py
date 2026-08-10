@@ -1,13 +1,19 @@
 """Generate the observed-record trigger data.
 
 Writes:
-    exploration/public/trigger_data.csv     — for the marimo WASM export
-    docs/forecast-check/data/hist.json      — for the static JS page
+    exploration/public/trigger_data.csv       — for the marimo WASM export
+    docs/forecast-check/data/hist.json        — for the static JS page
+    docs/forecast-check/data/obsgeom/<sid>.json — observed swaths + track,
+        lazy-loaded by the trigger-design map
 """
+import io
 import json
+from pathlib import Path
 
+import geopandas as gpd
 import ocha_stratus as stratus
 import pandas as pd
+from make_forecast_check_data import _ring
 
 from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
 from src.datasources import codab
@@ -101,3 +107,44 @@ json_path = "docs/forecast-check/data/hist.json"
 with open(json_path, "w") as f:
     json.dump(hist, f, separators=(",", ":"))
 print(f"Saved {len(storms)} storms to {json_path}")
+
+# --- observed swath + track geometry per storm, for the design-tab map ---
+gdf_buf = gpd.read_parquet(
+    io.BytesIO(
+        stratus.load_blob_data(
+            "pa-aa-fji-storms/processed/ibtracs/wind_buffers.parquet"
+        )
+    )
+)
+gdf_buf = gdf_buf.assign(geometry=gdf_buf.geometry.make_valid())
+
+# tracks from the DB (vut_distances.parquet predates the 2022+ storms)
+_sid_list = ",".join(repr(s["sid"]) for s in storms)
+with stratus.get_engine(stage="prod").connect() as con:
+    df_track = pd.read_sql(
+        "SELECT sid, valid_time AS time, "
+        " ST_Y(geometry::geometry) AS lat, ST_X(geometry::geometry) AS lon "
+        f"FROM storms.ibtracs_tracks_geo WHERE sid IN ({_sid_list})",
+        con,
+    )
+
+geom_dir = Path("docs/forecast-check/data/obsgeom")
+geom_dir.mkdir(parents=True, exist_ok=True)
+n_geo = 0
+for s in storms:
+    sid = s["sid"]
+    rings = {}
+    for speed in (34, 50, 64):
+        sel = gdf_buf[
+            (gdf_buf["sid"] == sid) & (gdf_buf["buffer_speed"] == speed)
+        ]
+        rings[str(speed)] = (
+            _ring(sel.geometry.union_all()) if len(sel) else None
+        )
+    tr = df_track[df_track["sid"] == sid].sort_values("time")
+    tr = tr.iloc[:: max(1, len(tr) // 300)]
+    track = [[round(r.lat, 2), round(r.lon % 360, 2)] for r in tr.itertuples()]
+    with open(geom_dir / f"{sid}.json", "w") as f:
+        json.dump({"rings": rings, "track": track}, f, separators=(",", ":"))
+    n_geo += 1
+print(f"Saved {n_geo} storm geometries to {geom_dir}")

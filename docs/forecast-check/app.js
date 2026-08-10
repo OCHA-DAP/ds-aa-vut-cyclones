@@ -7,12 +7,15 @@ const fmt = (n) => n.toLocaleString("en-US");
 const $ = (s) => document.querySelector(s);
 
 let CORE = null;
-let selected = null;      // storm id
+let selected = null;      // storm id (forecast tab)
 let geomCache = {};
 let map, layers = {}, playTimer = null;
+let dMap, dLayers = {}, dSelected = null, obsGeomCache = {};
 
+// the proposed trigger — locked on the forecast tab
+const THRESH = 5000;
 const peak = (s) => s.cycles.reduce((m, c) => Math.max(m, +c.exp[SPEED]), 0);
-const thresh = () => Math.max(0, +$("#threshold").value || 0);
+const thresh = () => THRESH;
 
 /* ------------------------------------------------------------------ tabs */
 function showTab(name, updateHash = true) {
@@ -24,6 +27,7 @@ function showTab(name, updateHash = true) {
   if (updateHash) history.replaceState(null, "", "#" + name);
   // Leaflet can't size itself inside a hidden panel
   if (name === "forecast" && map) setTimeout(() => map.invalidateSize(), 0);
+  if (name === "design" && dMap) setTimeout(() => dMap.invalidateSize(), 0);
 }
 document.querySelectorAll(".tab").forEach((b) =>
   b.addEventListener("click", () => showTab(b.dataset.tab))
@@ -42,7 +46,6 @@ Promise.all([
     HIST = hist;
     $("#generated").textContent = "Generated " + core.generated + ".";
     if (core.aoi_pop) $("#aoiPop").textContent = fmt(core.aoi_pop);
-    $("#threshold").addEventListener("input", render);
     $("#sort").addEventListener("change", render);
     $("#showZero").addEventListener("change", render);
     render();
@@ -56,6 +59,9 @@ Promise.all([
     renderDesign();
     drawCorr();
     drawOpt();
+    // open the map on the biggest observed hit
+    const top = [...HIST.storms].sort((a, b) => b.exp64 - a.exp64)[0];
+    if (top) selectDesignStorm(top.sid);
   })
   .catch((e) => {
     $("#chart").innerHTML = $("#dScatter").innerHTML =
@@ -153,8 +159,10 @@ function drawScatter(storms, p) {
     const cx = x(s["exp" + p.k]), cy = y(s.rain);
     const r = 5 + Math.sqrt(s.affected / maxTA) * 42;
     const col = s.cerf ? "var(--critical)" : "var(--text-muted)";
-    sv += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" opacity="0.3">
-            <title>${esc(cap(s.name))} ${s.season} — exp${p.k} ${fmt(s["exp" + p.k])}, rain ${s.rain} mm, affected ${fmt(s.affected)}${s.cerf ? ", CERF" : ""}${s.trig ? " — TRIGGERED" : ""}</title></circle>`;
+    const sel = s.sid === dSelected;
+    sv += `<circle class="d-pt" data-sid="${s.sid}" cx="${cx}" cy="${cy}" r="${r}"
+            fill="${col}" opacity="0.3"${sel ? ' stroke="var(--text-primary)" stroke-width="1.5"' : ""}>
+            <title>${esc(cap(s.name))} ${s.season} — exp${p.k} ${fmt(s["exp" + p.k])}, rain ${s.rain} mm, affected ${fmt(s.affected)}${s.cerf ? ", CERF" : ""}${s.trig ? " — TRIGGERED" : ""}. Click to map.</title></circle>`;
     const labelled =
       s.trig || s.cerf || s.affected > 0 ||
       s["exp" + p.k] > xmax * 0.05 || s.rain > ymax * 0.55;
@@ -179,6 +187,9 @@ function drawScatter(storms, p) {
      <li><span class="ln" style="border-color:var(--wind);border-top-style:dashed"></span>wind threshold</li>
      <li><span class="ln" style="border-color:var(--rain);border-top-style:dashed"></span>rain threshold</li></ul>`;
   $("#dScatter").innerHTML = sv + legend;
+  $("#dScatter").querySelectorAll(".d-pt").forEach((c) =>
+    c.addEventListener("click", () => selectDesignStorm(c.dataset.sid))
+  );
 }
 
 function drawDesignTable(storms, p) {
@@ -195,7 +206,7 @@ function drawDesignTable(storms, p) {
     <th>Pop. exposed ${p.k} kt (AOI)</th><th>2-day rainfall (mm)</th>
     <th>Trigger?</th><th>CERF?</th><th>Total affected</th></tr></thead><tbody>`;
   for (const s of rows) {
-    h += `<tr class="${s.trig ? "trig-row" : ""}">
+    h += `<tr class="d-row ${s.trig ? "trig-row" : ""}${s.sid === dSelected ? " sel-row" : ""}" data-sid="${s.sid}">
       <td>${esc(cap(s.name))} ${s.season}</td>
       <td style="${shade(s["exp" + p.k], maxW, "var(--wind)")}">${fmt(s["exp" + p.k])}</td>
       <td style="${shade(s.rain, maxR, "var(--rain)")}">${Math.round(s.rain)}</td>
@@ -205,6 +216,80 @@ function drawDesignTable(storms, p) {
     </tr>`;
   }
   $("#dTable").innerHTML = h + "</tbody></table>";
+  $("#dTable").querySelectorAll(".d-row").forEach((tr) =>
+    tr.addEventListener("click", () => selectDesignStorm(tr.dataset.sid))
+  );
+}
+
+/* ---------------- observed-swath map (design tab) ---------------- */
+
+const RING_STYLE = {
+  34: { color: "#e0a800", fillOpacity: 0.15 },
+  50: { color: "#ee8434", fillOpacity: 0.22 },
+  64: { color: "#c02526", fillOpacity: 0.32 },
+};
+
+function ensureDMap() {
+  if (dMap) return;
+  dMap = L.map("dMap", { scrollWheelZoom: false }).setView([-16.2, 167.7], 6);
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (document.documentElement.dataset.theme !== "light" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  L.tileLayer(
+    `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`,
+    { attribution: "&copy; OpenStreetMap, &copy; CARTO", maxZoom: 11 }
+  ).addTo(dMap);
+}
+
+function selectDesignStorm(sid) {
+  dSelected = sid;
+  const s = HIST.storms.find((x) => x.sid === sid);
+  if (!s) return;
+  $("#dMapTitle").textContent =
+    `${cap(s.name)} (${s.season}) — observed swaths · ` +
+    `64 kt: ${fmt(s.exp64)} · 50 kt: ${fmt(s.exp50)} · ` +
+    `34 kt: ${fmt(s.exp34)} exposed · rain ${Math.round(s.rain)} mm`;
+  ensureDMap();
+  const p = obsGeomCache[sid]
+    ? Promise.resolve(obsGeomCache[sid])
+    : fetch(`data/obsgeom/${sid}.json`)
+        .then((r) => r.json())
+        .then((g) => (obsGeomCache[sid] = g));
+  p.then((g) => {
+    Object.keys(dLayers).forEach((k) => {
+      dMap.removeLayer(dLayers[k]);
+      delete dLayers[k];
+    });
+    if (CORE.aoi_geom) {
+      dLayers.aoi = L.geoJSON(CORE.aoi_geom, {
+        style: { color: "#1baf7a", weight: 2, fillOpacity: 0.25, fillColor: "#1baf7a" },
+      }).addTo(dMap);
+    }
+    for (const speed of [34, 50, 64]) {
+      const rings = g.rings[String(speed)];
+      if (!rings) continue;
+      const st = RING_STYLE[speed];
+      dLayers["r" + speed] = L.polygon(ring2ll(rings), {
+        color: st.color, weight: 1.5, fillColor: st.color,
+        fillOpacity: st.fillOpacity,
+      }).addTo(dMap);
+    }
+    if (g.track && g.track.length) {
+      dLayers.track = L.polyline(tr2ll(g.track), {
+        color: "#888", weight: 2, opacity: 0.85, dashArray: "1 6",
+      }).addTo(dMap);
+    }
+    let b = null;
+    ["aoi", "r34", "r50", "r64"].forEach((k) => {
+      if (!dLayers[k]) return;
+      const lb = dLayers[k].getBounds();
+      b = b ? b.extend(lb) : L.latLngBounds(lb.getSouthWest(), lb.getNorthEast());
+    });
+    if (b && b.isValid()) dMap.fitBounds(b.pad(0.12));
+    dMap.invalidateSize();
+    renderDesign(); // refresh selection highlight
+  });
 }
 
 /* correlations of each indicator with impact */

@@ -203,5 +203,19 @@ td.over { color: var(--critical); font-weight: 650; }
 .corr-grid svg { display: block; width: 100%; height: auto; }
 
 .scroll-x { overflow-x: auto; }
+
+/* design-tab map */
+#dMap { height: 420px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+.d-pt { cursor: pointer; }
+.d-pt:hover { opacity: .55; }
+.d-row { cursor: pointer; }
+.d-row:hover td { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.sel-row td:first-child { text-decoration: underline; text-underline-offset: 3px; }
+.sw-r34 { background: color-mix(in srgb, #e0a800 30%, transparent); border: 1.5px solid #e0a800; }
+.sw-r50 { background: color-mix(in srgb, #ee8434 35%, transparent); border: 1.5px solid #ee8434; }
+.sw-r64 { background: color-mix(in srgb, #c02526 40%, transparent); border: 1.5px solid #c02526; }
+
+.locked-trigger { color: var(--text-secondary); }
+.locked-trigger strong { color: var(--text-primary); }
 .storm-list { text-align: left; font-size: .78rem; color: var(--text-secondary); max-width: 34ch; }
 #dScatter svg { display: block; width: 100%; height: auto; }

@@ -25,8 +25,10 @@
     How the trigger was set: every cyclone season since <strong>2003</strong> (23 seasons),
     each storm placed by its <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
-    <strong>2-day rainfall</strong> (IMERG). Pick thresholds and see which storms would have
-    activated, and at what return period.
+    <strong>2-day rainfall</strong> (IMERG). The controls start on the proposed trigger —
+    <strong>5,000 people exposed to 64&nbsp;kt winds</strong>, no rainfall condition —
+    adjust them to see how alternatives would have behaved, and click any storm to see its
+    observed wind swaths on the map.
   </p>
   <details class="caveat">
     <summary>How to use, and where the numbers come from</summary>
@@ -59,12 +61,12 @@
       </select>
     </label>
     <label class="thr wind-lab">Wind exposure &ge;
-      <input type="number" id="dWt" value="100000" min="0" step="5000" />
+      <input type="number" id="dWt" value="5000" min="0" step="1000" />
       <span class="unit">people</span>
     </label>
     <label class="thr rain-lab">Rainfall &ge;
-      <input type="number" id="dRt" value="100" min="0" step="5" />
-      <span class="unit">mm / 2d</span>
+      <input type="number" id="dRt" value="0" min="0" step="5" />
+      <span class="unit">mm / 2d (0 = no rain condition)</span>
     </label>
     <span class="radio-group" role="radiogroup" aria-label="Trigger logic">
       <label class="check"><input type="radio" name="dLogic" value="AND" checked /> AND</label>
@@ -78,6 +80,19 @@
 
   <section class="chart-wrap">
     <div id="dScatter" role="img" aria-label="Storms by wind exposure and 2-day rainfall, with trigger zone"></div>
+  </section>
+
+  <section class="detail">
+    <h2 id="dMapTitle">Observed wind swaths</h2>
+    <p class="hint">Click a storm on the chart or in the table to map its observed swaths.</p>
+    <div id="dMap"></div>
+    <ul class="legend">
+      <li><span class="sw sw-r34"></span>34&nbsp;kt swath</li>
+      <li><span class="sw sw-r50"></span>50&nbsp;kt swath</li>
+      <li><span class="sw sw-r64"></span>64&nbsp;kt swath</li>
+      <li><span class="ln ln-obs"></span>Track (IBTrACS)</li>
+      <li><span class="sw sw-aoi"></span>AOI provinces</li>
+    </ul>
   </section>
 
   <section class="chart-wrap">
@@ -156,10 +171,8 @@
   </details>
 
   <section class="controls" aria-label="Controls">
-    <label>Trigger threshold
-      <input type="number" id="threshold" value="5000" min="0" step="1000" />
-      <span class="unit">people at 64&nbsp;kt</span>
-    </label>
+    <span class="locked-trigger">Trigger: <strong>5,000 people at 64&nbsp;kt</strong>
+      <span class="unit">(as proposed — explore alternatives on the design tab)</span></span>
     <label>Sort
       <select id="sort">
         <option value="peak">Peak forecast exposure</option>
