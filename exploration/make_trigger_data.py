@@ -6,14 +6,12 @@ Writes:
     docs/forecast-check/data/obsgeom/<sid>.json — observed swaths + track,
         lazy-loaded by the trigger-design map
 """
-import io
 import json
 from pathlib import Path
 
-import geopandas as gpd
 import ocha_stratus as stratus
 import pandas as pd
-from make_forecast_check_data import _ring
+from make_forecast_check_data import _ring, load_observed_wind_buffers
 
 from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
 from src.datasources import codab
@@ -79,7 +77,9 @@ print(f"Saved {len(df)} rows to {out_path}")
 # The record used for return periods is the 2003-2025 seasons (23 seasons);
 # see the trigger explorer notes.
 FIRST_SEASON, LAST_SEASON = 2003, 2025
-dfj = df[df["season"] >= FIRST_SEASON].copy()
+# upper cap too: a storm from a season outside the record would silently
+# corrupt the Weibull denominator (n_seasons)
+dfj = df[df["season"].between(FIRST_SEASON, LAST_SEASON)].copy()
 storms = [
     {
         "sid": r["sid"],
@@ -109,14 +109,7 @@ with open(json_path, "w") as f:
 print(f"Saved {len(storms)} storms to {json_path}")
 
 # --- observed swath + track geometry per storm, for the design-tab map ---
-gdf_buf = gpd.read_parquet(
-    io.BytesIO(
-        stratus.load_blob_data(
-            "pa-aa-fji-storms/processed/ibtracs/wind_buffers.parquet"
-        )
-    )
-)
-gdf_buf = gdf_buf.assign(geometry=gdf_buf.geometry.make_valid())
+gdf_buf = load_observed_wind_buffers({s["sid"] for s in storms})
 
 # tracks from the DB (vut_distances.parquet predates the 2022+ storms)
 _sid_list = ",".join(repr(s["sid"]) for s in storms)

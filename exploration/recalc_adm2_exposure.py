@@ -41,7 +41,10 @@ import geopandas as gpd
 import numpy as np
 import ocha_stratus as stratus
 import pandas as pd
-from make_forecast_check_data import build_adm2_expanded
+from make_forecast_check_data import (
+    build_adm2_expanded,
+    load_observed_wind_buffers,
+)
 from rasterio import Affine
 from rasterio.features import geometry_mask
 from shapely.geometry import Point
@@ -168,19 +171,27 @@ def main():
     print(f"  AOI pop: {per_adm2_pop[aoi_idx].sum():,.0f}")
 
     # --- observed wind buffers ---
+    # the fji parquet augmented with DB-rebuilt swaths for storms it is
+    # missing or empty for (Lola, Mal — provisional in IBTrACS at its build
+    # time); scope = every sid in the parquet plus recent SP-basin storms
     print("loading observed wind buffers...")
-    gdf_buf = gpd.read_parquet(
+    base = gpd.read_parquet(
         io.BytesIO(
             stratus.load_blob_data(
                 "pa-aa-fji-storms/processed/ibtracs/wind_buffers.parquet"
             )
         )
     )
+    with stratus.get_engine(stage="prod").connect() as con:
+        sp = pd.read_sql(
+            "SELECT sid FROM storms.ibtracs_storms "
+            "WHERE genesis_basin='SP' AND season >= 2001",
+            con,
+        )
+    gdf_buf = load_observed_wind_buffers(set(base["sid"]) | set(sp["sid"]))
     # FJI_CRS wraps longitude to [0, 360), so buffers crossing the dateline
     # (Winston, Gretel, ...) stay contiguous and line up with the raster grid
-    gdf_buf = gdf_buf.assign(geometry=gdf_buf.geometry.make_valid()).to_crs(
-        FJI_CRS
-    )
+    gdf_buf = gdf_buf.to_crs(FJI_CRS)
     print(
         f"  {gdf_buf.sid.nunique()} storms x "
         f"{sorted(gdf_buf.buffer_speed.unique())} kt"

@@ -21,6 +21,7 @@ import re
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import ocha_stratus as stratus
 import pandas as pd
 import shapely
@@ -80,6 +81,106 @@ def build_adm2_expanded(adm2: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return expanded
 
 
+# DB quadrant-array order, validated empirically: rebuilding Judy's 64 kt
+# swath from storms.ibtracs_tracks_geo with this order reproduces the fji
+# wind_buffers.parquet geometry at IoU 0.96 (vs 0.86 for ATCF ne,se,sw,nw)
+DB_QUAD_ORDER = ("ne", "nw", "se", "sw")
+
+
+def load_observed_wind_buffers(sids):
+    """Observed wind swaths for ``sids``, one row per (sid, buffer_speed).
+
+    Base source is the fji ``wind_buffers.parquet``; any (sid, speed) that
+    is missing or has empty geometry there but has USA radii in
+    ``storms.ibtracs_tracks_geo`` is rebuilt from the DB track (the parquet
+    was built while some recent storms — Lola, Mal — were still provisional
+    in IBTrACS, leaving their swaths empty or absent).
+    Returns EPSG:3832 with valid geometries.
+    """
+    import io as _io
+
+    from src.utils.wind_buffers import wind_buffers_from_track
+
+    sids = set(sids)
+    buf = gpd.read_parquet(
+        _io.BytesIO(
+            stratus.load_blob_data(
+                "pa-aa-fji-storms/processed/ibtracs/wind_buffers.parquet"
+            )
+        )
+    )
+    buf = buf[buf["sid"].isin(sids)][["sid", "buffer_speed", "geometry"]]
+    buf = buf.assign(geometry=buf.geometry.make_valid())
+
+    with stratus.get_engine(stage="prod").connect() as con:
+        tracks = pd.read_sql(
+            "SELECT sid, valid_time, "
+            " usa_quadrant_radius_34 q34, usa_quadrant_radius_50 q50, "
+            " usa_quadrant_radius_64 q64, "
+            " ST_X(geometry::geometry) lon, ST_Y(geometry::geometry) lat "
+            "FROM storms.ibtracs_tracks_geo "
+            f"WHERE sid IN ({','.join(repr(s) for s in sids)})",
+            con,
+        )
+    tracks["lon"] = tracks["lon"] % 360
+
+    def parse(v):
+        try:
+            out = [float(x) for x in str(v).strip("{}").split(",")]
+            return out if len(out) == 4 else [np.nan] * 4
+        except ValueError:
+            return [np.nan] * 4
+
+    ok = set(
+        zip(
+            buf.loc[~buf.geometry.is_empty, "sid"],
+            buf.loc[~buf.geometry.is_empty, "buffer_speed"],
+        )
+    )
+    rebuilt = []
+    for sid, g in tracks.groupby("sid"):
+        g = g.sort_values("valid_time")
+        for speed in (34, 50, 64):
+            if (sid, speed) in ok:
+                continue
+            arrs = g[f"q{speed}"].apply(parse)
+            if not any(np.isfinite(a).any() for a in arrs):
+                continue
+            d = g[["valid_time", "lat", "lon"]].copy()
+            for j, q in enumerate(DB_QUAD_ORDER):
+                d[f"r{speed}_{q}"] = [a[j] for a in arrs]
+            quad_cols = [f"r{speed}_{q}" for q in DB_QUAD_ORDER]
+            # zero-fill BEFORE interpolation: otherwise radii bleed past
+            # the last valid observation along the post-tropical tail
+            d[quad_cols] = d[quad_cols].fillna(0)
+            bufs = wind_buffers_from_track(d, speeds=(speed,))
+            if bufs.empty or bufs.geometry.iloc[0].is_empty:
+                continue
+            rebuilt.append(
+                {
+                    "sid": sid,
+                    "buffer_speed": speed,
+                    "geometry": bufs.geometry.iloc[0],
+                }
+            )
+    if rebuilt:
+        print(
+            "  rebuilt from DB radii: "
+            + ", ".join(f"{r['sid']}@{r['buffer_speed']}" for r in rebuilt)
+        )
+        buf = buf[
+            buf.apply(
+                lambda r: (r["sid"], r["buffer_speed"])
+                not in {(x["sid"], x["buffer_speed"]) for x in rebuilt},
+                axis=1,
+            )
+        ]
+        buf = pd.concat(
+            [buf, gpd.GeoDataFrame(rebuilt, crs=3832)], ignore_index=True
+        )
+    return gpd.GeoDataFrame(buf, geometry="geometry", crs=3832)
+
+
 def _ring(geom, simplify_m=SIMPLIFY_M):
     """Simplified lon-wrapped coords for the browser, rounded to 3 dp.
 
@@ -134,10 +235,16 @@ def main():
     aoi_union = aoi.geometry.union_all()
     da_aoi = da_wp.rio.clip([aoi_union], all_touched=True)
     aoi_pop = int(da_aoi.where(da_aoi > 0).sum())
-    print(f"  AOI adm2: {len(aoi)}  AOI population: {aoi_pop:,}")
+    nat_union = adm2_exp.geometry.union_all()
+    da_nat = da_wp.rio.clip([nat_union], all_touched=True)
+    nat_pop = int(da_nat.where(da_nat > 0).sum())
+    print(
+        f"  AOI adm2: {len(aoi)}  AOI population: {aoi_pop:,}  "
+        f"national: {nat_pop:,}"
+    )
 
-    def exposure(geom_wrapped):
-        """Population inside a buffer, within the AOI provinces only.
+    def _exposure(geom_wrapped, union, da):
+        """Population inside a buffer, within ``union``.
 
         ``geom_wrapped`` must be in the lon-wrapped frame (FJI_CRS,
         longitudes in [0, 360)) to match the raster grid — see _ring.
@@ -146,13 +253,22 @@ def main():
             return 0
         if not geom_wrapped.is_valid:
             geom_wrapped = shapely.make_valid(geom_wrapped)
-        if not geom_wrapped.intersects(aoi_union):
+        if not geom_wrapped.intersects(union):
             return 0
         try:
-            clipped = da_aoi.rio.clip([geom_wrapped])
+            clipped = da.rio.clip([geom_wrapped])
         except Exception:
             return 0
         return int(clipped.where(clipped > 0).sum())
+
+    def exposure(geom_wrapped):
+        """Forecast exposure: AOI provinces only — the trigger's scope."""
+        return _exposure(geom_wrapped, aoi_union, da_aoi)
+
+    def exposure_national(geom_wrapped):
+        """Observed exposure: the whole country — verification is against
+        whether the storm actually hit Vanuatu, not just the AOI."""
+        return _exposure(geom_wrapped, nat_union, da_nat)
 
     print("parsing ATCF decks from the archive...")
     atcf = vmgd.parse_atcf_from_archive(ZIP)
@@ -178,22 +294,16 @@ def main():
     want_sids = {id2sid[s] for s in jtwc["storm"].unique() if s in id2sid}
 
     print("loading observed buffers...")
-    import io as _io
-
-    obs_buf = gpd.read_parquet(
-        _io.BytesIO(
-            stratus.load_blob_data(
-                "pa-aa-fji-storms/processed/ibtracs/wind_buffers.parquet"
-            )
-        )
-    )
+    obs_buf = load_observed_wind_buffers(want_sids)
 
     # Recompute observed exposure from the observed buffers with the *same*
     # single-clip method used for the forecasts, rather than reading the
     # per-adm2 parquet on blob — otherwise the observed side would carry the
-    # double-counting inflation described above and the two columns on the
-    # page would not be comparable.
-    print("recomputing observed exposure (single-clip, AOI only)...")
+    # double-counting inflation described above. Scope differs deliberately:
+    # forecasts are scored on the AOI (the trigger's domain) while observed
+    # exposure counts the WHOLE country, so verification asks "did the storm
+    # actually hit Vanuatu", not just the AOI provinces.
+    print("recomputing observed exposure (single-clip, whole country)...")
     # make_valid in the metric CRS first (a few swaths self-intersect),
     # then convert to the lon-wrapped frame so dateline-crossing swaths
     # (Winston, Yasa, ...) stay contiguous instead of tearing into a
@@ -208,7 +318,7 @@ def main():
             {
                 "sid": sid,
                 "buffer_speed": int(speed),
-                "pop_exposed": exposure(g.geometry.union_all()),
+                "pop_exposed": exposure_national(g.geometry.union_all()),
             }
         )
     obs_tot = (
@@ -377,6 +487,7 @@ def main():
                 ),
                 "aoi_provinces": ADM1_AOI_PCODES,
                 "aoi_pop": aoi_pop,
+                "nat_pop": nat_pop,
                 "aoi_geom": aoi_geo,
                 "speeds": list(SPEEDS),
                 "storms": storms_out,

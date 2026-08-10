@@ -46,6 +46,7 @@ Promise.all([
     HIST = hist;
     $("#generated").textContent = "Generated " + core.generated + ".";
     if (core.aoi_pop) $("#aoiPop").textContent = fmt(core.aoi_pop);
+    if (core.nat_pop) $("#natPop").textContent = fmt(core.nat_pop);
     $("#sort").addEventListener("change", render);
     $("#showZero").addEventListener("change", render);
     render();
@@ -428,9 +429,9 @@ function render() {
   const cerfHit = cerf.filter((r) => r.peak >= t);
 
   $("#stats").innerHTML = [
-    stat(trig.length, "storms would have triggered on forecast", trig.length > 0),
-    stat(falseAlarm.length, "of those were below threshold in observation", falseAlarm.length > 0),
-    stat(missed.length, "over threshold observed but never forecast to be", missed.length > 0),
+    stat(trig.length, "storms would have triggered on forecast (AOI)", trig.length > 0),
+    stat(falseAlarm.length, "of those stayed below threshold observed, anywhere in the country", falseAlarm.length > 0),
+    stat(missed.length, "hit the country over threshold but never triggered (AOI forecast)", missed.length > 0),
     stat(`${cerfHit.length}/${cerf.length}`, "CERF-allocation storms would have triggered",
          cerfHit.length < cerf.length),
   ].join("");
@@ -439,8 +440,10 @@ function render() {
   $("#cerfNote").innerHTML = cerfMiss.length
     ? "CERF storm" + (cerfMiss.length > 1 ? "s" : "") + " below the forecast threshold: " +
       cerfMiss.map((r) =>
-        `<strong>${esc(r.s.name)}</strong> (forecast peak ${fmt(r.peak)}, observed ${fmt(r.obs)}` +
-        (r.obs < t ? " — also below threshold in observation, so this is an AOI-scope issue rather than a forecast one" : "") +
+        `<strong>${esc(r.s.name)}</strong> (forecast peak ${fmt(r.peak)} in the AOI, observed ${fmt(r.obs)} country-wide` +
+        (r.obs >= t
+          ? " — its impact fell outside Shefa/Sanma/Tafea, so this is the AOI scope, not the forecast, missing it"
+          : "") +
         ")").join("; ") + "."
     : "";
 
@@ -480,7 +483,7 @@ function drawChart(rows, t) {
     sv += `<line class="gridline" x1="${x(v)}" y1="${padT - 6}" x2="${x(v)}" y2="${H - 30}"/>`;
     sv += `<text class="axis-label" x="${x(v)}" y="${H - 16}" text-anchor="middle">${abbr(v)}</text>`;
   });
-  sv += `<text class="axis-label" x="${padL}" y="${H - 3}" text-anchor="start">people exposed to ${SPEED} kt in AOI provinces</text>`;
+  sv += `<text class="axis-label" x="${padL}" y="${H - 3}" text-anchor="start">people exposed to ${SPEED} kt (forecast: AOI provinces &#183; observed: whole country)</text>`;
 
   rows.forEach((r, i) => {
     const y = padT + i * rowH;
@@ -502,8 +505,8 @@ function drawChart(rows, t) {
   sv += `</svg>`;
 
   const legend =
-    `<ul class="legend"><li><span class="sw" style="background:var(--fcst)"></span>Peak forecast (JTWC)</li>
-     <li><span class="sw" style="background:var(--obs)"></span>Observed (IBTrACS)</li>
+    `<ul class="legend"><li><span class="sw" style="background:var(--fcst)"></span>Peak forecast (JTWC, AOI provinces)</li>
+     <li><span class="sw" style="background:var(--obs)"></span>Observed (IBTrACS, whole country)</li>
      <li>★ = CERF-allocation storm</li></ul>`;
   $("#chart").innerHTML = sv + legend;
 
@@ -522,8 +525,8 @@ function bar(x0, y, w, h, fill) {
 
 function drawTable(rows, t) {
   let h = `<table><thead><tr><th>Storm</th><th>Season</th>
-    <th>Peak forecast 64kt</th><th>Observed 64kt</th>
-    <th>Observed 50kt</th><th>Observed 34kt</th><th>Cycles</th></tr></thead><tbody>`;
+    <th>Peak forecast 64kt (AOI)</th><th>Observed 64kt (country)</th>
+    <th>Observed 50kt (country)</th><th>Observed 34kt (country)</th><th>Cycles</th></tr></thead><tbody>`;
   rows.forEach((r) => {
     h += `<tr><td>${esc(r.s.name)}${r.s.cerf ? " ★" : ""}</td><td>${r.s.season}</td>
       <td class="${r.peak >= t ? "over" : ""}">${fmt(r.peak)}</td>
@@ -657,10 +660,10 @@ function showCycle(s, i) {
   $("#cycleInfo").innerHTML = `<dl>
     <dt>Forecast issued</dt><dd>${c.init}</dd>
     <dt>Peak forecast wind</dt><dd>${c.vmax} kt</dd>
-    <dt>Exposed at 64 kt</dt><dd><strong style="color:${e >= t ? "var(--critical)" : "inherit"}">${fmt(e)}</strong>${e >= t ? " — over threshold" : ""}</dd>
-    <dt>Exposed at 50 kt</dt><dd>${fmt(+c.exp["50"])}</dd>
-    <dt>Exposed at 34 kt</dt><dd>${fmt(+c.exp["34"])}</dd>
-    <dt>Observed at 64 kt</dt><dd>${fmt(+(s.obs["64"] || 0))}</dd></dl>`;
+    <dt>Exposed at 64 kt (AOI)</dt><dd><strong style="color:${e >= t ? "var(--critical)" : "inherit"}">${fmt(e)}</strong>${e >= t ? " — over threshold" : ""}</dd>
+    <dt>Exposed at 50 kt (AOI)</dt><dd>${fmt(+c.exp["50"])}</dd>
+    <dt>Exposed at 34 kt (AOI)</dt><dd>${fmt(+c.exp["34"])}</dd>
+    <dt>Observed at 64 kt (country)</dt><dd>${fmt(+(s.obs["64"] || 0))}</dd></dl>`;
 
   drawCycleChart(s, i);
 }

@@ -141,9 +141,17 @@
       <p>
         Forecast exposure is computed from <strong>JTWC official forecasts</strong> in the VMGD
         historical archive: the 34/50/64&nbsp;kt quadrant wind radii from each forecast cycle are
-        swept along the forecast track into a wind swath, and WorldPop population inside the three
-        AOI provinces is summed. This uses the <em>same</em> method and the same population raster
-        as the observed exposure numbers, so the two are directly comparable.
+        swept along the forecast track into a wind swath, and WorldPop population inside it is
+        summed.
+      </p>
+      <p>
+        <strong>The two columns deliberately use different scopes.</strong> Forecast exposure
+        counts only <strong>Shefa, Sanma and Tafea</strong> — the trigger's domain
+        (population <strong id="aoiPop">&mdash;</strong>). Observed exposure counts the
+        <strong>whole country</strong> (population <strong id="natPop">&mdash;</strong>), so
+        verification asks whether the storm actually hit Vanuatu — a storm striking Torba or
+        Penama shows its real observed exposure even though the trigger does not count those
+        provinces. The exposure method and population raster are otherwise identical.
       </p>
       <p>
         <strong>VMGD's own forecast tracks carry no wind radii</strong> &mdash; their Forecast Track
@@ -157,15 +165,13 @@
         Invest-numbered decks (90&ndash;99) are excluded because they duplicate the named storm.
       </p>
       <p>
-        Exposure counts <strong>only Shefa, Sanma and Tafea</strong> (39 of Vanuatu's 66 adm2 units),
-        total population <strong id="aoiPop">&mdash;</strong>, which is the ceiling for every number
-        on this page. Two artifacts in the original per-adm2 exposure table on blob are corrected
-        here (and in <code>adm2_usaradii_exp_dedup.parquet</code>): per-adm2
-        <code>all_touched</code> clips counted shared boundary pixels more than once (+23% on AOI
-        totals), and swaths crossing the 180&deg; meridian were torn by the coordinate conversion
-        into shapes that spuriously covered Vanuatu &mdash; Fiji storms like Tomas, Yasa, Evan and
-        Keni showed large exposure they never had. All buffers here are handled in a
-        longitude-wrapped frame, so figures read substantially lower than the uncorrected ones.
+        Two artifacts in the original per-adm2 exposure table on blob are corrected here (and in
+        <code>adm2_usaradii_exp_dedup.parquet</code>): per-adm2 <code>all_touched</code> clips
+        counted shared boundary pixels more than once (+23% on AOI totals), and swaths crossing
+        the 180&deg; meridian were torn by the coordinate conversion into shapes that spuriously
+        covered Vanuatu &mdash; Fiji storms like Tomas, Yasa, Evan and Keni showed large exposure
+        they never had. All buffers here are handled in a longitude-wrapped frame, so figures
+        read substantially lower than the uncorrected ones.
       </p>
     </div>
   </details>
@@ -189,7 +195,7 @@
   </section>
 
   <section class="chart-wrap">
-    <h2>Peak forecast exposure vs observed, by storm</h2>
+    <h2>Peak forecast exposure (AOI) vs observed (whole country), by storm</h2>
     <p class="hint">Click a storm to inspect its forecast cycles on the map.
       <span id="hiddenNote"></span></p>
     <div id="chart" role="img" aria-label="Peak forecast and observed 64 kt exposure by storm"></div>
