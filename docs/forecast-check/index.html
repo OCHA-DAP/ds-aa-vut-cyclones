@@ -255,9 +255,14 @@
         <input type="range" id="rpxT" min="1000" max="80000" step="1000" value="5000" />
         <span class="unit" id="rpxTv"></span>
       </label>
-      <label>Gap-years (2006&ndash;11) estimate
-        <input type="range" id="rpxScale" min="0" max="200" step="10" value="100" />
-        <span class="unit" id="rpxScaleV"></span>
+      <label>Assumed extra activated seasons (2006&ndash;11, no forecast decks)
+        <select id="rpxExtra">
+          <option value="0">+0</option>
+          <option value="1" selected>+1</option>
+          <option value="2">+2</option>
+          <option value="3">+3</option>
+          <option value="4">+4</option>
+        </select>
       </label>
     </section>
     <div class="stat-row" id="rpxStats"></div>

@@ -7,17 +7,19 @@ Combines, at the working trigger (>=5,000 people at 64 kt):
 - the action leg (24-72 h forecast window, AOI scope), scored where JTWC
   forecast decks exist: 2005 (UCAR archive) and 2012-2025 (VMGD archive +
   UCAR 2025);
-- an estimate for the unscorable forecast seasons (2006-2011), from a
-  logistic P(action fires | observed 64-kt swath miss distance) calibrated
-  on the scored storms, Monte-Carlo'd into an RP range.
+- the six unscorable forecast seasons (2006-2011) are handled with a
+  user-selectable "assumed extra activated seasons" (default 1) on the
+  page; this script ships the context (observed swath distances) and the
+  per-threshold scored season counts, and the page computes deterministic
+  Weibull RPs from them.
 
 Kerry 2005 is entered as a scored constant: its 2005-01-05 00Z JTWC cycle
 puts 8,260 people in the AOI action window at the V_EQ contour (64 kt
 10-min = ~73 kt 1-min; 14,591 in raw 1-min terms — deck ash082005.dat,
 preserved at blob raw/jtwc/ucar_adecks_sh_2003-2011_2025.zip). The
-observed storm passed 586 km from the AOI — a false alarm, and the reason
-the logistic P's below are treated as floors: 2005-era forecast errors
-exceed the 2012-25 errors the curve is calibrated on.
+observed storm passed 586 km from the AOI — a false alarm, and a caution
+that the unscored 2006-11 seasons plausibly held similar events (hence the
+page's assumed-extra-seasons control, default 1).
 
 Run from the repo root:
     uv run python exploration/make_rp_summary.py
@@ -27,7 +29,6 @@ import json
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
 import shapely
 from shapely.geometry import MultiPolygon, Polygon
 
@@ -105,96 +106,13 @@ def main():
 
     combined_seasons = sorted(set(obs_seasons) | set(act_seasons))
 
-    # ---- logistic calibration: P(action fires | obs miss distance) ------
-    D_cal, y_cal = [], []
-    for s in core["storms"]:
-        if not (FIRST <= s["season"] <= LAST):
-            continue
-        g = json.load(open(DATA / "geom" / f"{s['id']}.json"))
-        geom = rings_to_3832(g.get("obs_buf64"))
-        D = geom.distance(aoi_land) / 1000 if geom is not None else 3000.0
-        D_cal.append(min(D, 3000.0))
-        y_cal.append(1 if peak_a(s) >= T else 0)
-    D_cal, y_cal = np.array(D_cal), np.array(y_cal)
-
-    def nll(d0, sc):
-        z = np.clip((D_cal - d0) / sc, -50, 50)
-        P = np.clip(1 / (1 + np.exp(z)), 1e-9, 1 - 1e-9)
-        return -(y_cal * np.log(P) + (1 - y_cal) * np.log(1 - P)).sum()
-
-    _, d0, sc = min(
-        (
-            (nll(d0, sc), d0, sc)
-            for d0 in np.arange(10, 301, 2)
-            for sc in np.arange(5, 151, 2.5)
-        ),
-        key=lambda t: t[0],
-    )
-
-    def pfire(D):
-        return float(1 / (1 + np.exp(np.clip((D - d0) / sc, -50, 50))))
-
     # ---- unscored forecast seasons: per-storm P from observed geometry --
     unscored = sorted(
         se for se in range(FIRST, LAST + 1) if se not in SCORED_FCST_SEASONS
     )
-    gap_storms = []
-    for s in hist["storms"]:
-        if s["season"] not in unscored:
-            continue
-        g = json.load(open(DATA / "obsgeom" / f"{s['sid']}.json"))
-        geom = rings_to_3832(g["rings"].get("64"))
-        if geom is None:
-            continue  # never reached 64 kt -> cannot fire a 64-kt trigger
-        D = geom.distance(aoi_land) / 1000
-        p = pfire(D)
-        if p >= 0.01:
-            gap_storms.append(
-                {
-                    "name": s["name"].title(),
-                    "season": s["season"],
-                    "dist_km": round(D),
-                    "p": round(p, 2),
-                }
-            )
-    p_season = {}
-    for se in unscored:
-        ps = [g["p"] for g in gap_storms if g["season"] == se]
-        p = 1 - float(np.prod([1 - x for x in ps])) if ps else 0.0
-        if p >= 0.01:
-            p_season[se] = round(p, 2)
-
-    # ---- combined RP: exact enumeration over the gap-season Bernoullis --
-    def rp_quantiles(n_known, probs):
-        """RP distribution of (N+1)/(n_known + extra), extra = sum of
-        independent Bernoulli(probs). Exact; returns (q10, med, q90)."""
-        dist = {0: 1.0}
-        for p in probs:
-            nxt = {}
-            for k, w in dist.items():
-                nxt[k] = nxt.get(k, 0) + w * (1 - p)
-                nxt[k + 1] = nxt.get(k + 1, 0) + w * p
-            dist = nxt
-        outcomes = sorted(
-            ((N_SEASONS + 1) / (n_known + k), w) for k, w in dist.items()
-        )
-        qs = []
-        for alpha in (0.10, 0.50, 0.90):
-            cum = 0.0
-            for v, w in outcomes:
-                cum += w
-                if cum >= alpha - 1e-12:
-                    qs.append(v)
-                    break
-        return qs
-
     n_known = len(combined_seasons)
-    q10, med, q90 = rp_quantiles(n_known, list(p_season.values()))
 
-    # ---- threshold sweep: combined RP as a function of the threshold ----
-    # per-storm scored values (action peak with Kerry, obs national) and
-    # gap-storm distances stay fixed; the logistic is refit per distinct
-    # calibration outcome vector (cached — ~10 distinct fits)
+    # ---- threshold sweep: scored activated-season count per threshold --
     sweep_storms = [
         {
             "season": s["season"],
@@ -220,36 +138,6 @@ def main():
                 }
             )
     gap_list.sort(key=lambda g: g["dist_km"])
-    gap_D = {}
-    for g in gap_list:
-        gap_D.setdefault(g["season"], []).append(g["dist_km"])
-
-    cal_peaks = [
-        peak_a(s) for s in core["storms"] if FIRST <= s["season"] <= LAST
-    ]
-    fit_cache = {}
-
-    def logi_nll(ya, dd, ss):
-        z = np.clip((D_cal - dd) / ss, -50, 50)
-        P = np.clip(1 / (1 + np.exp(z)), 1e-9, 1 - 1e-9)
-        return -(ya * np.log(P) + (1 - ya) * np.log(1 - P)).sum()
-
-    def fit_for(thr):
-        y = tuple(1 if p >= thr else 0 for p in cal_peaks)
-        if y not in fit_cache:
-            if sum(y) == 0:
-                fit_cache[y] = None  # no positives: no basis to estimate
-            else:
-                ya = np.array(y)
-                fit_cache[y] = min(
-                    (
-                        (dd, ss)
-                        for dd in np.arange(10, 301, 4)
-                        for ss in np.arange(5, 151, 5)
-                    ),
-                    key=lambda t: logi_nll(ya, *t),
-                )
-        return fit_cache[y]
 
     sweep = []
     for thr in range(1000, 81001, 1000):
@@ -258,34 +146,10 @@ def main():
             for s in sweep_storms
             if s["peakA"] >= thr or s["obs"] >= thr
         }
-        fit = fit_for(thr)
-        gp = []
-        for g in gap_list:
-            if fit is None:
-                gp.append(0.0)
-                continue
-            fd0, fsc = fit
-            z = np.clip((g["dist_km"] - fd0) / fsc, -50, 50)
-            gp.append(round(float(1 / (1 + np.exp(z))), 3))
-        probs = []
-        for se in gap_D:
-            pse = 1 - np.prod(
-                [1 - p for g, p in zip(gap_list, gp) if g["season"] == se]
-            )
-            if pse >= 0.01:
-                probs.append(float(pse))
-        sq10, smed, sq90 = rp_quantiles(max(len(seasons), 1), probs)
+        n = max(len(seasons), 1)
         sweep.append(
-            {
-                "t": thr,
-                "scored": round((N_SEASONS + 1) / max(len(seasons), 1), 2),
-                "med": round(smed, 2),
-                "p10": round(sq10, 2),
-                "p90": round(sq90, 2),
-                "gp": gp,
-            }
+            {"t": thr, "n": n, "scored": round((N_SEASONS + 1) / n, 2)}
         )
-    t_rp3 = next((p["t"] for p in sweep if p["med"] >= 3.0), None)
 
     # ---- storms without forecast decks, for the explorer scatter --------
     # national V_EQ observed exposure so every storm with nonzero 64-kt
@@ -351,14 +215,8 @@ def main():
             "scored_activated_seasons": combined_seasons,
             "rp_scored_only": round((N_SEASONS + 1) / n_known, 1),
             "unscored_seasons": unscored,
-            "gap_storms": gap_storms,
-            "p_season": {str(k): v for k, v in p_season.items()},
-            "expected_extra": round(float(sum(p_season.values())), 1),
-            "rp_median": round(med, 1),
-            "rp_p10": round(q10, 1),
-            "rp_p90": round(q90, 1),
+            "extra_default": 1,
             "sweep": sweep,
-            "t_rp3": t_rp3,
             "gap_list": gap_list,
         },
         "scored_storms": [
@@ -387,14 +245,15 @@ def main():
             )
         ],
         "extra_storms": extra_storms,
-        "calibration": {
-            "logistic_midpoint_km": round(float(d0)),
-            "logistic_scale_km": round(float(sc)),
-        },
     }
     with open(DATA / "rp.json", "w") as f:
         json.dump(out, f, separators=(",", ":"))
-    print(json.dumps(out["combined"], indent=1))
+    print(
+        json.dumps(
+            {k: v for k, v in out["combined"].items() if k != "sweep"},
+            indent=1,
+        )
+    )
     print("observational:", obs_seasons, "| action:", act_seasons)
     print(f"wrote {DATA/'rp.json'}")
 

@@ -441,14 +441,12 @@ function drawRP(rp) {
      `${c.scored_activated_seasons.length} activated seasons`,
      seasons(c.scored_activated_seasons),
      `<strong>${c.rp_scored_only}</strong>`],
-    ["+ estimated activations in unscored seasons",
+    ["+ assumed extra activated seasons (selector below)",
      `${c.unscored_seasons.length} seasons (${c.unscored_seasons[0]}–${c.unscored_seasons.at(-1)}) lack forecast decks`,
-     `+${c.expected_extra} expected`,
-     Object.entries(c.p_season)
-       .map(([se, p]) => `${se}: P=${p}`).join(", ") +
-       `<br><span class="rp-storms">${c.gap_storms.map((g) =>
-         `${esc(g.name)} (obs swath ${g.dist_km === 0 ? "touched AOI" : g.dist_km + " km away"}, P=${g.p})`).join("; ")}</span>`,
-     `<strong>${c.rp_median}</strong><br><span class="rp-storms">80% range ${c.rp_p90}–${c.rp_p10}</span>`],
+     `+<span id="rpExtraN">${c.extra_default}</span> assumed`,
+     `<span class="rp-storms">${c.gap_list.filter((g) => g.dist_km < 300).map((g) =>
+       `${esc(g.name)} ${g.season} (obs swath ${g.dist_km === 0 ? "touched AOI" : g.dist_km + " km away"})`).join("; ")}</span>`,
+     `<strong id="rpExtraRP">—</strong>`],
   ];
   let h = `<table><thead><tr><th>Trigger</th><th>Seasons with data</th>
     <th>Activations</th><th>Activated seasons</th><th>RP (seasons)</th></tr></thead><tbody>`;
@@ -457,107 +455,65 @@ function drawRP(rp) {
       `<td class="${i >= 2 ? "rp-left" : ""}">${x}</td>`).join("")}</tr>`;
   }
   $("#rpTable").innerHTML = h + "</tbody></table>";
-  drawRPChart(c);
   initRPExplorer(rp);
   $("#rpNote").innerHTML =
-    (c.t_rp3
-      ? `To push the estimated combined RP to <strong>~1-in-3 seasons</strong>, the exposure ` +
-        `threshold would have to rise to <strong>&asymp;${fmt(c.t_rp3)} people</strong>; the ` +
-        `chart shows the full staircase — each step is a specific storm's peak dropping below ` +
-        `the threshold, so intermediate RPs between the rungs are not reachable. `
-      : "") +
     `Return periods are Weibull, (${rp.n_seasons}+1) / activated seasons, over the ` +
-    `${rp.first_season}–${rp.last_season} record at &ge;${fmt(rp.threshold)} people / 64&nbsp;kt. ` +
-    `The framework's <strong>likely overall RP is ~1-in-${c.rp_p10}–${c.rp_p90} seasons</strong> ` +
-    `(median ${c.rp_median}): the scored record alone gives ${c.rp_scored_only}, and the six ` +
-    `2006–2011 seasons — where no JTWC forecast decks survive — very likely add activations ` +
-    `(Gene 2008 and Atu 2011's observed 64&nbsp;kt swaths touched the AOI; the probabilities ` +
-    `come from a logistic fit of action-leg outcome vs observed miss distance on the scored ` +
-    `storms, and are floors — Kerry 2005, scored directly from recovered decks, fired from ` +
-    `586&nbsp;km away, farther than the fit allows). The observational leg alone sits at ` +
-    `${o.rp_seasons}; forecast false alarms are what pull the combined RP below it.`;
+    `${rp.first_season}–${rp.last_season} record at &ge;${fmt(rp.threshold)} people / ` +
+    `64&nbsp;kt (10-min). The scored record gives ${c.rp_scored_only}; the six 2006–2011 ` +
+    `seasons — where no JTWC forecast decks survive — plausibly held further activations ` +
+    `(Gene 2008 and Atu 2011's observed 64&nbsp;kt swaths reached or nearly reached the AOI, ` +
+    `and Kerry 2005, scored from recovered decks, shows that era's forecasts could fire from ` +
+    `far away), hence the assumed-extra-seasons control, default +${c.extra_default}. ` +
+    `The observational leg alone sits at ${o.rp_seasons}; forecast false alarms are what ` +
+    `pull the combined RP below it.`;
 }
 
 /* ---- interactive RP explorer: threshold + gap-estimate sliders ---- */
 function initRPExplorer(rp) {
   const render = () =>
-    renderRPX(rp, +$("#rpxT").value, +$("#rpxScale").value / 100);
+    renderRPX(rp, +$("#rpxT").value, +$("#rpxExtra").value);
   $("#rpxT").addEventListener("input", render);
-  $("#rpxScale").addEventListener("input", render);
+  $("#rpxExtra").addEventListener("change", render);
+  $("#rpxExtra").value = String(rp.combined.extra_default ?? 1);
   render();
 }
 
-function rpxQuantiles(nSeasons, nKnown, probs) {
-  // exact distribution of (N+1)/(nKnown + sum Bernoulli(probs))
-  let dist = new Map([[0, 1]]);
-  for (const p of probs) {
-    const nxt = new Map();
-    for (const [k, w] of dist) {
-      nxt.set(k, (nxt.get(k) || 0) + w * (1 - p));
-      nxt.set(k + 1, (nxt.get(k + 1) || 0) + w * p);
-    }
-    dist = nxt;
-  }
-  const outcomes = [...dist]
-    .map(([k, w]) => [(nSeasons + 1) / (nKnown + k), w])
-    .sort((a, b) => a[0] - b[0]);
-  const q = (alpha) => {
-    let cum = 0;
-    for (const [v, w] of outcomes) {
-      cum += w;
-      if (cum >= alpha - 1e-12) return v;
-    }
-    return outcomes.at(-1)[0];
-  };
-  return [q(0.1), q(0.5), q(0.9)];
-}
-
-function renderRPX(rp, t, scale) {
+function renderRPX(rp, t, extra) {
   const c = rp.combined;
   $("#rpxTv").textContent = fmt(t) + " people at 64 kt";
-  $("#rpxScaleV").textContent =
-    scale === 0 ? "off (scored data only)" : "×" + scale.toFixed(1);
 
   // scored activation seasons at this threshold
   const act = rp.scored_storms.filter((s) => s.peakA >= t || s.obs >= t);
   const seasons = [...new Set(act.map((s) => s.season))].sort();
   const fa = act.filter((s) => s.peakA >= t && s.obs < t);
 
-  // gap-season probabilities at this threshold, scaled
-  const row = c.sweep[Math.min(c.sweep.length - 1,
-    Math.max(0, Math.round(t / 1000) - 1))];
-  const bySeason = new Map();
-  c.gap_list.forEach((g, i) => {
-    const p = Math.min(1, (row.gp[i] || 0) * scale);
-    if (p < 0.005) return;
-    bySeason.set(g.season,
-      1 - (1 - (bySeason.get(g.season) || 0)) * (1 - p));
-    g._p = p;
-  });
-  const probs = [...bySeason.values()];
-  const [q10, med, q90] = rpxQuantiles(rp.n_seasons, Math.max(seasons.length, 1), probs);
-  const expExtra = probs.reduce((a, b) => a + b, 0);
+  const n = Math.max(seasons.length, 1);
+  const rpVal = (rp.n_seasons + 1) / (n + extra);
 
   $("#rpxStats").innerHTML = [
     stat(seasons.length, "activated seasons, scored data (" + seasons.join(", ") + ")", false),
     stat(fa.length, "forecast false alarms among them", fa.length > 0),
-    stat("+" + expExtra.toFixed(1), "expected activated seasons in 2006–11 (est.)", false),
-    stat(med.toFixed(1),
-         probs.length ? `median RP — 80% range ${q10.toFixed(1)}–${q90.toFixed(1)}` : "RP (seasons)",
-         false),
+    stat("+" + extra, "assumed extra activated seasons, 2006–11", false),
+    stat(rpVal.toFixed(1), `return period, seasons — (${rp.n_seasons}+1)/(${n}+${extra})`, false),
   ].join("");
 
+  // keep the breakdown table's bottom row in sync
+  const nDefault = c.scored_activated_seasons.length;
+  if ($("#rpExtraN")) $("#rpExtraN").textContent = String(extra);
+  if ($("#rpExtraRP"))
+    $("#rpExtraRP").textContent =
+      ((rp.n_seasons + 1) / (nDefault + extra)).toFixed(1);
+
+  drawRPChart(c, extra, rp.n_seasons);
   drawRPXScatter(rp, t);
 
-  const gaps = c.gap_list.filter((g) => (g._p || 0) >= 0.005);
   $("#rpxGap").innerHTML =
-    gaps.length
-      ? "No forecast decks survive for 2006–11; estimated P(action leg would have fired), from observed swath proximity: " +
-        gaps.map((g) =>
-          `<strong>${esc(g.name)} ${g.season}</strong> (${g.dist_km === 0 ? "swath touched AOI" : g.dist_km + " km away"}) P=${g._p.toFixed(2)}`
-        ).join("; ") + "."
-      : "Gap-years estimate is off or negligible at this threshold — the RP above reflects scored data only.";
-  c.gap_list.forEach((g) => delete g._p);
+    "No forecast decks survive for 2006–11. Observed 64&nbsp;kt swath distances to the AOI: " +
+    c.gap_list.filter((g) => g.dist_km < 300).map((g) =>
+      `<strong>${esc(g.name)} ${g.season}</strong> ${g.dist_km === 0 ? "touched" : g.dist_km + " km"}`
+    ).join("; ") +
+    " — and Kerry 2005 (scored from recovered decks) shows that era's forecasts could fire from far away. " +
+    "Pick how many of those six seasons to assume as additional activations.";
 }
 
 function drawRPXScatter(rp, t) {
@@ -639,7 +595,7 @@ function drawRPXScatter(rp, t) {
   $("#rpxScatter").innerHTML = sv + legend;
 }
 
-function drawRPChart(c) {
+function drawRPChart(c, extra, nSeasons) {
   const sweep = c.sweep || [];
   if (!sweep.length) return;
   const W = 900, H = 300, padL = 56, padR = 16, padT = 14, padB = 40;
@@ -648,6 +604,7 @@ function drawRPChart(c) {
   const x = (v) => padL + (v / xmax) * (W - padL - padR);
   const y = (v) =>
     H - padB - ((Math.min(v, ymax) - ymin) / (ymax - ymin)) * (H - padT - padB);
+  const withExtra = (p) => (nSeasons + 1) / (p.n + extra);
 
   let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
   for (let v = ymin; v <= ymax; v++) {
@@ -658,25 +615,17 @@ function drawRPChart(c) {
     sv += `<line class="gridline" x1="${x(t)}" y1="${padT}" x2="${x(t)}" y2="${H - padB}"/>`;
     sv += `<text class="axis-label" x="${x(t)}" y="${H - padB + 14}" text-anchor="middle">${t / 1000}k</text>`;
   }
-  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 6}" text-anchor="middle">exposure threshold (people at 64 kt)</text>`;
+  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 6}" text-anchor="middle">exposure threshold (people at 64 kt, 10-min)</text>`;
   sv += `<text class="axis-title" x="12" y="${(padT + H - padB) / 2}" text-anchor="middle"
           transform="rotate(-90 12 ${(padT + H - padB) / 2})">combined RP (seasons)</text>`;
 
-  // 80% band
-  const band =
-    sweep.map((p, i) => `${i ? "L" : "M"}${x(p.t)},${y(p.p90)}`).join(" ") +
-    " " +
-    [...sweep].reverse().map((p) => `L${x(p.t)},${y(p.p10)}`).join(" ") +
-    " Z";
-  sv += `<path d="${band}" fill="var(--fcst)" opacity="0.15"/>`;
-  // scored-only (dashed) and median lines
-  const line = (key) =>
-    sweep.map((p, i) => `${i ? "L" : "M"}${x(p.t)},${y(p[key])}`).join(" ");
-  sv += `<path d="${line("scored")}" fill="none" stroke="var(--text-muted)"
+  const line = (fn) =>
+    sweep.map((p, i) => `${i ? "L" : "M"}${x(p.t)},${y(fn(p))}`).join(" ");
+  sv += `<path d="${line((p) => p.scored)}" fill="none" stroke="var(--text-muted)"
           stroke-width="1.5" stroke-dasharray="4 4"/>`;
-  sv += `<path d="${line("med")}" fill="none" stroke="var(--fcst)" stroke-width="2.5"/>`;
+  sv += `<path d="${line(withExtra)}" fill="none" stroke="var(--fcst)" stroke-width="2.5"/>`;
 
-  // reference: RP 3, current threshold, RP-3 threshold
+  // reference: RP 3, current threshold, first threshold reaching RP 3
   sv += `<line x1="${padL}" y1="${y(3)}" x2="${W - padR}" y2="${y(3)}"
           stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
   sv += `<text class="axis-label" x="${W - padR - 4}" y="${y(3) - 5}" text-anchor="end"
@@ -684,23 +633,23 @@ function drawRPChart(c) {
   sv += `<line x1="${x(5000)}" y1="${padT}" x2="${x(5000)}" y2="${H - padB}"
           stroke="var(--zone)" stroke-width="2"/>`;
   sv += `<text class="axis-label" x="${x(5000) + 4}" y="${padT + 12}">current 5k</text>`;
-  if (c.t_rp3) {
-    sv += `<line x1="${x(c.t_rp3)}" y1="${padT}" x2="${x(c.t_rp3)}" y2="${H - padB}"
+  const t3 = sweep.find((p) => withExtra(p) >= 3);
+  if (t3 && t3.t > 5000) {
+    sv += `<line x1="${x(t3.t)}" y1="${padT}" x2="${x(t3.t)}" y2="${H - padB}"
             stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="2 3"/>`;
-    sv += `<text class="axis-label" x="${x(c.t_rp3) + 4}" y="${padT + 12}"
-            fill="var(--critical)">${c.t_rp3 / 1000}k &rarr; RP 3</text>`;
+    sv += `<text class="axis-label" x="${x(t3.t) + 4}" y="${padT + 12}"
+            fill="var(--critical)">${t3.t / 1000}k &rarr; RP 3</text>`;
   }
-  // hover targets
   for (const p of sweep) {
-    sv += `<circle cx="${x(p.t)}" cy="${y(p.med)}" r="6" fill="transparent">
-            <title>threshold ${fmt(p.t)}: median RP ${p.med} (80% ${p.p10}–${p.p90}); scored-only ${p.scored}</title></circle>`;
+    sv += `<circle cx="${x(p.t)}" cy="${y(withExtra(p))}" r="6" fill="transparent">
+            <title>threshold ${fmt(p.t)}: RP ${withExtra(p).toFixed(1)} with +${extra} assumed (${p.n} scored seasons; scored-only ${p.scored})</title></circle>`;
   }
   const legend =
-    `<ul class="legend"><li><span class="ln" style="border-color:var(--fcst)"></span>median estimate (incl. unscored seasons)</li>
-     <li><span class="sw" style="background:color-mix(in srgb, var(--fcst) 20%, transparent)"></span>80% range</li>
+    `<ul class="legend"><li><span class="ln" style="border-color:var(--fcst)"></span>RP with +${extra} assumed extra season${extra === 1 ? "" : "s"}</li>
      <li><span class="ln" style="border-color:var(--text-muted);border-top-style:dashed"></span>scored data only</li></ul>`;
   $("#rpChart").innerHTML = sv + "</svg>" + legend;
 }
+
 
 /* =================== TAB 2: forecast check ============================== */
 
