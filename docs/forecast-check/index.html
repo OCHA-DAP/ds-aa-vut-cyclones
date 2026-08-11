@@ -168,6 +168,21 @@
         exposure method and population raster are otherwise identical.
       </p>
       <p>
+        <strong>Wind-averaging convention:</strong> JTWC (and IBTrACS USA) winds and radii are
+        <strong>1-minute</strong> means; RSMC Nadi and VMHS — the framework's operational sources —
+        use <strong>10-minute</strong> means (Australian scale), and 64&nbsp;kt (10-min) &asymp;
+        69&ndash;73&nbsp;kt (1-min). This backtest runs entirely in 1-minute terms, i.e. at a
+        slightly lower physical bar than operations will. Sensitivity check, re-scoring the action
+        leg with radii shrunk to the 69&nbsp;kt (factor 0.93) and 73&nbsp;kt (0.88) 1-min
+        equivalents: exposures drop 10&ndash;60% (Judy 143k&rarr;90k&rarr;57k) but
+        <strong>the activating set at 5,000 is unchanged at 0.93 and loses only Pam's action leg
+        at 0.88</strong> (2,478; its season is still activated observationally) — false alarms
+        (Jasmine, Donna, Kerry) all survive, so the activated seasons and the RP estimates are
+        unchanged under either factor. The framework should state the convention explicitly;
+        reading the threshold as 64&nbsp;kt 10-min (= severe tropical cyclone, Category&nbsp;3 on
+        the Australian scale) is operationally natural and is what this sensitivity covers.
+      </p>
+      <p>
         Against the framework as written: the forecast column evaluates the
         <strong>action leg only</strong>, from each cycle's 24&ndash;72&nbsp;h track segment. The
         <strong>readiness leg (72&ndash;120&nbsp;h) is deliberately not assessed</strong> —
