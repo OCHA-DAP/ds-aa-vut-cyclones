@@ -234,6 +234,21 @@
     <h3 class="rp-chart-title">Combined RP vs exposure threshold</h3>
     <div id="rpChart" role="img" aria-label="Estimated combined return period as a function of the exposure threshold"></div>
     <p class="note" id="rpNote"></p>
+
+    <h3 class="rp-chart-title">Interactive: pick a threshold, read off the RP</h3>
+    <section class="controls" aria-label="RP explorer controls">
+      <label class="thr">Threshold
+        <input type="range" id="rpxT" min="1000" max="80000" step="1000" value="5000" />
+        <span class="unit" id="rpxTv"></span>
+      </label>
+      <label>Gap-years (2006&ndash;11) estimate
+        <input type="range" id="rpxScale" min="0" max="200" step="10" value="100" />
+        <span class="unit" id="rpxScaleV"></span>
+      </label>
+    </section>
+    <div class="stat-row" id="rpxStats"></div>
+    <div id="rpxScatter" role="img" aria-label="Storms by observed exposure and action-window forecast peak"></div>
+    <p class="note" id="rpxGap"></p>
   </section>
 
   <section class="detail" id="detail" hidden>

@@ -197,16 +197,25 @@ def main():
         for s in core["storms"]
         if FIRST <= s["season"] <= LAST
     ] + [KERRY_2005]
-    gap_D = {}
+    gap_list = []
     for s in hist["storms"]:
         if s["season"] not in unscored:
             continue
         g = json.load(open(DATA / "obsgeom" / f"{s['sid']}.json"))
         geom = rings_to_3832(g["rings"].get("64"))
         if geom is not None:
-            gap_D.setdefault(s["season"], []).append(
-                geom.distance(aoi_land) / 1000
+            gap_list.append(
+                {
+                    "name": s["name"].title(),
+                    "season": s["season"],
+                    "dist_km": round(geom.distance(aoi_land) / 1000),
+                    "obs_aoi": int(s["exp64"]),
+                }
             )
+    gap_list.sort(key=lambda g: g["dist_km"])
+    gap_D = {}
+    for g in gap_list:
+        gap_D.setdefault(g["season"], []).append(g["dist_km"])
 
     cal_peaks = [
         peak_a(s) for s in core["storms"] if FIRST <= s["season"] <= LAST
@@ -243,18 +252,21 @@ def main():
             if s["peakA"] >= thr or s["obs"] >= thr
         }
         fit = fit_for(thr)
-        probs = []
-        if fit is not None:
+        gp = []
+        for g in gap_list:
+            if fit is None:
+                gp.append(0.0)
+                continue
             fd0, fsc = fit
-            for se, Ds in gap_D.items():
-                pse = 1 - np.prod(
-                    [
-                        1 - 1 / (1 + np.exp(np.clip((D - fd0) / fsc, -50, 50)))
-                        for D in Ds
-                    ]
-                )
-                if pse >= 0.01:
-                    probs.append(float(pse))
+            z = np.clip((g["dist_km"] - fd0) / fsc, -50, 50)
+            gp.append(round(float(1 / (1 + np.exp(z))), 3))
+        probs = []
+        for se in gap_D:
+            pse = 1 - np.prod(
+                [1 - p for g, p in zip(gap_list, gp) if g["season"] == se]
+            )
+            if pse >= 0.01:
+                probs.append(float(pse))
         sq10, smed, sq90 = rp_quantiles(max(len(seasons), 1), probs)
         sweep.append(
             {
@@ -263,6 +275,7 @@ def main():
                 "med": round(smed, 2),
                 "p10": round(sq10, 2),
                 "p90": round(sq90, 2),
+                "gp": gp,
             }
         )
     t_rp3 = next((p["t"] for p in sweep if p["med"] >= 3.0), None)
@@ -301,7 +314,31 @@ def main():
             "rp_p90": round(q90, 1),
             "sweep": sweep,
             "t_rp3": t_rp3,
+            "gap_list": gap_list,
         },
+        "scored_storms": [
+            {
+                "name": (s["name"].title() if s.get("name") else "?"),
+                "season": s["season"],
+                "peakA": s["peakA"],
+                "obs": s["obs"],
+                "cerf": bool(s.get("cerf")),
+            }
+            for s in (
+                [
+                    {
+                        "name": x["name"],
+                        "season": x["season"],
+                        "peakA": peak_a(x),
+                        "obs": int(x["obs"].get("64", 0)),
+                        "cerf": x.get("cerf"),
+                    }
+                    for x in core["storms"]
+                    if FIRST <= x["season"] <= LAST
+                ]
+                + [KERRY_2005]
+            )
+        ],
         "calibration": {
             "logistic_midpoint_km": round(float(d0)),
             "logistic_scale_km": round(float(sc)),

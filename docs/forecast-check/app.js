@@ -458,6 +458,7 @@ function drawRP(rp) {
   }
   $("#rpTable").innerHTML = h + "</tbody></table>";
   drawRPChart(c);
+  initRPExplorer(rp);
   $("#rpNote").innerHTML =
     (c.t_rp3
       ? `To push the estimated combined RP to <strong>~1-in-3 seasons</strong>, the exposure ` +
@@ -475,6 +476,147 @@ function drawRP(rp) {
     `storms, and are floors — Kerry 2005, scored directly from recovered decks, fired from ` +
     `586&nbsp;km away, farther than the fit allows). The observational leg alone sits at ` +
     `${o.rp_seasons}; forecast false alarms are what pull the combined RP below it.`;
+}
+
+/* ---- interactive RP explorer: threshold + gap-estimate sliders ---- */
+function initRPExplorer(rp) {
+  const render = () =>
+    renderRPX(rp, +$("#rpxT").value, +$("#rpxScale").value / 100);
+  $("#rpxT").addEventListener("input", render);
+  $("#rpxScale").addEventListener("input", render);
+  render();
+}
+
+function rpxQuantiles(nSeasons, nKnown, probs) {
+  // exact distribution of (N+1)/(nKnown + sum Bernoulli(probs))
+  let dist = new Map([[0, 1]]);
+  for (const p of probs) {
+    const nxt = new Map();
+    for (const [k, w] of dist) {
+      nxt.set(k, (nxt.get(k) || 0) + w * (1 - p));
+      nxt.set(k + 1, (nxt.get(k + 1) || 0) + w * p);
+    }
+    dist = nxt;
+  }
+  const outcomes = [...dist]
+    .map(([k, w]) => [(nSeasons + 1) / (nKnown + k), w])
+    .sort((a, b) => a[0] - b[0]);
+  const q = (alpha) => {
+    let cum = 0;
+    for (const [v, w] of outcomes) {
+      cum += w;
+      if (cum >= alpha - 1e-12) return v;
+    }
+    return outcomes.at(-1)[0];
+  };
+  return [q(0.1), q(0.5), q(0.9)];
+}
+
+function renderRPX(rp, t, scale) {
+  const c = rp.combined;
+  $("#rpxTv").textContent = fmt(t) + " people at 64 kt";
+  $("#rpxScaleV").textContent =
+    scale === 0 ? "off (scored data only)" : "×" + scale.toFixed(1);
+
+  // scored activation seasons at this threshold
+  const act = rp.scored_storms.filter((s) => s.peakA >= t || s.obs >= t);
+  const seasons = [...new Set(act.map((s) => s.season))].sort();
+  const fa = act.filter((s) => s.peakA >= t && s.obs < t);
+
+  // gap-season probabilities at this threshold, scaled
+  const row = c.sweep[Math.min(c.sweep.length - 1,
+    Math.max(0, Math.round(t / 1000) - 1))];
+  const bySeason = new Map();
+  c.gap_list.forEach((g, i) => {
+    const p = Math.min(1, (row.gp[i] || 0) * scale);
+    if (p < 0.005) return;
+    bySeason.set(g.season,
+      1 - (1 - (bySeason.get(g.season) || 0)) * (1 - p));
+    g._p = p;
+  });
+  const probs = [...bySeason.values()];
+  const [q10, med, q90] = rpxQuantiles(rp.n_seasons, Math.max(seasons.length, 1), probs);
+  const expExtra = probs.reduce((a, b) => a + b, 0);
+
+  $("#rpxStats").innerHTML = [
+    stat(seasons.length, "activated seasons, scored data (" + seasons.join(", ") + ")", false),
+    stat(fa.length, "forecast false alarms among them", fa.length > 0),
+    stat("+" + expExtra.toFixed(1), "expected activated seasons in 2006–11 (est.)", false),
+    stat(med.toFixed(1),
+         probs.length ? `median RP — 80% range ${q10.toFixed(1)}–${q90.toFixed(1)}` : "RP (seasons)",
+         false),
+  ].join("");
+
+  drawRPXScatter(rp, t);
+
+  const gaps = c.gap_list.filter((g) => (g._p || 0) >= 0.005);
+  $("#rpxGap").innerHTML =
+    gaps.length
+      ? "No forecast decks survive for 2006–11; estimated P(action leg would have fired), from observed swath proximity: " +
+        gaps.map((g) =>
+          `<strong>${esc(g.name)} ${g.season}</strong> (${g.dist_km === 0 ? "swath touched AOI" : g.dist_km + " km away"}) P=${g._p.toFixed(2)}`
+        ).join("; ") + "."
+      : "Gap-years estimate is off or negligible at this threshold — the RP above reflects scored data only.";
+  c.gap_list.forEach((g) => delete g._p);
+}
+
+function drawRPXScatter(rp, t) {
+  const storms = rp.scored_storms.filter((s) => s.peakA > 0 || s.obs > 0);
+  const hidden = rp.scored_storms.length - storms.length;
+  const W = 900, H = 430, padL = 64, padR = 18, padT = 16, padB = 48;
+  const xmax = 240000, ymax = 160000;
+  const sx = (v) => padL + Math.sqrt(Math.min(v, xmax) / xmax) * (W - padL - padR);
+  const sy = (v) => H - padB - Math.sqrt(Math.min(v, ymax) / ymax) * (H - padT - padB);
+
+  let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
+  // OR activation zone (either axis >= t): right strip + top-left strip
+  const zone = `fill="var(--zone)" opacity="0.14"`;
+  sv += `<rect x="${sx(t)}" y="${padT}" width="${W - padR - sx(t)}" height="${H - padB - padT}" ${zone}/>`;
+  sv += `<rect x="${padL}" y="${padT}" width="${sx(t) - padL}" height="${sy(t) - padT}" ${zone}/>`;
+
+  const xticks = [0, 1000, 5000, 20000, 50000, 100000, 200000];
+  const yticks = [0, 1000, 5000, 20000, 50000, 100000, 150000];
+  for (const v of xticks) {
+    sv += `<line class="gridline" x1="${sx(v)}" y1="${padT}" x2="${sx(v)}" y2="${H - padB}"/>`;
+    sv += `<text class="axis-label" x="${sx(v)}" y="${H - padB + 14}" text-anchor="middle">${abbr(v)}</text>`;
+  }
+  for (const v of yticks) {
+    sv += `<line class="gridline" x1="${padL}" y1="${sy(v)}" x2="${W - padR}" y2="${sy(v)}"/>`;
+    sv += `<text class="axis-label" x="${padL - 6}" y="${sy(v) + 3}" text-anchor="end">${abbr(v)}</text>`;
+  }
+  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 8}" text-anchor="middle">observed 64 kt exposure, whole country — observational leg (sqrt scale)</text>`;
+  sv += `<text class="axis-title" x="12" y="${(padT + H - padB) / 2}" text-anchor="middle"
+          transform="rotate(-90 12 ${(padT + H - padB) / 2})">action-window forecast peak, AOI (sqrt scale)</text>`;
+
+  // threshold lines: x = observational leg, y = action leg
+  sv += `<line x1="${sx(t)}" y1="${padT}" x2="${sx(t)}" y2="${H - padB}"
+          stroke="var(--obs)" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+  sv += `<line x1="${padL}" y1="${sy(t)}" x2="${W - padR}" y2="${sy(t)}"
+          stroke="var(--fcst)" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+  sv += `<text class="axis-label" x="${sx(t) + 4}" y="${padT + 11}" fill="var(--obs)">obs ≥ ${abbr(t)}</text>`;
+  sv += `<text class="axis-label" x="${W - padR - 4}" y="${sy(t) - 5}" text-anchor="end" fill="var(--fcst)">forecast ≥ ${abbr(t)}</text>`;
+
+  for (const s of storms) {
+    const cx = sx(s.obs), cy = sy(s.peakA);
+    const on = s.peakA >= t || s.obs >= t;
+    const col = s.cerf ? "var(--critical)" : "var(--text-muted)";
+    const kerry = s.season === 2005;
+    sv += `<circle cx="${cx}" cy="${cy}" r="${on ? 7 : 5}" fill="${col}"
+            opacity="${on ? 0.85 : 0.45}"${kerry ? ' stroke="var(--text-primary)" stroke-dasharray="2 2" stroke-width="1.2" ' : ""}>
+            <title>${esc(s.name)} ${s.season} — action peak ${fmt(s.peakA)} (AOI), observed ${fmt(s.obs)} (country)${s.cerf ? ", CERF" : ""}${kerry ? " — scored from recovered 2005 deck" : ""}${on ? (s.obs >= t ? "" : " — FALSE ALARM at this threshold") : ""}</title></circle>`;
+    sv += `<text class="pt-label${on ? " trig" : ""}" x="${cx}" y="${cy - 9}" text-anchor="middle"
+            fill="${s.cerf ? "var(--critical)" : "var(--text-secondary)"}">${esc(s.name)} ${s.season}</text>`;
+  }
+  sv += `</svg>`;
+  const legend =
+    `<ul class="legend"><li><span class="dot" style="background:var(--critical)"></span>CERF allocation</li>
+     <li><span class="dot" style="background:var(--text-muted)"></span>no CERF</li>
+     <li>solid/large = activates at this threshold</li>
+     <li>dashed outline = Kerry (recovered 2005 deck)</li>
+     <li><span class="ln" style="border-color:var(--obs);border-top-style:dashed"></span>observational leg</li>
+     <li><span class="ln" style="border-color:var(--fcst);border-top-style:dashed"></span>action leg</li>
+     <li>${hidden} storms at 0 / 0 not shown</li></ul>`;
+  $("#rpxScatter").innerHTML = sv + legend;
 }
 
 function drawRPChart(c) {
