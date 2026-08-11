@@ -460,7 +460,7 @@ function drawRP(rp) {
   $("#rpNote").innerHTML =
     `Return periods are Weibull, (${rp.n_seasons}+1) / activated seasons, over the ` +
     `${rp.first_season}–${rp.last_season} record at &ge;${fmt(rp.threshold)} people / 64&nbsp;kt. ` +
-    `The framework's <strong>likely overall RP is ~1-in-${c.rp_p90}–${c.rp_p10} seasons</strong> ` +
+    `The framework's <strong>likely overall RP is ~1-in-${c.rp_p10}–${c.rp_p90} seasons</strong> ` +
     `(median ${c.rp_median}): the scored record alone gives ${c.rp_scored_only}, and the six ` +
     `2006–2011 seasons — where no JTWC forecast decks survive — very likely add activations ` +
     `(Gene 2008 and Atu 2011's observed 64&nbsp;kt swaths touched the AOI; the probabilities ` +
