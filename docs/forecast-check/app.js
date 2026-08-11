@@ -41,10 +41,12 @@ let HIST = null;
 Promise.all([
   fetch("data/core.json").then((r) => r.json()),
   fetch("data/hist.json").then((r) => r.json()),
+  fetch("data/rp.json").then((r) => r.json()).catch(() => null),
 ])
-  .then(([core, hist]) => {
+  .then(([core, hist, rp]) => {
     CORE = core;
     HIST = hist;
+    if (rp) drawRP(rp);
     $("#generated").textContent = "Generated " + core.generated + ".";
     if (core.aoi_pop) $("#aoiPop").textContent = fmt(core.aoi_pop);
     if (core.nat_pop) $("#natPop").textContent = fmt(core.nat_pop);
@@ -410,6 +412,62 @@ function drawOpt() {
       <td class="storm-list">${esc(r.storms)}</td></tr>`;
   }
   $("#dOpt").innerHTML = h + "</tbody></table>";
+}
+
+/* ------------------- return-period breakdown (forecast tab) ------------- */
+function drawRP(rp) {
+  const o = rp.observational, a = rp.action, c = rp.combined;
+  const seasons = (xs) => xs.join(", ");
+  const stormList = (xs) =>
+    xs.map((h) => `${esc(h.name)} ${h.season}`).join(", ");
+  const rows = [
+    ["Observational (national, no leadtime)",
+     `all ${o.scored_seasons}`,
+     `${o.n_storms} storms / ${o.activated_seasons.length} seasons`,
+     `${seasons(o.activated_seasons)}<br><span class="rp-storms">${stormList(o.storms)}</span>`,
+     `<strong>${o.rp_seasons}</strong>`],
+    ["Action leg (24–72 h forecast, AOI)",
+     `${a.n_scored_seasons} (2005, 2012–25)`,
+     `${a.n_storms} storms / ${a.activated_seasons.length} seasons` +
+     ` — ${a.false_alarms.length} false alarms`,
+     `${seasons(a.activated_seasons)}<br><span class="rp-storms">${stormList(a.storms)};` +
+     ` FA: ${stormList(a.false_alarms)}</span>`,
+     `<strong>${(rp.n_seasons + 1) / a.activated_seasons.length % 1 === 0
+        ? ((rp.n_seasons + 1) / a.activated_seasons.length).toFixed(0)
+        : ((rp.n_seasons + 1) / a.activated_seasons.length).toFixed(1)}</strong>` +
+     `<br><span class="rp-storms">over all ${rp.n_seasons} seasons; forecast data covers ${a.n_scored_seasons}</span>`],
+    ["Combined (either leg), scored data only",
+     "—",
+     `${c.scored_activated_seasons.length} activated seasons`,
+     seasons(c.scored_activated_seasons),
+     `<strong>${c.rp_scored_only}</strong>`],
+    ["+ estimated activations in unscored seasons",
+     `${c.unscored_seasons.length} seasons (${c.unscored_seasons[0]}–${c.unscored_seasons.at(-1)}) lack forecast decks`,
+     `+${c.expected_extra} expected`,
+     Object.entries(c.p_season)
+       .map(([se, p]) => `${se}: P=${p}`).join(", ") +
+       `<br><span class="rp-storms">${c.gap_storms.map((g) =>
+         `${esc(g.name)} (obs swath ${g.dist_km === 0 ? "touched AOI" : g.dist_km + " km away"}, P=${g.p})`).join("; ")}</span>`,
+     `<strong>${c.rp_median}</strong><br><span class="rp-storms">80% range ${c.rp_p90}–${c.rp_p10}</span>`],
+  ];
+  let h = `<table><thead><tr><th>Trigger</th><th>Seasons with data</th>
+    <th>Activations</th><th>Activated seasons</th><th>RP (seasons)</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    h += `<tr>${r.map((x, i) =>
+      `<td class="${i >= 2 ? "rp-left" : ""}">${x}</td>`).join("")}</tr>`;
+  }
+  $("#rpTable").innerHTML = h + "</tbody></table>";
+  $("#rpNote").innerHTML =
+    `Return periods are Weibull, (${rp.n_seasons}+1) / activated seasons, over the ` +
+    `${rp.first_season}–${rp.last_season} record at &ge;${fmt(rp.threshold)} people / 64&nbsp;kt. ` +
+    `The framework's <strong>likely overall RP is ~1-in-${c.rp_p90}–${c.rp_p10} seasons</strong> ` +
+    `(median ${c.rp_median}): the scored record alone gives ${c.rp_scored_only}, and the six ` +
+    `2006–2011 seasons — where no JTWC forecast decks survive — very likely add activations ` +
+    `(Gene 2008 and Atu 2011's observed 64&nbsp;kt swaths touched the AOI; the probabilities ` +
+    `come from a logistic fit of action-leg outcome vs observed miss distance on the scored ` +
+    `storms, and are floors — Kerry 2005, scored directly from recovered decks, fired from ` +
+    `586&nbsp;km away, farther than the fit allows). The observational leg alone sits at ` +
+    `${o.rp_seasons}; forecast false alarms are what pull the combined RP below it.`;
 }
 
 /* =================== TAB 2: forecast check ============================== */

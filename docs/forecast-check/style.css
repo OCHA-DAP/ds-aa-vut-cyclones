@@ -220,5 +220,11 @@ td.over { color: var(--critical); font-weight: 650; }
 
 .locked-trigger { color: var(--text-secondary); }
 .locked-trigger strong { color: var(--text-primary); }
+
+/* RP breakdown */
+#rpTable td { vertical-align: top; text-align: left; font-size: .85rem; }
+#rpTable th { text-align: left; }
+#rpTable td:last-child, #rpTable th:last-child { text-align: right; }
+.rp-storms { color: var(--text-muted); font-size: .78rem; }
 .storm-list { text-align: left; font-size: .78rem; color: var(--text-secondary); max-width: 34ch; }
 #dScatter svg { display: block; width: 100%; height: auto; }
