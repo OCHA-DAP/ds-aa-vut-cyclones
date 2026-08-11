@@ -1,10 +1,12 @@
 """Generate the observed-record trigger data.
 
 Writes:
-    exploration/public/trigger_data.csv       — for the marimo WASM export
+    exploration/public/trigger_data.csv       — provenance / ad-hoc analysis
     docs/forecast-check/data/hist.json        — for the static JS page
     docs/forecast-check/data/obsgeom/<sid>.json — observed swaths + track,
         lazy-loaded by the trigger-design map
+
+(The marimo explorer that consumed the CSV was retired 2026-08-11.)
 """
 import json
 from pathlib import Path

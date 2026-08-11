@@ -8,14 +8,16 @@ Both are served from `docs/` on GitHub Pages:
 
 | Page | What it is |
 |---|---|
-| [`/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/) | Trigger threshold explorer (marimo, exported to WASM) — being superseded by `/forecast-check/` |
 | [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Trigger design on the observed record **and** the forecast check (plain JS + Leaflet, two tabs) |
+
+`/` redirects there — the old marimo WASM explorer was retired 2026-08-11
+(slow to load; fully superseded).
 
 The forecast-check page is a static JS app with its data pre-baked into
 `docs/forecast-check/data/`:
 
 ```shell
-# observed-record trigger data (hist.json + the marimo CSV)
+# observed-record trigger data (hist.json, obsgeom/, plus a provenance CSV)
 uv run python exploration/make_trigger_data.py
 # forecast-cycle exposure + map geometry (core.json, geom/)
 uv run python exploration/make_forecast_check_data.py

@@ -2,15 +2,16 @@
 
 ## Static JS pages under `docs/`
 
-Marimo is **not** the default for anything new (team decision D93). New
-interactive pages here are plain `index.html` + `app.js` + `style.css` in their
-own subdirectory of `docs/`, with data pre-baked as JSON by a script in
-`exploration/`. See `docs/forecast-check/` and
-`exploration/make_forecast_check_data.py`.
+Marimo is **not** the default for anything new (team decision D93), and this
+repo's marimo WASM explorer was retired on 2026-08-11 — `docs/index.html` is
+now a redirect to `docs/forecast-check/`. Interactive pages are plain
+`index.html` + `app.js` + `style.css` in a subdirectory of `docs/`, with data
+pre-baked as JSON by a script in `exploration/`. See `docs/forecast-check/`
+and `exploration/make_forecast_check_data.py`.
 
-Keep them in a **subdirectory** — `marimo export html-wasm -o docs/ -f`
-overwrites `docs/index.html` and `docs/assets/`, so a hand-written page at the
-top level would be clobbered on the next export.
+Do NOT run `marimo export html-wasm -o docs/ -f` — it would overwrite the
+redirect at `docs/index.html` and recreate `docs/assets/`.
+`exploration/trigger_explorer.py` is kept for reference only.
 
 Leaflet and other CDN assets are fine here (unlike Artifacts, GH Pages has no
 CSP restriction).
