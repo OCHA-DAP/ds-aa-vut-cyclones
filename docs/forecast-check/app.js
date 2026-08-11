@@ -562,11 +562,19 @@ function renderRPX(rp, t, scale) {
 
 function drawRPXScatter(rp, t) {
   const storms = rp.scored_storms.filter((s) => s.peakA > 0 || s.obs > 0);
+  const extra = (rp.extra_storms || []).filter((s) => s.obs > 0);
   const hidden = rp.scored_storms.length - storms.length;
-  const W = 900, H = 430, padL = 64, padR = 18, padT = 16, padB = 48;
-  const xmax = 240000, ymax = 160000;
-  const sx = (v) => padL + Math.sqrt(Math.min(v, xmax) / xmax) * (W - padL - padR);
-  const sy = (v) => H - padB - Math.sqrt(Math.min(v, ymax) / ymax) * (H - padT - padB);
+  // square plot: same sqrt scale and max on both axes
+  const W = 640, H = 640, padL = 64, padR = 18, padT = 16, padB = 52;
+  const vmaxAx = 240000;
+  const sx = (v) =>
+    padL + Math.sqrt(Math.min(v, vmaxAx) / vmaxAx) * (W - padL - padR);
+  const sy = (v) =>
+    H - padB - Math.sqrt(Math.min(v, vmaxAx) / vmaxAx) * (H - padT - padB);
+  const maxTA = Math.max(
+    ...storms.map((s) => s.affected || 0),
+    ...extra.map((s) => s.affected || 0), 1);
+  const rOf = (s) => 4 + Math.sqrt((s.affected || 0) / maxTA) * 26;
 
   let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
   // OR activation zone (either axis >= t): right strip + top-left strip
@@ -574,19 +582,19 @@ function drawRPXScatter(rp, t) {
   sv += `<rect x="${sx(t)}" y="${padT}" width="${W - padR - sx(t)}" height="${H - padB - padT}" ${zone}/>`;
   sv += `<rect x="${padL}" y="${padT}" width="${sx(t) - padL}" height="${sy(t) - padT}" ${zone}/>`;
 
-  const xticks = [0, 1000, 5000, 20000, 50000, 100000, 200000];
-  const yticks = [0, 1000, 5000, 20000, 50000, 100000, 150000];
-  for (const v of xticks) {
+  const ticks = [0, 1000, 5000, 20000, 50000, 100000, 200000];
+  for (const v of ticks) {
     sv += `<line class="gridline" x1="${sx(v)}" y1="${padT}" x2="${sx(v)}" y2="${H - padB}"/>`;
     sv += `<text class="axis-label" x="${sx(v)}" y="${H - padB + 14}" text-anchor="middle">${abbr(v)}</text>`;
-  }
-  for (const v of yticks) {
     sv += `<line class="gridline" x1="${padL}" y1="${sy(v)}" x2="${W - padR}" y2="${sy(v)}"/>`;
     sv += `<text class="axis-label" x="${padL - 6}" y="${sy(v) + 3}" text-anchor="end">${abbr(v)}</text>`;
   }
-  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 8}" text-anchor="middle">observed 64 kt exposure, whole country — observational leg (sqrt scale)</text>`;
+  // diagonal: forecast == observed
+  sv += `<line x1="${sx(0)}" y1="${sy(0)}" x2="${sx(vmaxAx)}" y2="${sy(vmaxAx)}"
+          stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>`;
+  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 8}" text-anchor="middle">observed 64 kt (10-min) exposure, whole country — observational leg (sqrt)</text>`;
   sv += `<text class="axis-title" x="12" y="${(padT + H - padB) / 2}" text-anchor="middle"
-          transform="rotate(-90 12 ${(padT + H - padB) / 2})">action-window forecast peak, AOI (sqrt scale)</text>`;
+          transform="rotate(-90 12 ${(padT + H - padB) / 2})">action-window forecast peak, AOI (sqrt)</text>`;
 
   // threshold lines: x = observational leg, y = action leg
   sv += `<line x1="${sx(t)}" y1="${padT}" x2="${sx(t)}" y2="${H - padB}"
@@ -596,22 +604,34 @@ function drawRPXScatter(rp, t) {
   sv += `<text class="axis-label" x="${sx(t) + 4}" y="${padT + 11}" fill="var(--obs)">obs ≥ ${abbr(t)}</text>`;
   sv += `<text class="axis-label" x="${W - padR - 4}" y="${sy(t) - 5}" text-anchor="end" fill="var(--fcst)">forecast ≥ ${abbr(t)}</text>`;
 
+  // no-deck storms: hollow markers on the x-axis (no forecast value)
+  for (const s of extra) {
+    const cx = sx(s.obs), cy = sy(0);
+    sv += `<circle cx="${cx}" cy="${cy}" r="${rOf(s)}" fill="none"
+            stroke="var(--text-muted)" stroke-width="1.6">
+            <title>${esc(s.name)} ${s.season} — observed ${fmt(s.obs)} (country); no forecast record survives</title></circle>`;
+    sv += `<text class="pt-label" x="${cx}" y="${cy - rOf(s) - 4}" text-anchor="middle"
+            fill="var(--text-muted)">${esc(s.name)} ${s.season}</text>`;
+  }
+
   for (const s of storms) {
     const cx = sx(s.obs), cy = sy(s.peakA);
     const on = s.peakA >= t || s.obs >= t;
     const col = s.cerf ? "var(--critical)" : "var(--text-muted)";
     const kerry = s.season === 2005;
-    sv += `<circle cx="${cx}" cy="${cy}" r="${on ? 7 : 5}" fill="${col}"
-            opacity="${on ? 0.85 : 0.45}"${kerry ? ' stroke="var(--text-primary)" stroke-dasharray="2 2" stroke-width="1.2" ' : ""}>
-            <title>${esc(s.name)} ${s.season} — action peak ${fmt(s.peakA)} (AOI), observed ${fmt(s.obs)} (country)${s.cerf ? ", CERF" : ""}${kerry ? " — scored from recovered 2005 deck" : ""}${on ? (s.obs >= t ? "" : " — FALSE ALARM at this threshold") : ""}</title></circle>`;
-    sv += `<text class="pt-label${on ? " trig" : ""}" x="${cx}" y="${cy - 9}" text-anchor="middle"
+    sv += `<circle cx="${cx}" cy="${cy}" r="${rOf(s)}" fill="${col}"
+            opacity="${on ? 0.7 : 0.35}"${kerry ? ' stroke="var(--text-primary)" stroke-dasharray="2 2" stroke-width="1.2" ' : ""}>
+            <title>${esc(s.name)} ${s.season} — action peak ${fmt(s.peakA)} (AOI), observed ${fmt(s.obs)} (country), affected ${fmt(s.affected || 0)}${s.cerf ? ", CERF" : ""}${kerry ? " — scored from recovered 2005 deck" : ""}${on ? (s.obs >= t ? "" : " — FALSE ALARM at this threshold") : ""}</title></circle>`;
+    sv += `<text class="pt-label${on ? " trig" : ""}" x="${cx}" y="${cy - rOf(s) - 4}" text-anchor="middle"
             fill="${s.cerf ? "var(--critical)" : "var(--text-secondary)"}">${esc(s.name)} ${s.season}</text>`;
   }
   sv += `</svg>`;
   const legend =
     `<ul class="legend"><li><span class="dot" style="background:var(--critical)"></span>CERF allocation</li>
      <li><span class="dot" style="background:var(--text-muted)"></span>no CERF</li>
-     <li>solid/large = activates at this threshold</li>
+     <li>bubble size = total affected (EM-DAT)</li>
+     <li>bold label = activates at this threshold</li>
+     <li>hollow = no forecast record (2006–11)</li>
      <li>dashed outline = Kerry (recovered 2005 deck)</li>
      <li><span class="ln" style="border-color:var(--obs);border-top-style:dashed"></span>observational leg</li>
      <li><span class="ln" style="border-color:var(--fcst);border-top-style:dashed"></span>action leg</li>

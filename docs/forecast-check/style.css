@@ -231,3 +231,5 @@ td.over { color: var(--critical); font-weight: 650; }
 
 .rp-chart-title { margin-top: 1.2rem; }
 #rpChart svg { display: block; width: 100%; height: auto; }
+
+#rpxScatter svg { max-width: 640px; }

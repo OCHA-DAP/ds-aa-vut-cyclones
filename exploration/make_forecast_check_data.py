@@ -255,6 +255,35 @@ def aoi_exposure_context():
     return expo
 
 
+def national_exposure_context():
+    """Like :func:`aoi_exposure_context` but scoped to the whole country."""
+    adm2 = codab.load_codab_from_blob(admin_level=2)
+    adm2_exp = build_adm2_expanded(adm2)
+    da_wp = stratus.open_blob_cog(
+        "worldpop/pop_count/global_pop_2026_CN_1km_R2025A_UA_v1.tif",
+        container_name="raster",
+    )
+    da_wp = da_wp.rio.clip(adm2_exp.geometry).squeeze(drop=True).compute()
+    da_wp = da_wp.assign_coords({"x": ((da_wp.x + 360) % 360)}).sortby("x")
+    nat_union = adm2_exp.geometry.union_all()
+    da_nat = da_wp.rio.clip([nat_union], all_touched=True)
+
+    def expo(geom_wrapped):
+        if geom_wrapped is None or geom_wrapped.is_empty:
+            return 0
+        if not geom_wrapped.is_valid:
+            geom_wrapped = shapely.make_valid(geom_wrapped)
+        if not geom_wrapped.intersects(nat_union):
+            return 0
+        try:
+            clipped = da_nat.rio.clip([geom_wrapped])
+        except Exception:
+            return 0
+        return int(clipped.where(clipped > 0).sum())
+
+    return expo
+
+
 def load_observed_veq_swaths(sids):
     """Observed V_EQ-contour swaths built from DB best-track radii.
 

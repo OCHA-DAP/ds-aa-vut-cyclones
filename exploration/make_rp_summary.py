@@ -40,7 +40,13 @@ FIRST, LAST = 2005, 2025
 N_SEASONS = LAST - FIRST + 1
 
 # directly-scored action-leg result outside the VMGD-archive era
-KERRY_2005 = {"name": "Kerry", "season": 2005, "peakA": 8260, "obs": 0}
+KERRY_2005 = {
+    "name": "Kerry",
+    "season": 2005,
+    "sid": "2005003S09177",
+    "peakA": 8260,
+    "obs": 0,
+}
 
 # forecast decks exist for these seasons (UCAR 2005+2025, VMGD 2012-2024)
 SCORED_FCST_SEASONS = {2005} | set(range(2012, 2026))
@@ -280,6 +286,44 @@ def main():
             }
         )
     t_rp3 = next((p["t"] for p in sweep if p["med"] >= 3.0), None)
+
+    # ---- storms without forecast decks, for the explorer scatter --------
+    # national V_EQ observed exposure so every storm with nonzero 64-kt
+    # exposure appears on the plot (hollow markers, no forecast value)
+    affected_by_sid = {s["sid"]: s["affected"] for s in hist["storms"]}
+    core_sids = {s["sid"] for s in core["storms"] if s.get("sid")}
+    nodeck = [
+        s
+        for s in hist["storms"]
+        if s["sid"] not in core_sids and s["sid"] != KERRY_2005["sid"]
+    ]
+    extra_storms = []
+    if nodeck:
+        from make_forecast_check_data import (
+            load_observed_veq_swaths,
+            national_exposure_context,
+        )
+
+        swaths = load_observed_veq_swaths({s["sid"] for s in nodeck})
+        if swaths:
+            expo_nat = national_exposure_context()
+            for s in nodeck:
+                geom = swaths.get(s["sid"])
+                if geom is None:
+                    continue
+                gw = gpd.GeoSeries([geom], crs=3832).to_crs(FJI_CRS).iloc[0]
+                obs = expo_nat(gw)
+                if obs > 0:
+                    extra_storms.append(
+                        {
+                            "name": s["name"].title(),
+                            "season": s["season"],
+                            "obs": obs,
+                            "affected": s["affected"],
+                        }
+                    )
+    print("extra (no-deck) storms with nonzero V_EQ obs:", extra_storms)
+
     out = {
         "threshold": T,
         "first_season": FIRST,
@@ -324,12 +368,14 @@ def main():
                 "peakA": s["peakA"],
                 "obs": s["obs"],
                 "cerf": bool(s.get("cerf")),
+                "affected": affected_by_sid.get(s.get("sid"), 0),
             }
             for s in (
                 [
                     {
                         "name": x["name"],
                         "season": x["season"],
+                        "sid": x.get("sid"),
                         "peakA": peak_a(x),
                         "obs": int(x["obs"].get("64", 0)),
                         "cerf": x.get("cerf"),
@@ -340,6 +386,7 @@ def main():
                 + [KERRY_2005]
             )
         ],
+        "extra_storms": extra_storms,
         "calibration": {
             "logistic_midpoint_km": round(float(d0)),
             "logistic_scale_km": round(float(sc)),
