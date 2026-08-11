@@ -228,3 +228,6 @@ td.over { color: var(--critical); font-weight: 650; }
 .rp-storms { color: var(--text-muted); font-size: .78rem; }
 .storm-list { text-align: left; font-size: .78rem; color: var(--text-secondary); max-width: 34ch; }
 #dScatter svg { display: block; width: 100%; height: auto; }
+
+.rp-chart-title { margin-top: 1.2rem; }
+#rpChart svg { display: block; width: 100%; height: auto; }

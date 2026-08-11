@@ -157,16 +157,115 @@ def main():
         if p >= 0.01:
             p_season[se] = round(p, 2)
 
-    # ---- Monte Carlo combined RP ----------------------------------------
-    rng = np.random.default_rng(17)
+    # ---- combined RP: exact enumeration over the gap-season Bernoullis --
+    def rp_quantiles(n_known, probs):
+        """RP distribution of (N+1)/(n_known + extra), extra = sum of
+        independent Bernoulli(probs). Exact; returns (q10, med, q90)."""
+        dist = {0: 1.0}
+        for p in probs:
+            nxt = {}
+            for k, w in dist.items():
+                nxt[k] = nxt.get(k, 0) + w * (1 - p)
+                nxt[k + 1] = nxt.get(k + 1, 0) + w * p
+            dist = nxt
+        outcomes = sorted(
+            ((N_SEASONS + 1) / (n_known + k), w) for k, w in dist.items()
+        )
+        qs = []
+        for alpha in (0.10, 0.50, 0.90):
+            cum = 0.0
+            for v, w in outcomes:
+                cum += w
+                if cum >= alpha - 1e-12:
+                    qs.append(v)
+                    break
+        return qs
+
     n_known = len(combined_seasons)
-    extra = np.array(
-        [
-            sum(rng.random() < p for p in p_season.values())
-            for _ in range(40000)
-        ]
-    )
-    rp = (N_SEASONS + 1) / (n_known + extra)
+    q10, med, q90 = rp_quantiles(n_known, list(p_season.values()))
+
+    # ---- threshold sweep: combined RP as a function of the threshold ----
+    # per-storm scored values (action peak with Kerry, obs national) and
+    # gap-storm distances stay fixed; the logistic is refit per distinct
+    # calibration outcome vector (cached — ~10 distinct fits)
+    sweep_storms = [
+        {
+            "season": s["season"],
+            "peakA": peak_a(s),
+            "obs": int(s["obs"].get("64", 0)),
+        }
+        for s in core["storms"]
+        if FIRST <= s["season"] <= LAST
+    ] + [KERRY_2005]
+    gap_D = {}
+    for s in hist["storms"]:
+        if s["season"] not in unscored:
+            continue
+        g = json.load(open(DATA / "obsgeom" / f"{s['sid']}.json"))
+        geom = rings_to_3832(g["rings"].get("64"))
+        if geom is not None:
+            gap_D.setdefault(s["season"], []).append(
+                geom.distance(aoi_land) / 1000
+            )
+
+    cal_peaks = [
+        peak_a(s) for s in core["storms"] if FIRST <= s["season"] <= LAST
+    ]
+    fit_cache = {}
+
+    def logi_nll(ya, dd, ss):
+        z = np.clip((D_cal - dd) / ss, -50, 50)
+        P = np.clip(1 / (1 + np.exp(z)), 1e-9, 1 - 1e-9)
+        return -(ya * np.log(P) + (1 - ya) * np.log(1 - P)).sum()
+
+    def fit_for(thr):
+        y = tuple(1 if p >= thr else 0 for p in cal_peaks)
+        if y not in fit_cache:
+            if sum(y) == 0:
+                fit_cache[y] = None  # no positives: no basis to estimate
+            else:
+                ya = np.array(y)
+                fit_cache[y] = min(
+                    (
+                        (dd, ss)
+                        for dd in np.arange(10, 301, 4)
+                        for ss in np.arange(5, 151, 5)
+                    ),
+                    key=lambda t: logi_nll(ya, *t),
+                )
+        return fit_cache[y]
+
+    sweep = []
+    for thr in range(1000, 81001, 1000):
+        seasons = {
+            s["season"]
+            for s in sweep_storms
+            if s["peakA"] >= thr or s["obs"] >= thr
+        }
+        fit = fit_for(thr)
+        probs = []
+        if fit is not None:
+            fd0, fsc = fit
+            for se, Ds in gap_D.items():
+                pse = 1 - np.prod(
+                    [
+                        1 - 1 / (1 + np.exp(np.clip((D - fd0) / fsc, -50, 50)))
+                        for D in Ds
+                    ]
+                )
+                if pse >= 0.01:
+                    probs.append(float(pse))
+        sq10, smed, sq90 = rp_quantiles(max(len(seasons), 1), probs)
+        sweep.append(
+            {
+                "t": thr,
+                "scored": round((N_SEASONS + 1) / max(len(seasons), 1), 2),
+                "med": round(smed, 2),
+                "p10": round(sq10, 2),
+                "p90": round(sq90, 2),
+            }
+        )
+    t_rp3 = next((p["t"] for p in sweep if p["med"] >= 3.0), None)
     out = {
         "threshold": T,
         "first_season": FIRST,
@@ -197,9 +296,11 @@ def main():
             "gap_storms": gap_storms,
             "p_season": {str(k): v for k, v in p_season.items()},
             "expected_extra": round(float(sum(p_season.values())), 1),
-            "rp_median": round(float(np.median(rp)), 1),
-            "rp_p10": round(float(np.percentile(rp, 10)), 1),
-            "rp_p90": round(float(np.percentile(rp, 90)), 1),
+            "rp_median": round(med, 1),
+            "rp_p10": round(q10, 1),
+            "rp_p90": round(q90, 1),
+            "sweep": sweep,
+            "t_rp3": t_rp3,
         },
         "calibration": {
             "logistic_midpoint_km": round(float(d0)),

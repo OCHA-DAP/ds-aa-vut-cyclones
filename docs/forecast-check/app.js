@@ -457,7 +457,14 @@ function drawRP(rp) {
       `<td class="${i >= 2 ? "rp-left" : ""}">${x}</td>`).join("")}</tr>`;
   }
   $("#rpTable").innerHTML = h + "</tbody></table>";
+  drawRPChart(c);
   $("#rpNote").innerHTML =
+    (c.t_rp3
+      ? `To push the estimated combined RP to <strong>~1-in-3 seasons</strong>, the exposure ` +
+        `threshold would have to rise to <strong>&asymp;${fmt(c.t_rp3)} people</strong> — just above ` +
+        `Donna's action-window peak — where it holds ~3.1 up to ~50k, then jumps past 5 as ` +
+        `Jasmine, Kevin, Lola and Harold all drop out together (see chart). `
+      : "") +
     `Return periods are Weibull, (${rp.n_seasons}+1) / activated seasons, over the ` +
     `${rp.first_season}–${rp.last_season} record at &ge;${fmt(rp.threshold)} people / 64&nbsp;kt. ` +
     `The framework's <strong>likely overall RP is ~1-in-${c.rp_p10}–${c.rp_p90} seasons</strong> ` +
@@ -468,6 +475,69 @@ function drawRP(rp) {
     `storms, and are floors — Kerry 2005, scored directly from recovered decks, fired from ` +
     `586&nbsp;km away, farther than the fit allows). The observational leg alone sits at ` +
     `${o.rp_seasons}; forecast false alarms are what pull the combined RP below it.`;
+}
+
+function drawRPChart(c) {
+  const sweep = c.sweep || [];
+  if (!sweep.length) return;
+  const W = 900, H = 300, padL = 56, padR = 16, padT = 14, padB = 40;
+  const xmax = sweep.at(-1).t;
+  const ymin = 2, ymax = 8;
+  const x = (v) => padL + (v / xmax) * (W - padL - padR);
+  const y = (v) =>
+    H - padB - ((Math.min(v, ymax) - ymin) / (ymax - ymin)) * (H - padT - padB);
+
+  let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
+  for (let v = ymin; v <= ymax; v++) {
+    sv += `<line class="gridline" x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}"/>`;
+    sv += `<text class="axis-label" x="${padL - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+  }
+  for (let t = 0; t <= xmax; t += 20000) {
+    sv += `<line class="gridline" x1="${x(t)}" y1="${padT}" x2="${x(t)}" y2="${H - padB}"/>`;
+    sv += `<text class="axis-label" x="${x(t)}" y="${H - padB + 14}" text-anchor="middle">${t / 1000}k</text>`;
+  }
+  sv += `<text class="axis-title" x="${(padL + W - padR) / 2}" y="${H - 6}" text-anchor="middle">exposure threshold (people at 64 kt)</text>`;
+  sv += `<text class="axis-title" x="12" y="${(padT + H - padB) / 2}" text-anchor="middle"
+          transform="rotate(-90 12 ${(padT + H - padB) / 2})">combined RP (seasons)</text>`;
+
+  // 80% band
+  const band =
+    sweep.map((p, i) => `${i ? "L" : "M"}${x(p.t)},${y(p.p90)}`).join(" ") +
+    " " +
+    [...sweep].reverse().map((p) => `L${x(p.t)},${y(p.p10)}`).join(" ") +
+    " Z";
+  sv += `<path d="${band}" fill="var(--fcst)" opacity="0.15"/>`;
+  // scored-only (dashed) and median lines
+  const line = (key) =>
+    sweep.map((p, i) => `${i ? "L" : "M"}${x(p.t)},${y(p[key])}`).join(" ");
+  sv += `<path d="${line("scored")}" fill="none" stroke="var(--text-muted)"
+          stroke-width="1.5" stroke-dasharray="4 4"/>`;
+  sv += `<path d="${line("med")}" fill="none" stroke="var(--fcst)" stroke-width="2.5"/>`;
+
+  // reference: RP 3, current threshold, RP-3 threshold
+  sv += `<line x1="${padL}" y1="${y(3)}" x2="${W - padR}" y2="${y(3)}"
+          stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  sv += `<text class="axis-label" x="${W - padR - 4}" y="${y(3) - 5}" text-anchor="end"
+          fill="var(--critical)">RP 3</text>`;
+  sv += `<line x1="${x(5000)}" y1="${padT}" x2="${x(5000)}" y2="${H - padB}"
+          stroke="var(--zone)" stroke-width="2"/>`;
+  sv += `<text class="axis-label" x="${x(5000) + 4}" y="${padT + 12}">current 5k</text>`;
+  if (c.t_rp3) {
+    sv += `<line x1="${x(c.t_rp3)}" y1="${padT}" x2="${x(c.t_rp3)}" y2="${H - padB}"
+            stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="2 3"/>`;
+    sv += `<text class="axis-label" x="${x(c.t_rp3) + 4}" y="${padT + 12}"
+            fill="var(--critical)">${c.t_rp3 / 1000}k &rarr; RP 3</text>`;
+  }
+  // hover targets
+  for (const p of sweep) {
+    sv += `<circle cx="${x(p.t)}" cy="${y(p.med)}" r="6" fill="transparent">
+            <title>threshold ${fmt(p.t)}: median RP ${p.med} (80% ${p.p10}–${p.p90}); scored-only ${p.scored}</title></circle>`;
+  }
+  const legend =
+    `<ul class="legend"><li><span class="ln" style="border-color:var(--fcst)"></span>median estimate (incl. unscored seasons)</li>
+     <li><span class="sw" style="background:color-mix(in srgb, var(--fcst) 20%, transparent)"></span>80% range</li>
+     <li><span class="ln" style="border-color:var(--text-muted);border-top-style:dashed"></span>scored data only</li></ul>`;
+  $("#rpChart").innerHTML = sv + "</svg>" + legend;
 }
 
 /* =================== TAB 2: forecast check ============================== */
