@@ -11,11 +11,17 @@ Writes:
 import json
 from pathlib import Path
 
+import geopandas as gpd
 import ocha_stratus as stratus
 import pandas as pd
-from make_forecast_check_data import _ring, load_observed_wind_buffers
+from make_forecast_check_data import (
+    _ring,
+    aoi_exposure_context,
+    load_observed_veq_swaths,
+    load_observed_wind_buffers,
+)
 
-from src.constants import ADM1_AOI_PCODES, PROJECT_PREFIX
+from src.constants import ADM1_AOI_PCODES, FJI_CRS, PROJECT_PREFIX
 from src.datasources import codab
 
 adm2 = codab.load_codab_from_blob(admin_level=2)
@@ -59,6 +65,18 @@ df_exp_sid = df_exp_sid.fillna(0)
 
 df = df_stats.merge(df_exp_sid, on="sid", how="inner")
 df = df[df["season"] >= 2005].reset_index(drop=True)
+
+# The 64 kt trigger layer is read at the V_EQ contour (64 kt 10-min =
+# ~73 kt 1-min): rebuild observed 64-kt exposure from DB radii at V_EQ.
+# 34/50 kt columns stay 1-min context from the dedup parquet.
+print("observed V_EQ swaths + AOI exposure for the 64 kt layer...")
+veq_sw = load_observed_veq_swaths(set(df["sid"]))
+expo_aoi = aoi_exposure_context()
+veq_exp = {}
+for sid, geom in veq_sw.items():
+    gw = gpd.GeoSeries([geom], crs=3832).to_crs(FJI_CRS).iloc[0]
+    veq_exp[sid] = expo_aoi(gw)
+df["exp64"] = df["sid"].map(veq_exp).fillna(0).astype(int)
 
 cols = [
     "sid",
@@ -130,13 +148,15 @@ n_geo = 0
 for s in storms:
     sid = s["sid"]
     rings = {}
-    for speed in (34, 50, 64):
+    for speed in (34, 50):
         sel = gdf_buf[
             (gdf_buf["sid"] == sid) & (gdf_buf["buffer_speed"] == speed)
         ]
         rings[str(speed)] = (
             _ring(sel.geometry.union_all()) if len(sel) else None
         )
+    # 64 kt ring at the V_EQ contour, matching the exposure numbers
+    rings["64"] = _ring(veq_sw[sid]) if sid in veq_sw else None
     tr = df_track[df_track["sid"] == sid].sort_values("time")
     tr = tr.iloc[:: max(1, len(tr) // 300)]
     track = [[round(r.lat, 2), round(r.lon % 360, 2)] for r in tr.itertuples()]

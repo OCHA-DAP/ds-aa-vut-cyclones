@@ -37,6 +37,43 @@ SPEEDS = (34, 50, 64)
 # geometry simplification for the browser (metres, in EPSG:3832)
 SIMPLIFY_M = 2000
 
+# The trigger's "64 kt" is read on the 10-minute (RSMC Nadi / VMHS) scale.
+# JTWC and IBTrACS-USA radii are 1-minute means, so the trigger contour is
+# evaluated at the 1-min equivalent: 64 / 0.88 = ~73 kt. Radii at V_EQ are
+# estimated per quadrant by log-linear extrapolation of the R50->R64 decay,
+# gated on intensity; 34/50 kt values remain 1-min context.
+V_EQ = 73
+
+
+def veq_radii(df, vmax_col="vmax"):
+    """Copy of ``df`` with r64_* columns replaced by the V_EQ contour.
+
+    Expects wide columns r64_{q}, r50_{q} and an intensity column (1-min).
+    """
+    import numpy as _np
+
+    out = df.copy()
+    for q in ("ne", "se", "sw", "nw"):
+        r64 = out[f"r64_{q}"].fillna(0).astype(float).to_numpy()
+        r50 = out[f"r50_{q}"].fillna(0).astype(float).to_numpy()
+        vmax = out[vmax_col].fillna(0).astype(float).to_numpy()
+        req = _np.zeros_like(r64)
+        ok = (r64 > 0) & (vmax >= V_EQ)
+        steep = ok & (r50 > r64)
+        with _np.errstate(divide="ignore", invalid="ignore"):
+            lr = _np.log(_np.where(r64 > 0, r64, 1)) + (V_EQ - 64) * (
+                (
+                    _np.log(_np.where(r64 > 0, r64, 1))
+                    - _np.log(_np.where(r50 > 0, r50, 1))
+                )
+                / (64 - 50)
+            )
+        req[steep] = _np.exp(lr[steep])
+        flat = ok & ~steep
+        req[flat] = r64[flat] * 0.85
+        out[f"r64_{q}"] = req
+    return out
+
 
 def build_adm2_expanded(adm2: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """adm2 expanded 500 m into the sea, then made non-overlapping.
@@ -179,6 +216,95 @@ def load_observed_wind_buffers(sids):
             [buf, gpd.GeoDataFrame(rebuilt, crs=3832)], ignore_index=True
         )
     return gpd.GeoDataFrame(buf, geometry="geometry", crs=3832)
+
+
+def aoi_exposure_context():
+    """Standalone AOI exposure function for sibling scripts.
+
+    Returns ``expo(geom_wrapped) -> int`` counting WorldPop population
+    inside the geometry within the AOI provinces (lon-wrapped frame).
+    """
+    adm2 = codab.load_codab_from_blob(admin_level=2)
+    aoi_pcodes = set(
+        adm2[adm2["ADM1_PCODE"].isin(ADM1_AOI_PCODES)]["ADM2_PCODE"]
+    )
+    adm2_exp = build_adm2_expanded(adm2)
+    aoi = adm2_exp[adm2_exp["ADM2_PCODE"].isin(aoi_pcodes)]
+    da_wp = stratus.open_blob_cog(
+        "worldpop/pop_count/global_pop_2026_CN_1km_R2025A_UA_v1.tif",
+        container_name="raster",
+    )
+    da_wp = da_wp.rio.clip(adm2_exp.geometry).squeeze(drop=True).compute()
+    da_wp = da_wp.assign_coords({"x": ((da_wp.x + 360) % 360)}).sortby("x")
+    aoi_union = aoi.geometry.union_all()
+    da_aoi = da_wp.rio.clip([aoi_union], all_touched=True)
+
+    def expo(geom_wrapped):
+        if geom_wrapped is None or geom_wrapped.is_empty:
+            return 0
+        if not geom_wrapped.is_valid:
+            geom_wrapped = shapely.make_valid(geom_wrapped)
+        if not geom_wrapped.intersects(aoi_union):
+            return 0
+        try:
+            clipped = da_aoi.rio.clip([geom_wrapped])
+        except Exception:
+            return 0
+        return int(clipped.where(clipped > 0).sum())
+
+    return expo
+
+
+def load_observed_veq_swaths(sids):
+    """Observed V_EQ-contour swaths built from DB best-track radii.
+
+    Returns {sid: shapely geometry (EPSG:3832)}; a sid is absent when the
+    storm never had usable 64-kt radii at >=V_EQ intensity (its V_EQ
+    exposure is then genuinely ~0 or unmeasurable — the radii-record
+    caveat applies).
+    """
+    import numpy as _np
+
+    from src.utils.wind_buffers import wind_buffers_from_track
+
+    sids = set(sids)
+    with stratus.get_engine(stage="prod").connect() as con:
+        tracks = pd.read_sql(
+            "SELECT sid, valid_time, wind_speed, "
+            " usa_quadrant_radius_50 q50, usa_quadrant_radius_64 q64, "
+            " ST_X(geometry::geometry) lon, ST_Y(geometry::geometry) lat "
+            "FROM storms.ibtracs_tracks_geo "
+            f"WHERE sid IN ({','.join(repr(s) for s in sids)})",
+            con,
+        )
+    tracks["lon"] = tracks["lon"] % 360
+
+    def parse(v):
+        try:
+            out = [float(x) for x in str(v).strip("{}").split(",")]
+            return out if len(out) == 4 else [_np.nan] * 4
+        except ValueError:
+            return [_np.nan] * 4
+
+    swaths = {}
+    for sid, g in tracks.groupby("sid"):
+        g = g.sort_values("valid_time").copy()
+        for col, pre in (("q50", "r50"), ("q64", "r64")):
+            arrs = g[col].apply(parse)
+            for j, q in enumerate(DB_QUAD_ORDER):
+                g[f"{pre}_{q}"] = [a[j] for a in arrs]
+        g = veq_radii(g, vmax_col="wind_speed")
+        quad_cols = [f"r64_{q}" for q in DB_QUAD_ORDER]
+        # zero-fill BEFORE interpolation (see load_observed_wind_buffers)
+        g[quad_cols] = g[quad_cols].fillna(0)
+        if (g[quad_cols].to_numpy() <= 0).all():
+            continue
+        d = g[["valid_time", "lat", "lon"] + quad_cols]
+        bufs = wind_buffers_from_track(d, speeds=(64,))
+        if bufs.empty or bufs.geometry.iloc[0].is_empty:
+            continue
+        swaths[sid] = bufs.geometry.iloc[0]
+    return swaths
 
 
 def _ring(geom, simplify_m=SIMPLIFY_M):
@@ -327,6 +453,14 @@ def main():
         .fillna(0)
         .astype(int)
     )
+    # the 64 kt trigger layer is re-read at the V_EQ contour from DB radii
+    print("observed V_EQ swaths from DB radii...")
+    veq_sw = load_observed_veq_swaths(want_sids)
+    obs_tot[64] = 0
+    for sid, geom in veq_sw.items():
+        gw = gpd.GeoSeries([geom], crs=3832).to_crs(FJI_CRS).iloc[0]
+        if sid in obs_tot.index:
+            obs_tot.loc[sid, 64] = exposure_national(gw)
 
     # observed track points, for drawing the observed track on the map
     obs_track = stratus.load_parquet_from_blob(
@@ -352,9 +486,12 @@ def main():
         cycles, geoms = [], {}
         for init, g in sdf.groupby("init"):
             g = g.sort_values("tau")
-            bufs = wind_buffers_from_track(g)
+            # 34/50 kt layers stay 1-min context; the 64 kt trigger layer
+            # is read at the V_EQ (10-min-equivalent) contour throughout
+            g_veq = veq_radii(g)
             exp = {}
             ring64 = None
+            bufs = wind_buffers_from_track(g, speeds=(34, 50))
             for _, b in bufs.iterrows():
                 sp = int(b["buffer_speed"])
                 geom_w = (
@@ -363,8 +500,15 @@ def main():
                     .iloc[0]
                 )
                 exp[sp] = exposure(geom_w)
-                if sp == 64:
-                    ring64 = _ring(b.geometry)
+            b64 = wind_buffers_from_track(g_veq, speeds=(64,))
+            if not b64.empty and not b64.geometry.iloc[0].is_empty:
+                geom_w = (
+                    gpd.GeoSeries([b64.geometry.iloc[0]], crs=3832)
+                    .to_crs(FJI_CRS)
+                    .iloc[0]
+                )
+                exp[64] = exposure(geom_w)
+                ring64 = _ring(b64.geometry.iloc[0])
             if not exp:
                 continue
 
@@ -373,7 +517,7 @@ def main():
             leg = {}
             # NB: loop variable must not shadow the storm-level `name`
             for leg_key, lo, hi in (("A", 24, 72), ("R", 72, 120)):
-                seg = g[(g["tau"] >= lo) & (g["tau"] <= hi)]
+                seg = g_veq[(g_veq["tau"] >= lo) & (g_veq["tau"] <= hi)]
                 leg[leg_key] = 0
                 if seg.empty:
                     continue
@@ -452,11 +596,8 @@ def main():
         # observed 64 kt buffer + observed track
         obs_ring, obs_pts = None, []
         if sid is not None:
-            ob = obs_buf[
-                (obs_buf["sid"] == sid) & (obs_buf["buffer_speed"] == 64)
-            ]
-            if len(ob):
-                obs_ring = _ring(ob.iloc[0].geometry)
+            if sid in veq_sw:
+                obs_ring = _ring(veq_sw[sid])
             ot = obs_track[obs_track["sid"] == sid].sort_values("time")
             ot = ot.iloc[:: max(1, len(ot) // 300)]
             obs_pts = [

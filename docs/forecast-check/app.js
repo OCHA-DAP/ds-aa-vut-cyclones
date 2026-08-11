@@ -462,9 +462,9 @@ function drawRP(rp) {
   $("#rpNote").innerHTML =
     (c.t_rp3
       ? `To push the estimated combined RP to <strong>~1-in-3 seasons</strong>, the exposure ` +
-        `threshold would have to rise to <strong>&asymp;${fmt(c.t_rp3)} people</strong> — just above ` +
-        `Donna's action-window peak — where it holds ~3.1 up to ~50k, then jumps past 5 as ` +
-        `Jasmine, Kevin, Lola and Harold all drop out together (see chart). `
+        `threshold would have to rise to <strong>&asymp;${fmt(c.t_rp3)} people</strong>; the ` +
+        `chart shows the full staircase — each step is a specific storm's peak dropping below ` +
+        `the threshold, so intermediate RPs between the rungs are not reachable. `
       : "") +
     `Return periods are Weibull, (${rp.n_seasons}+1) / activated seasons, over the ` +
     `${rp.first_season}–${rp.last_season} record at &ge;${fmt(rp.threshold)} people / 64&nbsp;kt. ` +

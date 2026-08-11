@@ -12,11 +12,12 @@ Combines, at the working trigger (>=5,000 people at 64 kt):
   on the scored storms, Monte-Carlo'd into an RP range.
 
 Kerry 2005 is entered as a scored constant: its 2005-01-05 00Z JTWC cycle
-puts 14,591 people in the AOI action window (deck ash082005.dat, preserved
-at blob raw/jtwc/ucar_adecks_sh_2003-2011_2025.zip). The observed storm
-passed 586 km from the AOI — a false alarm, and the reason the logistic
-P's below are treated as floors: 2005-era forecast errors exceed the
-2012-25 errors the curve is calibrated on.
+puts 8,260 people in the AOI action window at the V_EQ contour (64 kt
+10-min = ~73 kt 1-min; 14,591 in raw 1-min terms — deck ash082005.dat,
+preserved at blob raw/jtwc/ucar_adecks_sh_2003-2011_2025.zip). The
+observed storm passed 586 km from the AOI — a false alarm, and the reason
+the logistic P's below are treated as floors: 2005-era forecast errors
+exceed the 2012-25 errors the curve is calibrated on.
 
 Run from the repo root:
     uv run python exploration/make_rp_summary.py
@@ -39,7 +40,7 @@ FIRST, LAST = 2005, 2025
 N_SEASONS = LAST - FIRST + 1
 
 # directly-scored action-leg result outside the VMGD-archive era
-KERRY_2005 = {"name": "Kerry", "season": 2005, "peakA": 14591, "obs": 0}
+KERRY_2005 = {"name": "Kerry", "season": 2005, "peakA": 8260, "obs": 0}
 
 # forecast decks exist for these seasons (UCAR 2005+2025, VMGD 2012-2024)
 SCORED_FCST_SEASONS = {2005} | set(range(2012, 2026))

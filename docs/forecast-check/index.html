@@ -26,7 +26,7 @@
     each storm placed by its <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
     <strong>2-day rainfall</strong> (IMERG). The controls start on the proposed trigger —
-    <strong>5,000 people exposed to 64&nbsp;kt winds</strong>, no rainfall condition —
+    <strong>5,000 people exposed to 64&nbsp;kt (10-minute) winds</strong>, no rainfall condition —
     adjust them to see how alternatives would have behaved, and click any storm to see its
     observed wind swaths on the map.
   </p>
@@ -52,9 +52,12 @@
         dashed lines are your thresholds; the shaded region is the trigger zone.
       </p>
       <p>
-        Wind exposure uses the corrected exposure table
+        The <strong>64&nbsp;kt column</strong> is read on the 10-minute scale: swaths are
+        rebuilt from the best-track quadrant radii at the &asymp;73&nbsp;kt 1-min-equivalent
+        contour (factor 0.88 — see the forecast tab's convention note). The 34/50&nbsp;kt columns
+        are 1-minute values from the corrected exposure table
         (<code>adm2_usaradii_exp_dedup.parquet</code>: no boundary double-counting, no dateline
-        tearing), counting population in Shefa, Sanma and Tafea only. Rainfall is the maximum
+        tearing). All exposure counts population in Shefa, Sanma and Tafea only. Rainfall is the maximum
         2-day rolling mean of IMERG daily rain, averaged over the country. Impact
         (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull: (21&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations. The record starts
         in <strong>2005</strong> because IBTrACS 64&nbsp;kt wind radii only exist reliably from
@@ -168,19 +171,15 @@
         exposure method and population raster are otherwise identical.
       </p>
       <p>
-        <strong>Wind-averaging convention:</strong> JTWC (and IBTrACS USA) winds and radii are
-        <strong>1-minute</strong> means; RSMC Nadi and VMHS — the framework's operational sources —
-        use <strong>10-minute</strong> means (Australian scale), and 64&nbsp;kt (10-min) &asymp;
-        69&ndash;73&nbsp;kt (1-min). This backtest runs entirely in 1-minute terms, i.e. at a
-        slightly lower physical bar than operations will. Sensitivity check, re-scoring the action
-        leg with radii shrunk to the 69&nbsp;kt (factor 0.93) and 73&nbsp;kt (0.88) 1-min
-        equivalents: exposures drop 10&ndash;60% (Judy 143k&rarr;90k&rarr;57k) but
-        <strong>the activating set at 5,000 is unchanged at 0.93 and loses only Pam's action leg
-        at 0.88</strong> (2,478; its season is still activated observationally) — false alarms
-        (Jasmine, Donna, Kerry) all survive, so the activated seasons and the RP estimates are
-        unchanged under either factor. The framework should state the convention explicitly;
-        reading the threshold as 64&nbsp;kt 10-min (= severe tropical cyclone, Category&nbsp;3 on
-        the Australian scale) is operationally natural and is what this sensitivity covers.
+        <strong>Wind-averaging convention:</strong> the trigger's 64&nbsp;kt is read on the
+        <strong>10-minute</strong> scale used by RSMC Nadi and VMHS (severe tropical cyclone,
+        Category&nbsp;3 on the Australian scale). JTWC and IBTrACS-USA radii are 1-minute means,
+        so every 64&nbsp;kt number on this page — forecast action windows and observed exposure
+        alike — is evaluated at the <strong>&asymp;73&nbsp;kt 1-min-equivalent contour</strong>
+        (factor 0.88; per-quadrant log-linear extrapolation of the R50&rarr;R64 decay, gated on
+        intensity). The 34/50&nbsp;kt values remain 1-minute context. Under the milder 0.93
+        conversion (69&nbsp;kt equivalent) the activating set is unchanged and exposures sit
+        between these and the raw 1-minute values (Judy&nbsp;143k).
       </p>
       <p>
         Against the framework as written: the forecast column evaluates the
@@ -215,7 +214,7 @@
   </details>
 
   <section class="controls" aria-label="Controls">
-    <span class="locked-trigger">Trigger: <strong>5,000 people at 64&nbsp;kt</strong>
+    <span class="locked-trigger">Trigger: <strong>5,000 people at 64&nbsp;kt (10-min)</strong>
       <span class="unit">(as in the draft framework table — explore alternatives on the design tab)</span></span>
     <label>Sort
       <select id="sort">
