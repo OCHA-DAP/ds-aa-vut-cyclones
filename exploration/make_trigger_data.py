@@ -42,7 +42,7 @@ with stratus.get_engine(stage="prod").connect() as con:
     )
 
 df_exp_aoi = df_exp_aoi.merge(df_storms, on="sid", how="left")
-df_exp_aoi = df_exp_aoi[df_exp_aoi["season"] >= 2001]
+df_exp_aoi = df_exp_aoi[df_exp_aoi["season"] >= 2005]
 
 df_exp_sid = (
     df_exp_aoi.groupby(["sid", "buffer_speed"])["pop_exposed"]
@@ -56,7 +56,7 @@ df_exp_sid = df_exp_sid.rename(columns={x: f"exp{x}" for x in [34, 50, 64]})
 df_exp_sid = df_exp_sid.fillna(0)
 
 df = df_stats.merge(df_exp_sid, on="sid", how="inner")
-df = df[df["season"] >= 2001].reset_index(drop=True)
+df = df[df["season"] >= 2005].reset_index(drop=True)
 
 cols = [
     "sid",
@@ -74,9 +74,10 @@ df[cols].to_csv(out_path, index=False)
 print(f"Saved {len(df)} rows to {out_path}")
 
 # --- hist.json for the static page (docs/forecast-check/) ---
-# The record used for return periods is the 2003-2025 seasons (23 seasons);
-# see the trigger explorer notes.
-FIRST_SEASON, LAST_SEASON = 2003, 2025
+# The record is the 2005-2025 seasons (21): IBTrACS 64-kt radii only exist
+# reliably from 2005 (2003-04 hurricane-strength points carry none — Ivy
+# 2004, a direct AOI hit, is invisible to the observed record).
+FIRST_SEASON, LAST_SEASON = 2005, 2025
 # upper cap too: a storm from a season outside the record would silently
 # corrupt the Weibull denominator (n_seasons)
 dfj = df[df["season"].between(FIRST_SEASON, LAST_SEASON)].copy()
@@ -100,7 +101,7 @@ hist = {
     "first_season": FIRST_SEASON,
     "last_season": LAST_SEASON,
     "n_seasons": LAST_SEASON - FIRST_SEASON + 1,
-    "target": 6,
+    "target": 5,  # ~1-in-4 seasons over the 21-season record
     "storms": storms,
 }
 json_path = "docs/forecast-check/data/hist.json"

@@ -65,7 +65,7 @@ def _(mo, pd):
                 )
 
             _df_exp_aoi = _df_exp_aoi.merge(_df_storms, on="sid", how="left")
-            _df_exp_aoi = _df_exp_aoi[_df_exp_aoi["season"] >= 2003]
+            _df_exp_aoi = _df_exp_aoi[_df_exp_aoi["season"] >= 2005]
 
             _df_exp_sid = (
                 _df_exp_aoi.groupby(["sid", "buffer_speed"])["pop_exposed"]
@@ -85,10 +85,11 @@ def _(mo, pd):
             _df_exp_sid = _df_exp_sid.fillna(0)
 
             df = _df_stats.merge(_df_exp_sid, on="sid", how="inner")
-            df = df[df["season"] >= 2003].reset_index(drop=True)
+            df = df[df["season"] >= 2005].reset_index(drop=True)
 
-    # Record covers the 2003–2025 seasons inclusive.
-    total_seasons = 2025 - 2003 + 1
+    # Record covers the 2005–2025 seasons: IBTrACS 64-kt radii only
+    # exist reliably from 2005.
+    total_seasons = 2025 - 2005 + 1
     return df, total_seasons
 
 

@@ -22,11 +22,11 @@
 <div class="tabpanel" id="panel-design" role="tabpanel">
 
   <p class="lede">
-    How the trigger was set: every cyclone season since <strong>2003</strong> (23 seasons),
+    How the trigger was set: every cyclone season since <strong>2005</strong> (21 seasons),
     each storm placed by its <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
-    <strong>2-day rainfall</strong> (IMERG). The controls start on the working trigger —
-    <strong>3,000 people exposed to 64&nbsp;kt winds</strong>, no rainfall condition —
+    <strong>2-day rainfall</strong> (IMERG). The controls start on the proposed trigger —
+    <strong>5,000 people exposed to 64&nbsp;kt winds</strong>, no rainfall condition —
     adjust them to see how alternatives would have behaved, and click any storm to see its
     observed wind swaths on the map.
   </p>
@@ -35,9 +35,7 @@
     <div>
       <p>
         <strong>The framework in development defines three triggers</strong>, all at
-        &ge;64&nbsp;kt (draft table threshold 5,000 people exposed; working value on this
-        page <strong>3,000</strong>, which lets the action leg capture Lola with leadtime at no
-        cost in activation frequency): a <strong>readiness trigger</strong>
+        &ge;64&nbsp;kt / &ge;5,000 people exposed: a <strong>readiness trigger</strong>
         (72&ndash;120&nbsp;h leadtime, RSMC Nadi extended track forecast, Shefa/Sanma/Tafea), an
         <strong>action trigger</strong> (24&ndash;72&nbsp;h, VMHS track forecast, same provinces),
         and an <strong>observational trigger</strong> (no leadtime, VMHS observed track,
@@ -58,8 +56,10 @@
         (<code>adm2_usaradii_exp_dedup.parquet</code>: no boundary double-counting, no dateline
         tearing), counting population in Shefa, Sanma and Tafea only. Rainfall is the maximum
         2-day rolling mean of IMERG daily rain, averaged over the country. Impact
-        (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull:
-        (23&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations.
+        (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull: (21&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations. The record starts
+        in <strong>2005</strong> because IBTrACS 64&nbsp;kt wind radii only exist reliably from
+        then — 2003&ndash;04 storms (including Ivy 2004, a direct hit on the AOI at 90&nbsp;kt)
+        carry none, so their observed exposure cannot be measured.
       </p>
     </div>
   </details>
@@ -73,7 +73,7 @@
       </select>
     </label>
     <label class="thr wind-lab">Wind exposure &ge;
-      <input type="number" id="dWt" value="3000" min="0" step="1000" />
+      <input type="number" id="dWt" value="5000" min="0" step="1000" />
       <span class="unit">people</span>
     </label>
     <label class="thr rain-lab">Rainfall &ge;
@@ -126,11 +126,11 @@
   </details>
 
   <details class="caveat block">
-    <summary>Optimal trigger combinations (exactly 6 storms)</summary>
+    <summary>Optimal trigger combinations (exactly 5 storms)</summary>
     <div>
       <p>
         For each trigger structure, the threshold combination that activates on
-        <strong>exactly 6 storms</strong> in the 23-season record (return period 4.0 seasons)
+        <strong>exactly 5 storms</strong> in the 21-season record (return period 4.4 seasons)
         while maximising the total people affected by the triggered storms.
       </p>
       <div id="dOpt" class="scroll-x"></div>
@@ -200,8 +200,8 @@
   </details>
 
   <section class="controls" aria-label="Controls">
-    <span class="locked-trigger">Trigger: <strong>3,000 people at 64&nbsp;kt</strong>
-      <span class="unit">(draft framework table: 5,000 — lowered so the action leg captures Lola with leadtime; explore alternatives on the design tab)</span></span>
+    <span class="locked-trigger">Trigger: <strong>5,000 people at 64&nbsp;kt</strong>
+      <span class="unit">(as in the draft framework table — explore alternatives on the design tab)</span></span>
     <label>Sort
       <select id="sort">
         <option value="peak">Peak forecast exposure</option>
