@@ -2,24 +2,22 @@
 
 Combines, at the working trigger (>=15,000 people at 64 kt, 10-min):
 
-- the observational leg (national scope), scored over the full 2005-2025
+- the observational leg (national scope), scored over the full 2006-2025
   record from IBTrACS swaths;
 - the action leg (24-72 h forecast window, AOI scope), scored where JTWC
-  forecast decks exist: 2005 (UCAR archive) and 2012-2025 (VMGD archive +
-  UCAR 2025);
+  forecast decks exist: 2012-2025 (VMGD archive + UCAR 2025);
 - the six unscorable forecast seasons (2006-2011) are handled with a
   user-selectable "assumed extra activated seasons" (default 1) on the
   page; this script ships the context (observed swath distances) and the
   per-threshold scored season counts, and the page computes deterministic
   Weibull RPs from them.
 
-Kerry 2005 is entered as a scored constant: its 2005-01-05 00Z JTWC cycle
-puts 8,260 people in the AOI action window at the V_EQ contour (64 kt
-10-min = ~73 kt 1-min; 14,591 in raw 1-min terms — deck ash082005.dat,
-preserved at blob raw/jtwc/ucar_adecks_sh_2003-2011_2025.zip). The
-observed storm passed 586 km from the AOI — a false alarm, and a caution
-that the unscored 2006-11 seasons plausibly held similar events (hence the
-page's assumed-extra-seasons control, default 1).
+Season 2005 is excluded entirely: IBTrACS radii exist for it, but its
+forecast archive is a single anomalous year (full JTWC decks survive for
+2005 alone among 2003-2011, provenance unclear), so neither leg counts it.
+For the record: those decks showed Kerry 2005 firing the action leg from
+586 km away — a caution that the unscored 2006-11 seasons plausibly held
+similar events (hence the page's assumed-extra-seasons control, default 1).
 
 Run from the repo root:
     uv run python exploration/make_rp_summary.py
@@ -37,20 +35,11 @@ from src.datasources import codab
 
 DATA = Path("docs/forecast-check/data")
 T = 15000
-FIRST, LAST = 2005, 2025
+FIRST, LAST = 2006, 2025
 N_SEASONS = LAST - FIRST + 1
 
-# directly-scored action-leg result outside the VMGD-archive era
-KERRY_2005 = {
-    "name": "Kerry",
-    "season": 2005,
-    "sid": "2005003S09177",
-    "peakA": 8260,
-    "obs": 0,
-}
-
-# forecast decks exist for these seasons (UCAR 2005+2025, VMGD 2012-2024)
-SCORED_FCST_SEASONS = {2005} | set(range(2012, 2026))
+# forecast decks exist for these seasons (VMGD archive + UCAR 2025)
+SCORED_FCST_SEASONS = set(range(2012, 2026))
 
 
 def rings_to_3832(rings):
@@ -99,8 +88,6 @@ def main():
         for s in core["storms"]
         if peak_a(s) >= T and FIRST <= s["season"] <= LAST
     ]
-    if KERRY_2005["peakA"] >= T:
-        act_hits.append(dict(KERRY_2005, peakA=KERRY_2005["peakA"]))
     act_hits.sort(key=lambda h: h["season"])
     act_seasons = sorted({h["season"] for h in act_hits})
     false_alarms = [h for h in act_hits if h["obs"] < T]
@@ -122,7 +109,7 @@ def main():
         }
         for s in core["storms"]
         if FIRST <= s["season"] <= LAST
-    ] + [KERRY_2005]
+    ]
     gap_list = []
     for s in hist["storms"]:
         if s["season"] not in unscored:
@@ -157,11 +144,7 @@ def main():
     # exposure appears on the plot (hollow markers, no forecast value)
     affected_by_sid = {s["sid"]: s["affected"] for s in hist["storms"]}
     core_sids = {s["sid"] for s in core["storms"] if s.get("sid")}
-    nodeck = [
-        s
-        for s in hist["storms"]
-        if s["sid"] not in core_sids and s["sid"] != KERRY_2005["sid"]
-    ]
+    nodeck = [s for s in hist["storms"] if s["sid"] not in core_sids]
     extra_storms = []
     if nodeck:
         from make_forecast_check_data import (
@@ -242,7 +225,6 @@ def main():
                     for x in core["storms"]
                     if FIRST <= x["season"] <= LAST
                 ]
-                + [KERRY_2005]
             )
         ],
         "extra_storms": extra_storms,

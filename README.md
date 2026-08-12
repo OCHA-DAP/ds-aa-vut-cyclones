@@ -9,7 +9,7 @@ Both are served from `docs/` on GitHub Pages:
 | Page | What it is |
 |---|---|
 | [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Trigger design on the observed record **and** the forecast check (plain JS + Leaflet, two tabs) |
-| [`/slides/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/slides/) | Two-slide summary deck: trigger definition + RP table, historical storm table (reads the forecast-check data) |
+| [`/slides/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/slides/) | Summary deck (4 slides): trigger definition + RP table and historical storm table, at both candidate thresholds (reads the forecast-check data) |
 
 `/` redirects there — the old marimo WASM explorer was retired 2026-08-11
 (slow to load; fully superseded).

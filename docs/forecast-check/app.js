@@ -427,7 +427,7 @@ function drawRP(rp) {
      `${seasons(o.activated_seasons)}<br><span class="rp-storms">${stormList(o.storms)}</span>`,
      `<strong>${o.rp_seasons}</strong>`],
     ["Action leg (24–72 h forecast, AOI)",
-     `${a.n_scored_seasons} (2005, 2012–25)`,
+     `${a.n_scored_seasons} (2012–25)`,
      `${a.n_storms} storms / ${a.activated_seasons.length} seasons` +
      ` — ${a.false_alarms.length} false alarms`,
      `${seasons(a.activated_seasons)}<br><span class="rp-storms">${stormList(a.storms)};` +
@@ -462,8 +462,8 @@ function drawRP(rp) {
     `64&nbsp;kt (10-min). The scored record gives ${c.rp_scored_only}; the six 2006–2011 ` +
     `seasons — where no JTWC forecast decks survive — plausibly held further activations ` +
     `(Gene 2008 and Atu 2011's observed 64&nbsp;kt swaths reached or nearly reached the AOI, ` +
-    `and Kerry 2005, scored from recovered decks, shows that era's forecasts could fire from ` +
-    `far away), hence the assumed-extra-seasons control, default +${c.extra_default}. ` +
+    `and both caused documented damage), hence the assumed-extra-seasons control, ` +
+    `default +${c.extra_default}. ` +
     `The observational leg alone sits at ${o.rp_seasons}; forecast false alarms are what ` +
     `pull the combined RP below it.`;
 }
@@ -512,8 +512,7 @@ function renderRPX(rp, t, extra) {
     c.gap_list.filter((g) => g.dist_km < 300).map((g) =>
       `<strong>${esc(g.name)} ${g.season}</strong> ${g.dist_km === 0 ? "touched" : g.dist_km + " km"}`
     ).join("; ") +
-    " — and Kerry 2005 (scored from recovered decks) shows that era's forecasts could fire from far away. " +
-    "Pick how many of those six seasons to assume as additional activations.";
+    ". Pick how many of those six seasons to assume as additional activations.";
 }
 
 function drawRPXScatter(rp, t) {
@@ -574,10 +573,9 @@ function drawRPXScatter(rp, t) {
     const cx = sx(s.obs), cy = sy(s.peakA);
     const on = s.peakA >= t || s.obs >= t;
     const col = s.cerf ? "var(--critical)" : "var(--text-muted)";
-    const kerry = s.season === 2005;
     sv += `<circle cx="${cx}" cy="${cy}" r="${rOf(s)}" fill="${col}"
-            opacity="${on ? 0.7 : 0.35}"${kerry ? ' stroke="var(--text-primary)" stroke-dasharray="2 2" stroke-width="1.2" ' : ""}>
-            <title>${esc(s.name)} ${s.season} — action peak ${fmt(s.peakA)} (AOI), observed ${fmt(s.obs)} (country), affected ${fmt(s.affected || 0)}${s.cerf ? ", CERF" : ""}${kerry ? " — scored from recovered 2005 deck" : ""}${on ? (s.obs >= t ? "" : " — FALSE ALARM at this threshold") : ""}</title></circle>`;
+            opacity="${on ? 0.7 : 0.35}">
+            <title>${esc(s.name)} ${s.season} — action peak ${fmt(s.peakA)} (AOI), observed ${fmt(s.obs)} (country), affected ${fmt(s.affected || 0)}${s.cerf ? ", CERF" : ""}${on ? (s.obs >= t ? "" : " — FALSE ALARM at this threshold") : ""}</title></circle>`;
     sv += `<text class="pt-label${on ? " trig" : ""}" x="${cx}" y="${cy - rOf(s) - 4}" text-anchor="middle"
             fill="${s.cerf ? "var(--critical)" : "var(--text-secondary)"}">${esc(s.name)} ${s.season}</text>`;
   }
@@ -588,7 +586,6 @@ function drawRPXScatter(rp, t) {
      <li>bubble size = total affected (EM-DAT)</li>
      <li>bold label = activates at this threshold</li>
      <li>hollow = no forecast record (2006–11)</li>
-     <li>dashed outline = Kerry (recovered 2005 deck)</li>
      <li><span class="ln" style="border-color:var(--obs);border-top-style:dashed"></span>observational leg</li>
      <li><span class="ln" style="border-color:var(--fcst);border-top-style:dashed"></span>action leg</li>
      <li>${hidden} storms at 0 / 0 not shown</li></ul>`;

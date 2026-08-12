@@ -22,7 +22,7 @@
 <div class="tabpanel" id="panel-design" role="tabpanel">
 
   <p class="lede">
-    How the trigger was set: every cyclone season since <strong>2005</strong> (21 seasons),
+    How the trigger was set: every cyclone season since <strong>2006</strong> (20 seasons),
     each storm placed by its <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
     <strong>2-day rainfall</strong> (IMERG). The controls start on the proposed trigger —
@@ -61,10 +61,12 @@
         (<code>adm2_usaradii_exp_dedup.parquet</code>: no boundary double-counting, no dateline
         tearing). All exposure counts population in Shefa, Sanma and Tafea only. Rainfall is the maximum
         2-day rolling mean of IMERG daily rain, averaged over the country. Impact
-        (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull: (21&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations. The record starts
-        in <strong>2005</strong> because IBTrACS 64&nbsp;kt wind radii only exist reliably from
-        then — 2003&ndash;04 storms (including Ivy 2004, a direct hit on the AOI at 90&nbsp;kt)
-        carry none, so their observed exposure cannot be measured.
+        (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull: (20&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations. The record is
+        <strong>2006&ndash;2025</strong>: IBTrACS 64&nbsp;kt wind radii only exist reliably from
+        2005 (2003&ndash;04 storms, including Ivy 2004 — a direct hit on the AOI at 90&nbsp;kt —
+        carry none), and 2005 itself is excluded because its forecast archive is a single
+        anomalous year (full JTWC decks survive for 2005 alone among 2003&ndash;2011,
+        provenance unclear).
       </p>
     </div>
   </details>
