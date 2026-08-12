@@ -1,6 +1,6 @@
 """Return-period breakdown for the framework triggers -> data/rp.json.
 
-Combines, at the working trigger (>=5,000 people at 64 kt):
+Combines, at the working trigger (>=10,000 people at 64 kt, 10-min):
 
 - the observational leg (national scope), scored over the full 2005-2025
   record from IBTrACS swaths;
@@ -36,7 +36,7 @@ from src.constants import ADM1_AOI_PCODES, FJI_CRS
 from src.datasources import codab
 
 DATA = Path("docs/forecast-check/data")
-T = 5000
+T = 10000
 FIRST, LAST = 2005, 2025
 N_SEASONS = LAST - FIRST + 1
 
@@ -99,7 +99,8 @@ def main():
         for s in core["storms"]
         if peak_a(s) >= T and FIRST <= s["season"] <= LAST
     ]
-    act_hits.append(dict(KERRY_2005, peakA=KERRY_2005["peakA"]))
+    if KERRY_2005["peakA"] >= T:
+        act_hits.append(dict(KERRY_2005, peakA=KERRY_2005["peakA"]))
     act_hits.sort(key=lambda h: h["season"])
     act_seasons = sorted({h["season"] for h in act_hits})
     false_alarms = [h for h in act_hits if h["obs"] < T]

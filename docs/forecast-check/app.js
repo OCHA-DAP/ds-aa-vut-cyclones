@@ -13,7 +13,7 @@ let map, layers = {}, playTimer = null;
 let dMap, dLayers = {}, dSelected = null, obsGeomCache = {};
 
 // the proposed trigger — locked on the forecast tab
-const THRESH = 5000;
+const THRESH = 10000;
 const peak = (s) => s.cycles.reduce((m, c) => Math.max(m, +c.exp[SPEED]), 0);
 const peakLeg = (s, k) => s.cycles.reduce((m, c) => Math.max(m, +(c[k] || 0)), 0);
 const thresh = () => THRESH;
@@ -504,7 +504,7 @@ function renderRPX(rp, t, extra) {
     $("#rpExtraRP").textContent =
       ((rp.n_seasons + 1) / (nDefault + extra)).toFixed(1);
 
-  drawRPChart(c, extra, rp.n_seasons);
+  drawRPChart(c, extra, rp.n_seasons, rp.threshold);
   drawRPXScatter(rp, t);
 
   $("#rpxGap").innerHTML =
@@ -595,7 +595,7 @@ function drawRPXScatter(rp, t) {
   $("#rpxScatter").innerHTML = sv + legend;
 }
 
-function drawRPChart(c, extra, nSeasons) {
+function drawRPChart(c, extra, nSeasons, tCur) {
   const sweep = c.sweep || [];
   if (!sweep.length) return;
   const W = 900, H = 300, padL = 56, padR = 16, padT = 14, padB = 40;
@@ -630,11 +630,11 @@ function drawRPChart(c, extra, nSeasons) {
           stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
   sv += `<text class="axis-label" x="${W - padR - 4}" y="${y(3) - 5}" text-anchor="end"
           fill="var(--critical)">RP 3</text>`;
-  sv += `<line x1="${x(5000)}" y1="${padT}" x2="${x(5000)}" y2="${H - padB}"
+  sv += `<line x1="${x(tCur)}" y1="${padT}" x2="${x(tCur)}" y2="${H - padB}"
           stroke="var(--zone)" stroke-width="2"/>`;
-  sv += `<text class="axis-label" x="${x(5000) + 4}" y="${padT + 12}">current 5k</text>`;
+  sv += `<text class="axis-label" x="${x(tCur) + 4}" y="${padT + 12}">current ${tCur / 1000}k</text>`;
   const t3 = sweep.find((p) => withExtra(p) >= 3);
-  if (t3 && t3.t > 5000) {
+  if (t3 && t3.t > tCur) {
     sv += `<line x1="${x(t3.t)}" y1="${padT}" x2="${x(t3.t)}" y2="${H - padB}"
             stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="2 3"/>`;
     sv += `<text class="axis-label" x="${x(t3.t) + 4}" y="${padT + 12}"
