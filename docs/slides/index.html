@@ -11,7 +11,7 @@
   --surface-1: #fcfcfb; --surface-2: #f2f2ef; --border: #d8d8d2;
   --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #767570;
   --critical: #c02526; --critical-pale: #f2c9c9;
-  --grey-head: #e4e4e0; --impact: #8e44ad;
+  --grey-head: #e4e4e0; --impact: #8e44ad; --cerf-blue: #2a78d6;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
@@ -19,7 +19,7 @@
     --surface-1: #1a1a19; --surface-2: #262625; --border: #3d3d3a;
     --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a998f;
     --critical: #e66767; --critical-pale: #5c2f2f;
-    --grey-head: #33332f; --impact: #a86fc7;
+    --grey-head: #33332f; --impact: #a86fc7; --cerf-blue: #3987e5;
   }
 }
 * { box-sizing: border-box; }
@@ -58,6 +58,7 @@ thead th { background: var(--grey-head); font-weight: 650; }
 .storms { font-size: .88rem; }
 td.trig { background: var(--critical); color: #fff; font-weight: 650; }
 td.trig-pale { background: var(--critical-pale); }
+td.cerf { background: var(--cerf-blue); color: #fff; font-weight: 650; }
 .impact-bar {
   display: inline-block; min-width: 9.5em; text-align: right; padding-right: .3em;
   border-radius: 2px;
@@ -232,7 +233,7 @@ function stormSlide(rp, hist, T) {
     return `<tr>
       <td>${esc(r.name)} ${r.season}</td>
       ${fCell}${oCell}
-      <td class="center">${r.cerf ? "&#10003;" : "—"}</td>
+      <td class="center${r.cerf ? " cerf" : ""}">${r.cerf ? "&#10003;" : "—"}</td>
       <td><span class="impact-bar" style="--w:${Math.round((r.affected / maxTA) * 100)}%">${fmt(r.affected)}</span></td>
     </tr>`;
   }).join("");
