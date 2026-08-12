@@ -26,7 +26,7 @@
     each storm placed by its <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
     <strong>2-day rainfall</strong> (IMERG). The controls start on the proposed trigger —
-    <strong>10,000 people exposed to 64&nbsp;kt (10-minute) winds</strong>, no rainfall condition —
+    <strong>15,000 people exposed to 64&nbsp;kt (10-minute) winds</strong>, no rainfall condition —
     adjust them to see how alternatives would have behaved, and click any storm to see its
     observed wind swaths on the map.
   </p>
@@ -36,7 +36,7 @@
       <p>
         <strong>The framework in development defines three triggers</strong>, all at
         &ge;64&nbsp;kt (draft table threshold 5,000 people exposed; working value on this page
-        <strong>10,000</strong>, which drops the marginal false alarms and holds the overall RP
+        <strong>15,000</strong>, which drops the marginal false alarms and holds the overall RP
         near 1-in-4): a <strong>readiness trigger</strong>
         (72&ndash;120&nbsp;h leadtime, RSMC Nadi extended track forecast, Shefa/Sanma/Tafea), an
         <strong>action trigger</strong> (24&ndash;72&nbsp;h, VMHS track forecast, same provinces),
@@ -78,7 +78,7 @@
       </select>
     </label>
     <label class="thr wind-lab">Wind exposure &ge;
-      <input type="number" id="dWt" value="10000" min="0" step="1000" />
+      <input type="number" id="dWt" value="15000" min="0" step="1000" />
       <span class="unit">people</span>
     </label>
     <label class="thr rain-lab">Rainfall &ge;
@@ -216,7 +216,7 @@
   </details>
 
   <section class="controls" aria-label="Controls">
-    <span class="locked-trigger">Trigger: <strong>10,000 people at 64&nbsp;kt (10-min)</strong>
+    <span class="locked-trigger">Trigger: <strong>15,000 people at 64&nbsp;kt (10-min)</strong>
       <span class="unit">(draft framework table: 5,000 — raised to hold the estimated overall RP near 1-in-4; explore alternatives on the design tab)</span></span>
     <label>Sort
       <select id="sort">
@@ -254,7 +254,7 @@
     <h3 class="rp-chart-title">Interactive: pick a threshold, read off the RP</h3>
     <section class="controls" aria-label="RP explorer controls">
       <label class="thr">Threshold
-        <input type="range" id="rpxT" min="1000" max="80000" step="1000" value="10000" />
+        <input type="range" id="rpxT" min="1000" max="80000" step="1000" value="15000" />
         <span class="unit" id="rpxTv"></span>
       </label>
       <label>Assumed extra activated seasons (2006&ndash;11, no forecast decks)

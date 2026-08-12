@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vanuatu AA — cyclone trigger (draft)</title>
+<link rel="icon" href="../favicon.ico" />
+<style>
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb; --surface-2: #f2f2ef; --border: #d8d8d2;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #767570;
+  --critical: #c02526; --critical-pale: #f2c9c9;
+  --grey-head: #e4e4e0; --impact: #8e44ad;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --surface-2: #262625; --border: #3d3d3a;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a998f;
+    --critical: #e66767; --critical-pale: #5c2f2f;
+    --grey-head: #33332f; --impact: #a86fc7;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--surface-2);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-primary); }
+.deck { height: 100%; overflow: hidden; position: relative; }
+.slide {
+  position: absolute; inset: 0; display: none; overflow: auto;
+  padding: 3.2rem 4.5rem 4rem; background: var(--surface-1);
+}
+.slide.active { display: block; }
+.slide h1 { font-size: 1.9rem; margin: 0 0 .3rem; line-height: 1.2; }
+.slide .sub { color: var(--text-secondary); margin: 0 0 1.6rem; font-size: 1rem; }
+.slide h2 { font-size: 1.15rem; margin: 1.8rem 0 .6rem; }
+
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { border: 1px solid var(--border); padding: .5rem .7rem; text-align: left;
+  vertical-align: middle; }
+thead th { background: var(--grey-head); font-weight: 650; }
+.center { text-align: center; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* trigger-definition table */
+.trig-def td.big { font-size: 1.05rem; font-weight: 650; text-align: center; }
+
+/* grey RP reporting table */
+.rp-table { max-width: 780px; }
+.rp-table td:first-child { font-weight: 600; }
+.rp-table tr.total td { background: var(--grey-head); font-weight: 650; }
+.rp-table .muted { color: var(--text-muted); font-weight: 400; font-size: .85rem; }
+
+/* storm table */
+.storms td, .storms th { padding: .34rem .6rem; }
+.storms { font-size: .9rem; }
+td.trig { background: var(--critical); color: #fff; font-weight: 650; }
+td.trig-pale { background: var(--critical-pale); }
+.impact-bar {
+  display: inline-block; min-width: 10em; text-align: right; padding-right: .3em;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--impact) 32%, transparent) var(--w), transparent var(--w));
+}
+.footnote { color: var(--text-muted); font-size: .8rem; margin-top: 1rem; max-width: 95ch; }
+
+/* deck chrome */
+.nav {
+  position: fixed; bottom: 1rem; right: 1.3rem; z-index: 10;
+  display: flex; gap: .4rem; align-items: center;
+  color: var(--text-muted); font-size: .85rem;
+}
+.nav button {
+  font: inherit; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-primary);
+  border-radius: 4px; width: 2.1rem; height: 2rem;
+}
+.brand {
+  position: fixed; bottom: 1rem; left: 1.3rem; z-index: 10;
+  color: var(--text-muted); font-size: .8rem;
+}
+@media print {
+  .slide { position: static; display: block; page-break-after: always; }
+  .nav, .brand { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ============================ SLIDE 1 ================================= -->
+<section class="slide active" id="s1">
+  <h1>Vanuatu anticipatory action — tropical cyclones</h1>
+  <p class="sub">Draft trigger mechanism &middot; August 2026</p>
+
+  <h2>Trigger definition</h2>
+  <table class="trig-def">
+    <thead>
+      <tr><th>Trigger</th><th>Leadtime</th><th>Wind speed</th>
+          <th>Number of people exposed</th><th>Provinces</th><th>Data source</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Readiness</strong></td>
+        <td>72 to 120 hours</td>
+        <td class="big" rowspan="3">&ge; 64 knots<br>
+          <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">(10-minute mean)</span></td>
+        <td class="big" rowspan="3">&ge; 15,000 people</td>
+        <td rowspan="2">Shefa, Sanma, Tafea</td>
+        <td>RSMC Nadi extended track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Action</strong></td>
+        <td>24 to 72 hours</td>
+        <td>VMHS track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Observational</strong></td>
+        <td>n/a</td>
+        <td>All of Vanuatu</td>
+        <td>VMHS observed track</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Return periods <span class="muted" style="font-weight:400;font-size:.85rem;color:var(--text-muted)">(Weibull, 2005&ndash;2025 record, 21 seasons)</span></h2>
+  <table class="rp-table" id="rpTable">
+    <thead><tr><th>Trigger</th><th>Activations (seasons)</th><th>Return period</th></tr></thead>
+    <tbody><tr><td colspan="3">loading&hellip;</td></tr></tbody>
+  </table>
+  <p class="footnote" id="s1foot"></p>
+</section>
+
+<!-- ============================ SLIDE 2 ================================= -->
+<section class="slide" id="s2">
+  <h1>Historical storms near Vanuatu, 2005&ndash;2025</h1>
+  <p class="sub">Exposure to &ge;64&nbsp;kt (10-min) winds &middot;
+    <span style="color:var(--critical);font-weight:650">red</span> = would have triggered
+    (&ge;15,000 people) &middot;
+    <span style="background:var(--critical-pale);padding:0 .35em;border-radius:2px">pale red</span>
+    = no forecast record survives, plausibly triggered</p>
+  <table class="storms" id="stormTable">
+    <thead><tr>
+      <th>Storm</th>
+      <th class="num">64&nbsp;kt forecast exposure<br><span style="font-weight:400;font-size:.78rem">action window 24&ndash;72&nbsp;h, AOI provinces</span></th>
+      <th class="num">64&nbsp;kt observed exposure<br><span style="font-weight:400;font-size:.78rem">whole country</span></th>
+      <th class="center">CERF allocation</th>
+      <th>EM-DAT total affected</th>
+    </tr></thead>
+    <tbody><tr><td colspan="5">loading&hellip;</td></tr></tbody>
+  </table>
+  <p class="footnote">
+    Forecast exposure: JTWC official forecasts (proxy — the framework's forecast sources carry no
+    historical wind radii), 24&ndash;72&nbsp;h track segment, WorldPop population inside the
+    forecast 64&nbsp;kt swath in Shefa/Sanma/Tafea, evaluated at the 73&nbsp;kt 1-min-equivalent
+    contour. Observed exposure: IBTrACS best-track radii, same contour, whole country. Kerry 2005
+    scored from recovered archive decks. Gene 2008 and Atu 2011: observed swaths reached or nearly
+    reached the AOI but no forecast decks survive for 2006&ndash;11 — marked as plausible triggers.
+    Storms shown: all with nonzero exposure, impact or a CERF allocation in the 2005&ndash;2025
+    record.
+  </p>
+</section>
+
+</div>
+
+<div class="brand">Vanuatu AA — cyclones &middot; draft, Aug 2026 &middot;
+  <a href="../forecast-check/" style="color:inherit">full analysis</a></div>
+<div class="nav">
+  <button id="prev" aria-label="Previous slide">&larr;</button>
+  <span id="pos">1 / 2</span>
+  <button id="next" aria-label="Next slide">&rarr;</button>
+</div>
+
+<script>
+const T = 15000;
+const fmt = (n) => n.toLocaleString("en-US");
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ------- deck navigation ------- */
+const slides = [...document.querySelectorAll(".slide")];
+let cur = 0;
+function show(i) {
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, j) => s.classList.toggle("active", j === cur));
+  document.getElementById("pos").textContent = `${cur + 1} / ${slides.length}`;
+  history.replaceState(null, "", "#" + (cur + 1));
+}
+document.getElementById("prev").addEventListener("click", () => show(cur - 1));
+document.getElementById("next").addEventListener("click", () => show(cur + 1));
+document.addEventListener("keydown", (e) => {
+  if (["ArrowRight", "PageDown", " "].includes(e.key)) show(cur + 1);
+  if (["ArrowLeft", "PageUp"].includes(e.key)) show(cur - 1);
+});
+if (location.hash === "#2") show(1);
+
+/* ------- data ------- */
+Promise.all([
+  fetch("../forecast-check/data/rp.json").then((r) => r.json()),
+  fetch("../forecast-check/data/hist.json").then((r) => r.json()),
+]).then(([rp, hist]) => {
+  const c = rp.combined, o = rp.observational, a = rp.action;
+  const N = rp.n_seasons;
+  const rpOf = (k) => ((N + 1) / k);
+  const fmtRP = (v) => "1-in-" + (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "");
+
+  /* slide 1: grey RP reporting table (individual / overall / effective) */
+  const nAct = a.activated_seasons.length;
+  const nObs = o.activated_seasons.length;
+  const nAll = c.scored_activated_seasons.length;
+  document.querySelector("#rpTable tbody").innerHTML = `
+    <tr><td>Readiness (72–120 h)</td>
+        <td class="muted">not assessed — historical long-lead wind radii too sparse</td>
+        <td class="muted">—</td></tr>
+    <tr><td>Action (24–72 h)</td>
+        <td>${nAct} (${a.activated_seasons.join(", ")})</td>
+        <td class="num"><strong>${fmtRP(rpOf(nAct))}</strong> seasons</td></tr>
+    <tr><td>Observational</td>
+        <td>${nObs} (${o.activated_seasons.join(", ")})</td>
+        <td class="num"><strong>${fmtRP(rpOf(nObs))}</strong> seasons</td></tr>
+    <tr class="total"><td>Overall (any trigger)</td>
+        <td>${nAll} (${c.scored_activated_seasons.join(", ")})
+            <span class="muted">+ ${c.extra_default} assumed in 2006–11</span></td>
+        <td class="num"><strong>${fmtRP(rpOf(nAll + c.extra_default))}</strong> seasons
+            <span class="muted">(${fmtRP(rpOf(nAll))} on scored data alone)</span></td></tr>
+    <tr><td>Effective (maximum spend)</td>
+        <td class="muted" colspan="2">&ge; overall — depends on the funding split across
+            triggers (readiness typically releases only a mobilisation fraction)</td></tr>`;
+  document.getElementById("s1foot").textContent =
+    `Backtest record: ${rp.first_season}–${rp.last_season} (IBTrACS 64-kt radii exist reliably ` +
+    `from 2005). Forecast legs scored where JTWC decks survive (2005, 2012–2025); the six ` +
+    `2006–11 seasons are unscorable and carried as ${c.extra_default} assumed activation. ` +
+    `All wind thresholds on the 10-minute scale (evaluated at the 73-kt 1-min-equivalent ` +
+    `contour in JTWC/IBTrACS data).`;
+
+  /* slide 2: storm table */
+  const scored = new Map(rp.scored_storms.map((s) => [s.name.toUpperCase() + s.season, s]));
+  const pale = new Set(["GENE2008", "ATU2011"]);
+  const rows = [];
+  for (const h of hist.storms) {
+    const key = h.name.toUpperCase() + h.season;
+    const s = scored.get(key);
+    const peakA = s ? s.peakA : null;      // null = no forecast record
+    const obs = s ? s.obs : 0;
+    const isPale = pale.has(key);
+    if (!(peakA > 0 || obs > 0 || h.cerf || h.affected > 0 || isPale)) continue;
+    rows.push({
+      name: h.name.charAt(0) + h.name.slice(1).toLowerCase(),
+      season: h.season, peakA, obs, cerf: h.cerf,
+      affected: h.affected, pale: isPale,
+    });
+  }
+  rows.sort((x, y) => y.affected - x.affected || y.obs - x.obs ||
+    (y.peakA || 0) - (x.peakA || 0));
+  const maxTA = Math.max(...rows.map((r) => r.affected), 1);
+  document.querySelector("#stormTable tbody").innerHTML = rows.map((r) => {
+    const fCell = r.pale
+      ? `<td class="num trig-pale">no record*</td>`
+      : r.peakA === null
+        ? `<td class="num" style="color:var(--text-muted)">no record</td>`
+        : `<td class="num${r.peakA >= T ? " trig" : ""}">${fmt(r.peakA)}</td>`;
+    const oCell = `<td class="num${r.obs >= T ? " trig" : ""}">${fmt(r.obs)}</td>`;
+    return `<tr>
+      <td>${esc(r.name)} ${r.season}</td>
+      ${fCell}${oCell}
+      <td class="center">${r.cerf ? "&#10003;" : "—"}</td>
+      <td><span class="impact-bar" style="--w:${Math.round((r.affected / maxTA) * 100)}%">${fmt(r.affected)}</span></td>
+    </tr>`;
+  }).join("");
+});
+</script>
+</body>
+</html>

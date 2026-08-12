@@ -1,6 +1,6 @@
 """Return-period breakdown for the framework triggers -> data/rp.json.
 
-Combines, at the working trigger (>=10,000 people at 64 kt, 10-min):
+Combines, at the working trigger (>=15,000 people at 64 kt, 10-min):
 
 - the observational leg (national scope), scored over the full 2005-2025
   record from IBTrACS swaths;
@@ -36,7 +36,7 @@ from src.constants import ADM1_AOI_PCODES, FJI_CRS
 from src.datasources import codab
 
 DATA = Path("docs/forecast-check/data")
-T = 10000
+T = 15000
 FIRST, LAST = 2005, 2025
 N_SEASONS = LAST - FIRST + 1
 
