@@ -214,14 +214,17 @@ Promise.all([
         <td class="muted">not assessed — historical long-lead wind radii too sparse</td>
         <td class="muted">—</td></tr>
     <tr><td>Action (24–72 h)</td>
-        <td>${nAct} (${a.activated_seasons.join(", ")})</td>
-        <td class="num"><strong>${fmtRP(rpOf(nAct))}</strong> seasons</td></tr>
+        <td>${nAct} (${a.activated_seasons.join(", ")})
+            <span class="muted">+ ${c.extra_default} assumed — would have been an
+            action-leg activation in 2008 (Gene) or 2011 (Atu)</span></td>
+        <td class="num"><strong>${fmtRP(rpOf(nAct + c.extra_default))}</strong> seasons
+            <span class="muted">(${fmtRP(rpOf(nAct))} on scored data alone)</span></td></tr>
     <tr><td>Observational</td>
         <td>${nObs} (${o.activated_seasons.join(", ")})</td>
         <td class="num"><strong>${fmtRP(rpOf(nObs))}</strong> seasons</td></tr>
     <tr class="total"><td>Overall (any trigger)</td>
         <td>${nAll} (${c.scored_activated_seasons.join(", ")})
-            <span class="muted">+ ${c.extra_default} assumed in 2006–11</span></td>
+            <span class="muted">+ the same ${c.extra_default} assumed (2008 or 2011)</span></td>
         <td class="num"><strong>${fmtRP(rpOf(nAll + c.extra_default))}</strong> seasons
             <span class="muted">(${fmtRP(rpOf(nAll))} on scored data alone)</span></td></tr>
     <tr><td>Effective (maximum spend)</td>

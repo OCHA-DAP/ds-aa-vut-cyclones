@@ -441,7 +441,7 @@ function drawRP(rp) {
      `${c.scored_activated_seasons.length} activated seasons`,
      seasons(c.scored_activated_seasons),
      `<strong>${c.rp_scored_only}</strong>`],
-    ["+ assumed extra activated seasons (selector below)",
+    ["+ assumed extra activated seasons (selector below; would land on the action leg)",
      `${c.unscored_seasons.length} seasons (${c.unscored_seasons[0]}–${c.unscored_seasons.at(-1)}) lack forecast decks`,
      `+<span id="rpExtraN">${c.extra_default}</span> assumed`,
      `<span class="rp-storms">${c.gap_list.filter((g) => g.dist_km < 300).map((g) =>
