@@ -31,6 +31,7 @@ Promise.all([
   drawTMS(rp);
   drawActivations(rp, hist);
   drawBars(rp);
+  drawCorr(hist);
   initExplorer();
 });
 
@@ -145,6 +146,49 @@ function drawBars(rp) {
     <li><span class="sw" style="background:var(--fcst)"></span>forecast (1–3 days ahead)</li>
     <li><span class="sw" style="background:var(--obs)"></span>observed</li></ul>`;
   $("#xBars").innerHTML = sv;
+}
+
+/* ---------------- correlation evidence (rainfall section) ---------------- */
+function pearson(xs, ys) {
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+  }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0;
+}
+
+function drawCorr(hist) {
+  const inds = [
+    ["exp64", "Exp 64 kt (hurricane force)"],
+    ["exp50", "Exp 50 kt (storm force)"],
+    ["exp34", "Exp 34 kt (gale force)"],
+    ["rain", "2-day rainfall"],
+  ];
+  const ta = hist.storms.map((s) => s.affected);
+  const cerf = hist.storms.map((s) => (s.cerf ? 1 : 0));
+  const panel = (title, ys) => {
+    const W = 420, rowH = 30, padL = 190, padT = 24, H = padT + inds.length * rowH + 12;
+    const x = (v) => padL + Math.max(v, 0) * (W - padL - 44);
+    let sv = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMin meet">`;
+    sv += `<text class="axis-title" x="${padL}" y="14">${title}</text>`;
+    inds.forEach(([key, label], i) => {
+      const r = pearson(hist.storms.map((s) => s[key]), ys);
+      const yy = padT + i * rowH + 4;
+      sv += `<text class="axis-label" x="${padL - 8}" y="${yy + 12}" text-anchor="end">${label}</text>`;
+      sv += `<rect x="${x(0)}" y="${yy}" width="${Math.max(x(r) - x(0), 1)}" height="16" rx="3"
+              fill="${key === "rain" ? "var(--rain)" : "var(--wind)"}"/>`;
+      sv += `<text class="axis-label" x="${x(Math.max(r, 0)) + 5}" y="${yy + 12}">${r.toFixed(2)}</text>`;
+    });
+    return sv + "</svg>";
+  };
+  $("#corr").innerHTML =
+    `<div>${panel("How well it tracks people affected", ta)}</div>` +
+    `<div>${panel("How well it tracks CERF allocations", cerf)}</div>`;
 }
 
 /* ---------------- interactive forecast explorer ---------------- */

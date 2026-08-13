@@ -149,7 +149,17 @@ section { margin-top: 2.6rem; }
       every activation decision harder to explain. Heavy-rain events without dangerous winds
       are real, but they are a different hazard, better served by other response tools.
     </p>
+    <p>
+      The evidence behind that decision: for every storm in the record we compared each
+      candidate indicator against how many people the storm actually affected, and against
+      whether it led to a CERF humanitarian allocation. Wind exposure — especially at
+      hurricane force — tracks real impact far more closely than rainfall does:
+    </p>
   </div>
+  <div id="corr" class="corr-grid"></div>
+  <p class="note">Correlation (Pearson r, 0 = no relationship, 1 = perfect) of each candidate
+    indicator with recorded impact, over all storms in the 2006&ndash;2025 record. &ldquo;Exp&rdquo;
+    = people exposed at that wind speed in the trigger provinces.</p>
 </section>
 
 <section>
@@ -190,6 +200,61 @@ section { margin-top: 2.6rem; }
       </p>
     </div>
   </div>
+</section>
+
+<section>
+  <h2>Technical notes: how we reconstructed the historical forecasts</h2>
+  <details class="caveat" style="max-width:none">
+    <summary>Why JTWC forecasts stand in for RSMC Nadi / VMHS &mdash; and how the backtest works</summary>
+    <div>
+      <p>
+        <strong>The substitution problem.</strong> Operationally, the trigger reads RSMC Nadi and
+        VMHS forecasts. But to test the trigger against history we need the forecasts <em>as they
+        were issued at the time</em>, including the predicted <em>size</em> of the hurricane-force
+        wind area — and neither source archives that. VMGD kindly shared their complete historical
+        archive (9&nbsp;GB, sixteen seasons): their own Forecast Track Maps record position and
+        intensity category, but the wind boundaries exist only as circles drawn on the map images,
+        not as numbers. The one archived source that does tabulate forecast wind extents is the
+        <strong>US Joint Typhoon Warning Center (JTWC)</strong>, whose official forecasts — with
+        wind radii in four quadrants at 34/50/64&nbsp;kt — were preserved inside VMGD's own archive
+        for 2012&ndash;2024 and in a public research mirror for 2025. JTWC is a close stand-in:
+        it forecasts the same storms at the same times, and its skill is comparable to the
+        operational sources.
+      </p>
+      <p>
+        <strong>From a forecast to a number of people.</strong> For every forecast issued
+        (543 forecast cycles across 47 storms), we take only the <strong>24&ndash;72&nbsp;hour
+        portion</strong> of the predicted track — the action window; anything closer gives too
+        little warning to act on. We sweep the predicted hurricane-force wind radii along that
+        track segment into a footprint, and count the residents of Shefa, Sanma and Tafea inside
+        it using WorldPop 1&nbsp;km population data. The observed side is computed the same way
+        from IBTrACS best-track data, so forecast and reality are directly comparable. One
+        conversion matters: JTWC reports 1-minute average winds while Nadi/VMHS use 10-minute
+        averages, so &ldquo;64&nbsp;kt&rdquo; is evaluated at its 1-minute equivalent
+        (&asymp;73&nbsp;kt, factor 0.88), with the radii interpolated to that contour.
+        We checked the whole pipeline by rebuilding a storm's wind footprint two independent
+        ways (96% area agreement) and by verifying every would-be false alarm against
+        contemporaneous damage reports.
+      </p>
+      <p>
+        <strong>What the archive can't tell us.</strong> No forecast records survive for
+        2006&ndash;2011 (six seasons), so the action trigger simply cannot be scored there —
+        two storms in those years (Gene 2008, Atu 2011) brought hurricane-force winds to or
+        beside the trigger provinces and caused documented damage, so the statistics above carry
+        <strong>one assumed activation</strong> for that period. Season 2005 is excluded
+        outright: forecast files exist for that single year alone among 2003&ndash;2011, with
+        unclear provenance. And the readiness window (3&ndash;5 days) is not assessed at all —
+        archived long-range forecasts with wind sizes are too sparse before 2017 to score it
+        fairly. These gaps are why the overall return period is reported as
+        &ldquo;&le;&rdquo; rather than an exact value.
+      </p>
+      <p>
+        Everything on this page regenerates from the same data files as the
+        <a href="../forecast-check/">full technical analysis</a>, where each of these choices
+        can be inspected storm by storm and forecast by forecast.
+      </p>
+    </div>
+  </details>
 </section>
 
 <footer class="page-foot">
