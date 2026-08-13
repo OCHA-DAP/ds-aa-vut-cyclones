@@ -25,7 +25,7 @@
     How the trigger was set: every cyclone season since <strong>2006</strong> (20 seasons),
     each storm placed by its <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
-    <strong>2-day rainfall</strong> (IMERG). The controls start on the proposed trigger —
+    <strong>2-day rainfall</strong> (IMERG). The controls start on the adopted trigger —
     <strong>15,000 people exposed to 64&nbsp;kt (10-minute) winds</strong>, no rainfall condition —
     adjust them to see how alternatives would have behaved, and click any storm to see its
     observed wind swaths on the map.
@@ -35,9 +35,7 @@
     <div>
       <p>
         <strong>The framework in development defines three triggers</strong>, all at
-        &ge;64&nbsp;kt (draft table threshold 5,000 people exposed; working value on this page
-        <strong>15,000</strong>, which drops the marginal false alarms and holds the overall RP
-        near 1-in-4): a <strong>readiness trigger</strong>
+        &ge;64&nbsp;kt (10-minute) / &ge;15,000 people exposed: a <strong>readiness trigger</strong>
         (72&ndash;120&nbsp;h leadtime, RSMC Nadi extended track forecast, Shefa/Sanma/Tafea), an
         <strong>action trigger</strong> (24&ndash;72&nbsp;h, VMHS track forecast, same provinces),
         and an <strong>observational trigger</strong> (no leadtime, VMHS observed track,
@@ -219,7 +217,7 @@
 
   <section class="controls" aria-label="Controls">
     <span class="locked-trigger">Trigger: <strong>15,000 people at 64&nbsp;kt (10-min)</strong>
-      <span class="unit">(draft framework table: 5,000 — raised to hold the estimated overall RP near 1-in-4; explore alternatives on the design tab)</span></span>
+      <span class="unit">(adopted by the working group — explore alternatives on the design tab)</span></span>
     <label>Sort
       <select id="sort">
         <option value="peak">Peak forecast exposure</option>

@@ -51,20 +51,27 @@ thead th { background: var(--grey-head); font-weight: 650; }
 
 .muted { color: var(--text-muted); font-weight: 400; font-size: .85rem; }
 
-/* the KB AA public-page RP table, verbatim (gen_framework_pages.py) */
-table.data { border-collapse: collapse; width: 100%; background: #fff; font-size: 13px; }
-table.data th, table.data td { text-align: left; padding: 7px 12px;
-  border-bottom: 1px solid var(--border); border-left: none; border-right: none;
-  border-top: none; vertical-align: top; }
-table.data th { background: #f1f4f7; font-weight: 600; white-space: nowrap; }
-table.data td.num { text-align: right; white-space: nowrap; }
-table.data tr:hover td { background: #f6f9fc; }
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) table.data { background: var(--surface-1); }
-  :root:where(:not([data-theme="light"])) table.data th { background: var(--grey-head); }
-  :root:where(:not([data-theme="light"])) table.data tr:hover td { background: var(--surface-2); }
-}
-.financing { font-size: .9rem; margin-top: .7rem; max-width: 100ch; }
+/* the standard "Trigger Mechanism Statistics" panel — fixed light figure */
+.tms { background: #f0f0f0; color: #000; padding: 1.3rem 1.9rem 1.5rem;
+  max-width: 1050px; font-family: Arial, Helvetica, sans-serif; border-radius: 2px; }
+.tms .tms-title { font-weight: 700; font-style: italic; font-size: 1.02rem; margin: 0 0 1.4rem; }
+.tms .secbar { display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 2px solid #000; padding-bottom: 2px; }
+.tms .secbar .sec { font-weight: 700; }
+.tms .secbar .yrs { font-style: italic; }
+.tms table { border-collapse: collapse; width: 100%; background: none; font-size: .95rem; }
+.tms table th, .tms table td { border: none; background: none; padding: 4px 10px;
+  text-align: center; }
+.tms thead th { font-style: italic; font-weight: 400; border-bottom: 1.5px solid #000;
+  background: none; white-space: normal; }
+.tms tbody tr:last-child td { border-bottom: 2px solid #000; }
+.tms .overall { margin-top: 1.6rem; max-width: 460px; }
+.tms .overall .sec { font-weight: 700; border-bottom: 1.5px solid #000;
+  display: block; padding-bottom: 2px; }
+.tms .overall table td.lbl { font-style: italic; text-align: right; width: 68%; }
+.tms .overall table td.val { text-align: left; }
+.tms .overall tbody tr:last-child td { border-bottom: 2px solid #000; }
+.tms-foot { font-size: .78rem; color: var(--text-muted); margin-top: .6rem; max-width: 100ch; }
 
 .storms td, .storms th { padding: .3rem .55rem; }
 .storms { font-size: .88rem; }
@@ -106,13 +113,12 @@ td.cerf { background: var(--cerf-blue); color: #fff; font-weight: 650; }
   <a href="../forecast-check/" style="color:inherit">full analysis</a></div>
 <div class="nav">
   <button id="prev" aria-label="Previous slide">&larr;</button>
-  <span id="pos">1 / 4</span>
+  <span id="pos">1 / 2</span>
   <button id="next" aria-label="Next slide">&rarr;</button>
 </div>
 
 <script>
-const THRESHOLDS = [5000, 15000];
-const OPT = { 5000: "Option A — 5,000 people", 15000: "Option B — 15,000 people" };
+const THRESHOLDS = [15000];
 const fmt = (n) => n.toLocaleString("en-US");
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -164,43 +170,52 @@ function rpTable(rp, T) {
   const rpAct = rpv(act.length + EXTRA);
   const rpObs = rpv(obs.length);
   const rpAll = rpv(all.length + EXTRA);
+  const spend = "$" + (1.5 / rpAll).toFixed(1) + "M";
   return `
-  <table class="data">
-    <thead><tr><th>Window</th><th class="num">Return period</th>
-      <th class="num">Probability</th><th>Backtested activation years</th></tr></thead>
-    <tbody>
-    <tr><td>Action</td>
-        <td class="num">${yrs(rpAct)}</td>
-        <td class="num">${pct(rpAct)}</td>
-        <td>${act.join(", ")} <span class="muted">+ ${EXTRA} assumed (2008 Gene or 2011 Atu — no forecast decks survive)</span></td></tr>
-    <tr><td>Observational</td>
-        <td class="num">${yrs(rpObs)}</td>
-        <td class="num">${pct(rpObs)}</td>
-        <td>${obs.join(", ")}</td></tr>
-    <tr><td>Readiness</td>
-        <td class="num">—</td>
-        <td class="num">—</td>
-        <td><span class="muted">not assessed — historical long-lead wind radii too sparse</span></td></tr>
-    <tr><td><b>Overall</b> (any window)</td>
-        <td class="num"><b>&le; ${yrs(rpAll)}</b></td>
-        <td class="num"><b>&ge; ${pct(rpAll)}</b></td>
-        <td><span class="muted">&le; because the readiness window is not estimated</span></td></tr>
-    </tbody>
-  </table>
-  <p class="financing"><strong>Pre-arranged financing: $1.5M</strong> — the full amount is
-  disbursed on either an action or an observational activation, so the expected spend per
-  activation is $1.5M and the effective return period equals the overall.</p>`;
+  <div class="tms">
+    <p class="tms-title">Trigger Mechanism Statistics</p>
+    <div class="secbar"><span class="sec">Stats by trigger</span>
+      <span class="yrs">Analysis years: ${rp.first_season}-${rp.last_season}</span></div>
+    <table>
+      <thead><tr><th>Trigger</th><th>Return period</th>
+        <th>Activation<br>probability</th><th>Years activated</th></tr></thead>
+      <tbody>
+        <tr><td>Action</td><td>${yrs(rpAct)}</td><td>${pct(rpAct)}</td>
+            <td>${act.join(", ")}, +1 assumed*</td></tr>
+        <tr><td>Observational</td><td>${yrs(rpObs)}</td><td>${pct(rpObs)}</td>
+            <td>${obs.join(", ")}</td></tr>
+      </tbody>
+    </table>
+    <div class="overall">
+      <span class="sec">Overall stats</span>
+      <table>
+        <tbody>
+          <tr><td class="lbl">Overall return period</td>
+              <td class="val">&le; ${yrs(rpAll)}</td></tr>
+          <tr><td class="lbl">Overall probability of activation</td>
+              <td class="val">&ge; ${pct(rpAll)}</td></tr>
+          <tr><td class="lbl">Average total spending per year</td>
+              <td class="val">&ge; $${(1.5 / rpAll).toFixed(1)}M</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="tms-foot">*One assumed action activation in 2008 (Gene) or 2011 (Atu): both
+  storms' observed 64&nbsp;kt swaths reached or nearly reached the AOI, but no forecast
+  records survive for 2006&ndash;11. The readiness window is not assessed (historical
+  long-lead wind radii too sparse), so the overall return period is reported as
+  &le; the computed value. Pre-arranged financing: $1.5M, disbursed in full on either an
+  action or an observational activation — expected spend per activation is $1.5M.</p>`;
 }
+
 
 
 function defSlide(rp, T) {
   return `
-  <h1>Vanuatu anticipatory action — tropical cyclones
-      <span class="opt">${OPT[T]}</span></h1>
+  <h1>Vanuatu anticipatory action — tropical cyclones</h1>
   <p class="sub">Draft trigger mechanism &middot; August 2026</p>
   <h2>Trigger definition</h2>
   ${trigDefTable(T)}
-  <h2>Return periods <span class="muted">(Weibull, ${rp.first_season}&ndash;${rp.last_season} record, ${rp.n_seasons} seasons)</span></h2>
   ${rpTable(rp, T)}
   <p class="footnote">
     Backtest record: ${rp.first_season}&ndash;${rp.last_season}. IBTrACS 64-kt radii exist
@@ -255,8 +270,7 @@ function stormSlide(rp, hist, T) {
   }).join("");
 
   return `
-  <h1>Historical storms near Vanuatu, ${hist.first_season}&ndash;${hist.last_season}
-      <span class="opt">${OPT[T]}</span></h1>
+  <h1>Historical storms near Vanuatu, ${hist.first_season}&ndash;${hist.last_season}</h1>
   <p class="sub">Exposure to &ge;64&nbsp;kt (10-min) winds &middot;
     <span style="color:var(--critical);font-weight:650">red</span> = would have triggered
     (&ge;${fmt(T)} people) &middot;
