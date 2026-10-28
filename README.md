@@ -85,9 +85,16 @@ the analysis (0 h) point of every forecast received for the storm, as
 ds-storms-pipeline does for NHC, kept per source in
 `monitoring/{fms,vmhs}_observed_points.csv` (tests: `test_...`), keyed by
 disturbance id and season, which stay the same when a storm is named. The
-VMHS one is the observational trigger; both are drawn on the maps (the
-observed swath faded under the forecast swaths, as in ds-storms-alerts).
-FMS points are recorded even for storms still far from Vanuatu.
+VMHS one is the observational trigger. FMS points are recorded even for
+storms still far from Vanuatu.
+
+The CSV and the province plots count, as ds-storms-alerts does, what was
+observed so far plus the whole forecast (the union of the two swaths, per
+wind speed); only the trigger values and the likely-range plot are about
+the trigger window. The maps draw the observed swath faded, the forecast
+swath beyond it (the forecast minus the observed swath of the same speed,
+ds-storms-pipeline's forecast-only buffers), and the trigger window's
+64 kt swath as an outline.
 
 **Method.** The swaths are built from the forecast's own 34/50/64 kt radii
 (FMS and VMHS use 10-minute winds, so the 64 kt radius is used as is), with
