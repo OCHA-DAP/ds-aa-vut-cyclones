@@ -482,8 +482,10 @@ PANEL = "#ffffff"
 GREY_EDGE = "#9db1b3"
 # One step of the HDX status ramp per wind threshold, amber to deep red
 WIND_COLORS = {34: "#d48f2a", 50: "#d06a5e", 64: "#9d372b"}
-FCAST_ALPHA = 0.52
-OBSERVED_ALPHA = 0.20
+# swath layers, drawn in this order for each wind speed: what was observed,
+# the rest of the forecast, the trigger window (cut so they don't overlap)
+LAYER_ALPHA = {"observed": 0.2, "other": 0.34, "window": 0.6}
+LEGEND_EDGE = "#c5cdd2"
 TRACK_CASING = [path_effects.withStroke(linewidth=3.4, foreground=PANEL)]
 LABEL_HALO = [path_effects.withStroke(linewidth=2.5, foreground=PANEL)]
 OBS_TRACK = dict(color="#222222", linewidth=2)
@@ -496,19 +498,11 @@ SPEEDS = (34, 50, 64)
 MAP_MIN_ASPECT = 0.8  # width / height of a swath map
 
 
-def swath_patches(alpha: float) -> list:
-    return [
-        mpatches.Patch(
-            facecolor=WIND_COLORS[s], alpha=alpha, label=f"≥ {s} kt"
-        )
-        for s in SPEEDS
-    ]
-
-
-def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None, gdf_observed=None):
-    """One swath map: land on a pale sea, the observed swaths faded under
-    the forecast swaths, coastlines on top so islands read through. No
-    legend: plot_bubbles_and_swaths puts the legends under the maps."""
+def plot_wind_buffers(gdf_adm, layers: dict, ax=None):
+    """One swath map: land on a pale sea, then for each wind speed (widest
+    first) the observed, other-forecast and trigger-window swaths, which
+    are cut so they don't overlap; coastlines on top so islands read
+    through. No legend: plot_bubbles_and_swaths draws it under the maps."""
     warnings.filterwarnings("ignore", "GeoSeries.notna", UserWarning)
     if ax is not None:
         fig = ax.figure
@@ -519,22 +513,20 @@ def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None, gdf_observed=None):
     padx, pady = (maxx - minx) * 0.06, (maxy - miny) * 0.04
     ax.set_facecolor(OCEAN)
     adm.plot(ax=ax, facecolor=LAND, edgecolor="none", zorder=1)
-    for gdf, alpha, z in (
-        (gdf_observed, OBSERVED_ALPHA, 2),
-        (gdf_buffers, FCAST_ALPHA, 2.1),
-    ):
-        if gdf is None or gdf.empty:
-            continue
-        for speed in SPEEDS:  # widest first, stronger winds on top
+    for i, speed in enumerate(SPEEDS):
+        for j, name in enumerate(("observed", "other", "window")):
+            gdf = layers.get(name)
+            if gdf is None or gdf.empty:
+                continue
             g = gdf[gdf["buffer_speed"] == speed]
             g = g[~g.geometry.is_empty & g.geometry.notna()]
             if not g.empty:
                 g.plot(
                     ax=ax,
                     color=WIND_COLORS[speed],
-                    alpha=alpha,
+                    alpha=LAYER_ALPHA[name],
                     edgecolor="none",
-                    zorder=z,
+                    zorder=2 + i * 0.1 + j * 0.01,
                 )
     adm.boundary.plot(ax=ax, color=COAST, linewidth=0.5, zorder=3)
     # Vanuatu is tall and thin: widen the view (more sea either side, and
@@ -592,41 +584,97 @@ def draw_track(ax, track, kind: str, start=None, label_hours: bool = False):
                 )
 
 
-def legend_row(fig, groups: list, y: float, fontsize: float = 12) -> None:
-    """Titled legends side by side, centred, top edge at figure height y
-    (as ds-storms-alerts lays its legends out under the map)."""
-    groups = [(t, h) for t, h in groups if h]
-    if not groups:
-        return
-    renderer = fig.canvas.get_renderer()
-    legs = []
-    for title, handles in groups:
-        lines_only = all(isinstance(h, Line2D) for h in handles)
-        leg = fig.legend(
-            handles=handles,
-            title=title,
-            loc="upper left",
-            bbox_to_anchor=(0, y),
-            ncol=len(handles),
-            frameon=False,
-            fontsize=fontsize,
-            title_fontsize=fontsize,
-            handlelength=2.8 if lines_only else 1.4,
-            handleheight=0.9,
-            columnspacing=1.2,
-            alignment="left",
+# boxed keys (sizes in inches)
+KEY_PAD, KEY_TITLE_H, KEY_HEAD_H, KEY_ROW_H = 0.16, 0.3, 0.26, 0.27
+KEY_LABEL_W, KEY_COL_W, KEY_SW_W, KEY_SW_H = 2.9, 0.82, 0.5, 0.17
+KEY_FONTSIZE = 11.5
+
+
+def swath_key_width() -> float:
+    return 2 * KEY_PAD + KEY_LABEL_W + KEY_COL_W * len(SPEEDS)
+
+
+def swath_key(fig, x_in: float, top_in: float, rows: list) -> None:
+    """Boxed key for the swath layers: a row per layer, a swatch per wind
+    speed. Placed by its top-left corner, in inches from the figure's
+    bottom-left."""
+    fw, fh = fig.get_size_inches()
+    w = swath_key_width()
+    h = 2 * KEY_PAD + KEY_TITLE_H + KEY_HEAD_H + KEY_ROW_H * len(rows)
+    ax = fig.add_axes([x_in / fw, (top_in - h) / fh, w / fw, h / fh])
+    ax.set_axis_off()
+    ax.add_patch(
+        mpatches.Rectangle(
+            (0, 0),
+            1,
+            1,
+            transform=ax.transAxes,
+            facecolor=PANEL,
+            edgecolor=LEGEND_EDGE,
+            linewidth=1,
+            clip_on=False,
         )
-        leg.get_title().set_fontweight("bold")
-        leg.get_title().set_color(INK)
-        legs.append(leg)
-    widths = [
-        leg.get_window_extent(renderer).width / fig.bbox.width for leg in legs
+    )
+
+    def at(x, y_from_top):  # inches inside the box -> axes fraction
+        return x / w, 1 - y_from_top / h
+
+    text = dict(fontsize=KEY_FONTSIZE, color=INK)
+    ax.text(*at(KEY_PAD, KEY_PAD), "Wind swaths", fontweight="bold",
+            va="top", ha="left", **text)  # fmt: skip
+    y = KEY_PAD + KEY_TITLE_H
+    centres = [
+        KEY_PAD + KEY_LABEL_W + KEY_COL_W * (i + 0.5)
+        for i in range(len(SPEEDS))
     ]
-    gap = 0.04
-    x = 0.5 - (sum(widths) + gap * (len(legs) - 1)) / 2
-    for leg, w in zip(legs, widths):
-        leg.set_bbox_to_anchor((x, y), transform=fig.transFigure)
-        x += w + gap
+    for cx, speed in zip(centres, SPEEDS):
+        ax.text(*at(cx, y + KEY_HEAD_H / 2), f"≥ {speed} kt",
+                va="center", ha="center", **text)  # fmt: skip
+    y += KEY_HEAD_H
+    for label, alpha in rows:
+        ax.text(*at(KEY_PAD, y + KEY_ROW_H / 2), label,
+                va="center", ha="left", **text)  # fmt: skip
+        for cx, speed in zip(centres, SPEEDS):
+            x0, y0 = at(cx - KEY_SW_W / 2, y + (KEY_ROW_H + KEY_SW_H) / 2)
+            ax.add_patch(
+                mpatches.Rectangle(
+                    (x0, y0),
+                    KEY_SW_W / w,
+                    KEY_SW_H / h,
+                    transform=ax.transAxes,
+                    facecolor=WIND_COLORS[speed],
+                    alpha=alpha,
+                    edgecolor="none",
+                )
+            )
+        y += KEY_ROW_H
+
+
+def boxed_legend(fig, handles, title, ncol=1):
+    """A legend in the same box style as swath_key. Returns it and its
+    width in inches; place it with set_bbox_to_anchor."""
+    leg = fig.legend(
+        handles=handles,
+        title=title,
+        loc="upper left",
+        ncol=ncol,
+        frameon=True,
+        fancybox=False,
+        edgecolor=LEGEND_EDGE,
+        framealpha=1,
+        fontsize=KEY_FONTSIZE,
+        title_fontsize=KEY_FONTSIZE,
+        borderpad=0.8,
+        handlelength=2.8,
+        handleheight=0.9,
+        columnspacing=1.4,
+        alignment="left",
+    )
+    leg.get_frame().set_linewidth(1)
+    leg.get_title().set_fontweight("bold")
+    leg.get_title().set_color(INK)
+    width = leg.get_window_extent(fig.canvas.get_renderer()).width
+    return leg, width / fig.dpi
 
 
 def plot_thermometer(
@@ -809,9 +857,7 @@ def fig_to_base64(fig) -> str:
 
 
 def plot_bubbles_and_swaths(
-    gdf_mostlikely_buffers: gpd.GeoDataFrame,
-    gdf_worst_buffers: gpd.GeoDataFrame,
-    gdf_best_buffers: gpd.GeoDataFrame,
+    layers: list,
     gdf_adm_swath_plot: gpd.GeoDataFrame,
     df_adm_template: pd.DataFrame,
     gdf_adm: gpd.GeoDataFrame,
@@ -827,22 +873,24 @@ def plot_bubbles_and_swaths(
     file_tag: str = "adm2",
     label_max_len: int = 9,
     label_font: tuple = (4, 20),
-    gdf_observed_buffers: gpd.GeoDataFrame | None = None,
     gdf_observed_track: gpd.GeoDataFrame | None = None,
     swath_note: str = "",
+    window_label: str = "Forecast, trigger window",
 ):
     """Three columns (most likely, worst case, best case): wind swath maps
-    on top, population exposure bubbles below, legends in rows under each
-    (map style from ds-storms-alerts)."""
-    fig, axes = plt.subplots(2, 3, figsize=(18, 13))
+    on top, population exposure bubbles below, boxed keys under each row
+    (map style from ds-storms-alerts). ``layers``: per column, the
+    "window", "other" and "observed" swath GeoDataFrames."""
+    fig, axes = plt.subplots(2, 3, figsize=(18, 13.5))
 
     gdf_adm = gdf_adm.copy()
     gdf_adm["adm_label"] = gdf_adm[name_col].apply(
         wrap_text, max_len=label_max_len, break_anywhere=False
     )
     has_obs = gdf_observed_track is not None and not gdf_observed_track.empty
-    has_obs_swath = (
-        gdf_observed_buffers is not None and not gdf_observed_buffers.empty
+    has_obs_swath = any(
+        lay.get("observed") is not None and not lay["observed"].empty
+        for lay in layers
     )
     last_obs = None
     if has_obs:
@@ -850,30 +898,23 @@ def plot_bubbles_and_swaths(
         last_obs = (last.x, last.y)
 
     columns = [
-        ("middle", "Most likely track", gdf_mostlikely_buffers, INK, "bold"),
+        ("middle", "Most likely track", INK, "bold"),
         (
             "worst",
             "Upper bound exposure\n(worst case scenario)",
-            gdf_worst_buffers,
             "#c0392b",
             "normal",
         ),
         (
             "best",
             "Lower bound exposure\n(best case scenario)",
-            gdf_best_buffers,
             "#2e7d32",
             "normal",
         ),
     ]
-    for col, (limit, title, buffers, color, weight) in enumerate(columns):
+    for col, (limit, title, color, weight) in enumerate(columns):
         top_ax, bottom_ax = axes[0, col], axes[1, col]
-        plot_wind_buffers(
-            gdf_adm_swath_plot,
-            buffers,
-            ax=top_ax,
-            gdf_observed=gdf_observed_buffers,
-        )
+        plot_wind_buffers(gdf_adm_swath_plot, layers[col], ax=top_ax)
         if uncertainty_cone is not None:
             gpd.GeoSeries([uncertainty_cone], crs=gdf_adm.crs).plot(
                 ax=top_ax, zorder=4, **CONE
@@ -924,10 +965,13 @@ def plot_bubbles_and_swaths(
         y=1,
     )
     if swath_note:
-        fig.text(0.5, 0.965, swath_note, ha="center", fontsize=13)
+        fig.text(0.5, 0.967, swath_note, ha="center", fontsize=13)
 
-    # room between and under the rows for the legend rows
-    fig.tight_layout(rect=[0, 0.06, 1, 0.985], h_pad=8)
+    # room between and under the rows for the boxed keys
+    fig.tight_layout(rect=[0, 0.08, 1, 0.985], h_pad=14)
+    fw, fh = fig.get_size_inches()
+
+    # Under the maps: the swath key and the track key, side by side, centred
     track_handles = []
     if has_obs:
         track_handles.append(
@@ -955,37 +999,38 @@ def plot_bubbles_and_swaths(
         ),
         Patch(**CONE, label="Uncertainty cone"),
     ]
-    legend_row(
-        fig,
-        [
-            ("Forecast wind swaths", swath_patches(FCAST_ALPHA)),
-            (
-                "Observed wind swaths",
-                swath_patches(OBSERVED_ALPHA) if has_obs_swath else [],
-            ),
-            ("Track", track_handles),
-        ],
-        y=axes[0, 0].get_position().y0 - 0.008,
+    rows = [
+        (window_label, LAYER_ALPHA["window"]),
+        ("Forecast, other lead times", LAYER_ALPHA["other"]),
+    ]
+    if has_obs_swath:
+        rows.append(("Observed so far", LAYER_ALPHA["observed"]))
+    top_in = axes[0, 0].get_position().y0 * fh - 0.2
+    track_leg, track_w = boxed_legend(fig, track_handles, "Track")
+    gap = 0.35
+    x_in = (fw - swath_key_width() - gap - track_w) / 2
+    swath_key(fig, x_in, top_in, rows)
+    track_leg.set_bbox_to_anchor(
+        ((x_in + swath_key_width() + gap) / fw, top_in / fh),
+        transform=fig.transFigure,
     )
+
+    # Under the bubbles: the population key, centred
     pale = {s: lighten(WIND_COLORS[s]) for s in SPEEDS}
-    legend_row(
+    pop_handles = [
+        Patch(facecolor=PANEL, edgecolor=GREY_EDGE, label="< 34 kt"),
+        *[Patch(facecolor=pale[s], label=f"≥ {s} kt") for s in SPEEDS],
+    ]
+    pop_leg, pop_w = boxed_legend(
         fig,
-        [
-            (
-                "Population exposed to wind speed "
-                "(circle size proportional to population)",
-                [
-                    Patch(
-                        facecolor=PANEL, edgecolor=GREY_EDGE, label="< 34 kt"
-                    ),
-                    *[
-                        Patch(facecolor=pale[s], label=f"≥ {s} kt")
-                        for s in SPEEDS
-                    ],
-                ],
-            )
-        ],
-        y=axes[1, 0].get_position().y0 - 0.008,
+        pop_handles,
+        "Population exposed to wind speed "
+        "(circle size proportional to population)",
+        ncol=len(pop_handles),
+    )
+    top_in = axes[1, 0].get_position().y0 * fh - 0.2
+    pop_leg.set_bbox_to_anchor(
+        ((fw - pop_w) / 2 / fw, top_in / fh), transform=fig.transFigure
     )
 
     if save_local:

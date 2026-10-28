@@ -192,6 +192,37 @@ def uncertainty_cone(track: pd.DataFrame):
     return gpd.GeoSeries([cone], crs=METRIC_CRS).to_crs(FJI_CRS).iloc[0]
 
 
+def cut(geoms: dict, minus: dict) -> dict:
+    """Swaths with another set's swath of the same speed cut out (as
+    ds-storms-pipeline's forecast-only buffers), so the map layers of one
+    speed never overlap."""
+    out = {}
+    for speed, geom in geoms.items():
+        other = minus.get(speed)
+        if geom is None or other is None:
+            out[speed] = geom
+            continue
+        diff = geom.difference(other)
+        out[speed] = None if diff.is_empty else diff
+    return out
+
+
+def map_layers(track: pd.DataFrame, window: dict, obs: dict) -> dict:
+    """The three swath layers of one map: the trigger window, the rest of
+    the forecast (fills the gap between what was observed and the window),
+    and what was observed, each with the layers above it cut out."""
+    full = swaths(interpolated(track))
+
+    def footprint(geoms):  # the widest swath, for every speed
+        return {s: geoms.get(34) for s in SPEEDS}
+
+    return {
+        "window": swath_gdf(window),
+        "other": swath_gdf(cut(full, footprint(window))),
+        "observed": swath_gdf(cut(obs, footprint(full))),
+    }
+
+
 def swath_gdf(geoms: dict) -> gpd.GeoDataFrame:
     rows = [(s, g) for s, g in geoms.items() if g is not None]
     return gpd.GeoDataFrame(
@@ -520,10 +551,17 @@ def main() -> None:
                 crs=FJI_CRS,
             )
 
+        # the maps show what was observed once there is some history (a
+        # storm's first forecast only has its own analysis point)
+        obs_plot = obs_geoms if n_observed >= 2 else {s: None for s in SPEEDS}
+        worst_full = shift_track(fc.track, worst_row["shift_deg"])
+        best_full = shift_track(fc.track, best_row["shift_deg"])
         _, _, pdf_path = plot_bubbles_and_swaths(
-            gdf_mostlikely_buffers=swath_gdf(geoms),
-            gdf_worst_buffers=swath_gdf(worst_geoms),
-            gdf_best_buffers=swath_gdf(best_geoms),
+            layers=[
+                map_layers(fc.track, geoms, obs_plot),
+                map_layers(worst_full, worst_geoms, obs_plot),
+                map_layers(best_full, best_geoms, obs_plot),
+            ],
             gdf_adm_swath_plot=gdf_adm,
             df_adm_template=template,
             gdf_adm=gdf_adm,
@@ -532,30 +570,20 @@ def main() -> None:
             forecast_display_str=forecast_display_str,
             forecast_id=forecast_id,
             save_local=True,
-            # the whole forecast track (6-hourly points); the swaths and
-            # the cone are the trigger window only
+            # the whole forecast track (6-hourly points); the cone is the
+            # trigger window's
             gdf_tracks_plot=[
                 _pts(fc.track),
-                _pts(shift_track(fc.track, worst_row["shift_deg"])),
-                _pts(shift_track(fc.track, best_row["shift_deg"])),
+                _pts(worst_full),
+                _pts(best_full),
             ],
             uncertainty_cone=uncertainty_cone(seg),
-            gdf_observed_buffers=(
-                swath_gdf(obs_geoms)
-                if any(g is not None for g in obs_geoms.values())
-                else None
-            ),
-            gdf_observed_track=(
-                _pts(obs_track)
-                if obs_track is not None and not obs_track.empty
-                else None
-            ),
+            window_label=f"Forecast, {WINDOW_STR[source].replace(' to ', '–')}"
+            " (trigger)",
+            gdf_observed_track=_pts(obs_track) if n_observed >= 2 else None,
             swath_note=(
-                f"Wind swaths: the {WINDOW_STR[source]} part of the "
-                f"forecast ({SOURCE_NAME[source]}), and the swath observed so far"
-                if n_observed
-                else f"Wind swaths: the {WINDOW_STR[source]} part of the "
-                f"forecast ({SOURCE_NAME[source]})"
+                f"{SOURCE_NAME[source]} forecast. The trigger counts the "
+                f"{WINDOW_STR[source]} part of it."
             ),
             id_col="ADM1_PCODE",
             name_col="ADM1_EN",
