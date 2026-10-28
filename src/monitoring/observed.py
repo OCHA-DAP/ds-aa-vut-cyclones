@@ -37,27 +37,46 @@ def record_blob(test: bool) -> str:
     return TEST_RECORD_BLOB if test else RECORD_BLOB
 
 
+def _normalise(df: pd.DataFrame) -> pd.DataFrame:
+    """Key columns with one type whatever the source (CSV text or a fresh
+    point), so de-duplication and look-ups match."""
+    df = df.reindex(columns=COLUMNS).copy()
+    df["disturbance_id"] = df["disturbance_id"].astype(str)
+    df["season"] = pd.to_numeric(df["season"]).astype("Int64")
+    df["valid_time"] = pd.to_datetime(df["valid_time"])
+    return df
+
+
 def load_points(test: bool) -> pd.DataFrame:
     try:
-        df = stratus.load_csv_from_blob(record_blob(test), stage="dev")
+        # as text: a numeric-looking id must not become a number
+        df = stratus.load_csv_from_blob(
+            record_blob(test), stage="dev", dtype=str
+        )
     except ResourceNotFoundError:
         return pd.DataFrame(columns=COLUMNS)
-    df = df.reindex(columns=COLUMNS)
-    df["valid_time"] = pd.to_datetime(df["valid_time"])
-    df["disturbance_id"] = df["disturbance_id"].astype(str)
-    return df
+    return _normalise(df)
 
 
 def save_points(df: pd.DataFrame, test: bool) -> None:
     stratus.upload_csv_to_blob(df, record_blob(test), stage="dev")
 
 
+# a first point this close to the issue time counts as the analysis
+ANALYSIS_TOLERANCE_H = 3
+
+
 def analysis_point(forecast, content_sha12: str) -> pd.DataFrame:
-    """The forecast's lead-time-0 row, in the record's columns."""
-    first = forecast.track[forecast.track["leadtime"].abs() < 1e-6]
-    if first.empty:
-        raise ValueError("the forecast has no analysis (lead time 0) point")
-    row = first.iloc[[0]].copy()
+    """The forecast's analysis row (lead time 0, or the first point if it
+    is within ANALYSIS_TOLERANCE_H of it), in the record's columns."""
+    track = forecast.track.sort_values("leadtime")
+    first = track.iloc[[0]]
+    if abs(float(first["leadtime"].iloc[0])) > ANALYSIS_TOLERANCE_H:
+        raise ValueError(
+            "the forecast has no analysis point (its first point is "
+            f"{first['leadtime'].iloc[0]:.1f} h after issue)"
+        )
+    row = first.copy()
     row["disturbance_id"] = forecast.disturbance_id
     row["season"] = forecast.season
     row["cyclone_name"] = forecast.cyclone_name
@@ -69,7 +88,10 @@ def add_point(points: pd.DataFrame, point: pd.DataFrame) -> pd.DataFrame:
     """Add a point; a later forecast for the same storm and time replaces
     the earlier one (a corrected re-issue)."""
     key = ["disturbance_id", "season", "valid_time"]
-    out = pd.concat([points, point], ignore_index=True)
+    frames = [_normalise(f) for f in (points, point) if not f.empty]
+    if not frames:
+        return pd.DataFrame(columns=COLUMNS)
+    out = pd.concat(frames, ignore_index=True)
     return out.drop_duplicates(subset=key, keep="last").reset_index(drop=True)
 
 

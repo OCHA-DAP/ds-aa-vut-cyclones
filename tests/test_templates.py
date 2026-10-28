@@ -50,3 +50,8 @@ def test_info_email_shows_only_the_sources_triggers():
     assert "Readiness trigger: <b>" not in v
     for body in (f, v):
         assert "<b>15,000 people</b>" in body and "<b>5,000" not in body
+
+
+def test_cyclone_name_is_escaped():
+    r = render_template("readiness.html", dict(BASE, cyclone_name="<b>x</b>"))
+    assert "<b>x</b>" not in r and "&lt;b&gt;x&lt;/b&gt;" in r

@@ -120,11 +120,14 @@ def wind_buffers_from_track(
     lat_col: str = "lat",
     lon_col: str = "lon",
     time_col: str = "valid_time",
+    interpolate: bool = True,
 ) -> gpd.GeoDataFrame:
     """Wind-swath buffer per speed threshold for a single track.
 
     The track is interpolated to 30-minute steps first, so the swath is a
     continuous sweep rather than a string of disks at synoptic times.
+    ``interpolate=False`` takes the track as already interpolated (the
+    monitor does its own, see src/monitoring/forecast.py).
     """
     quad_cols = [
         quad_fmt.format(speed=s, quad=q) for s in speeds for q in QUADS
@@ -133,9 +136,12 @@ def wind_buffers_from_track(
     work = df[[lat_col, lon_col, time_col] + keep].copy()
     work[lon_col] = (work[lon_col] + 360) % 360
 
-    interp = interpolate_track(
-        work, time_col=time_col, lat_col=lat_col, lon_col=lon_col
-    )
+    if interpolate:
+        interp = interpolate_track(
+            work, time_col=time_col, lat_col=lat_col, lon_col=lon_col
+        )
+    else:
+        interp = work.reset_index(drop=True)
     if interp.empty:
         return gpd.GeoDataFrame(
             {"buffer_speed": []}, geometry=[], crs=METRIC_CRS

@@ -56,3 +56,30 @@ def test_track_is_numeric_from_an_empty_first_record():
         observed.add_point(pts, later), "2526-07F", 2026
     )
     assert tr["lon"].dtype == float and tr["r64_ne"].dtype == float
+
+
+def test_analysis_point_tolerates_a_first_point_near_issue():
+    fc = parse_forecast_csv(make_csv(ROWS))
+    late = fc.track.copy()
+    late["leadtime"] = late["leadtime"] + 3
+    fc.track = late
+    assert len(observed.analysis_point(fc, "a")) == 1
+    late["leadtime"] = late["leadtime"] + 3  # first point 6 h after issue
+    fc.track = late
+    import pytest
+
+    with pytest.raises(ValueError):
+        observed.analysis_point(fc, "a")
+
+
+def test_keys_match_whatever_the_dtypes():
+    fc = parse_forecast_csv(make_csv(ROWS))
+    pt = observed.analysis_point(fc, "a")
+    as_text = pt.astype(str)  # what a dtype=str load gives back
+    out = observed.add_point(as_text, observed.analysis_point(fc, "b"))
+    assert len(out) == 1 and out.iloc[0]["content_sha12"] == "b"
+    numeric_id = pt.assign(disturbance_id="07").astype(str)
+    tr = observed.observed_track(
+        observed.add_point(numeric_id, pt), "07", 2026
+    )
+    assert len(tr) == 1

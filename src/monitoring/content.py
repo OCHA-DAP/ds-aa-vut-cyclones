@@ -23,6 +23,7 @@ def render_template(
     if template_dir is None:
         # Make template_dir relative to this file's location
         template_dir = os.path.join(os.path.dirname(__file__), "templates")
-    env = Environment(loader=FileSystemLoader(template_dir))
+    # autoescape: the cyclone name comes from the forecast CSV
+    env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
     template = env.get_template(str(template_name))
     return template.render(**variables)

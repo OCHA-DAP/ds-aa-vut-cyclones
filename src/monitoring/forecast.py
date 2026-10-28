@@ -23,7 +23,7 @@ import pandas as pd
 from shapely.geometry import Point
 
 from src.constants import FJI_CRS
-from src.utils.wind_buffers import QUADS, interpolate_track
+from src.utils.wind_buffers import QUADS
 
 OFFICIAL_TRACK = "Official Forecast Track"
 SPEEDS = (34, 50, 64)
@@ -149,20 +149,67 @@ def parse_forecast_csv(data: bytes) -> Forecast:
     )
 
 
-def interpolated(track: pd.DataFrame) -> pd.DataFrame:
-    """The track on a 30-minute grid, lead time included (naive UTC)."""
-    out = interpolate_track(track)
-    out["valid_time"] = out["valid_time"].dt.tz_localize(None)
+STEP_H = 0.5  # 30-minute track, as in the trigger design
+
+
+def _with_leadtime(track: pd.DataFrame) -> pd.DataFrame:
+    """Hours since the first point as ``leadtime`` if the track has none
+    (the observed track)."""
+    if "leadtime" in track.columns:
+        return track
+    first = track["valid_time"].min()
+    return track.assign(
+        leadtime=(track["valid_time"] - first).dt.total_seconds() / 3600
+    )
+
+
+def _interp_at(track: pd.DataFrame, leads: np.ndarray) -> pd.DataFrame:
+    """The track at the given lead times (hours), linear in every numeric
+    column, with no extrapolation.
+
+    np.interp rather than pandas' resample().interpolate(): on pandas 2.x
+    (the Databricks lock) that returns all-NaN for a track whose times are
+    off the :00/:30 clock, which would count as zero exposure.
+    """
+    t = (
+        _with_leadtime(track)
+        .sort_values("valid_time")
+        .drop_duplicates(subset=["valid_time"], keep="last")
+        .dropna(subset=["lat", "lon"])
+    )
+    if t.empty:
+        return t.reset_index(drop=True)
+    lt = t["leadtime"].to_numpy(float)
+    leads = np.unique(leads[(leads >= lt.min()) & (leads <= lt.max())])
+    first_time = t["valid_time"].iloc[0] - pd.to_timedelta(lt[0], unit="h")
+    out = pd.DataFrame({"leadtime": leads})
+    out["valid_time"] = first_time + pd.to_timedelta(leads, unit="h")
+    numeric = t.select_dtypes(include=[np.number]).columns
+    for col in numeric.drop("leadtime"):
+        out[col] = np.interp(leads, lt, t[col].to_numpy(float))
+    if out[["lat", "lon"]].isna().any().any():
+        raise ForecastParseError("track interpolation produced NaN positions")
     return out
+
+
+def interpolated(track: pd.DataFrame) -> pd.DataFrame:
+    """The track every 30 minutes of lead time, plus its own points."""
+    lt = _with_leadtime(track)["leadtime"].to_numpy(float)
+    if lt.size == 0:
+        return track.iloc[0:0].reset_index(drop=True)
+    start = np.ceil(lt.min() / STEP_H) * STEP_H
+    grid = np.arange(start, lt.max() + 1e-9, STEP_H)
+    return _interp_at(track, np.concatenate([grid, lt]))
 
 
 def segment(track: pd.DataFrame, lo: float, hi: float) -> pd.DataFrame:
     """The part of the track between lead times ``lo`` and ``hi`` hours,
-    taken from the 30-minute track so it starts and ends exactly there."""
-    interp = interpolated(track)
-    return interp[
-        (interp["leadtime"] >= lo - 1e-6) & (interp["leadtime"] <= hi + 1e-6)
-    ].reset_index(drop=True)
+    every 30 minutes, starting and ending exactly there (where the forecast
+    reaches)."""
+    lt = _with_leadtime(track)["leadtime"].to_numpy(float)
+    inside = lt[(lt >= lo) & (lt <= hi)]
+    grid = np.concatenate([np.arange(lo, hi, STEP_H), [hi], inside])
+    return _interp_at(track, grid)
 
 
 def min_distance_km(

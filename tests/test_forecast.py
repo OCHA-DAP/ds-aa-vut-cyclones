@@ -111,3 +111,41 @@ def test_min_distance_km():
     assert 100 < fcm.min_distance_km(track, country, 120) < 125
     # a lead-time cut that leaves only the first point is further away
     assert fcm.min_distance_km(track, country, 0) > 200
+
+
+def test_off_grid_issue_time_still_interpolates():
+    # pandas 2.x resample().interpolate() gave all-NaN off the :00/:30 clock
+    rows = [r.replace(":00:00Z", ":15:00Z") for r in ROWS]
+    data = make_csv(rows).replace(b"T00:00:00Z,-15", b"T00:15:00Z,-15")
+    data = data.replace(
+        b"baseTime=2026-02-01T00:00:00Z", b"baseTime=2026-02-01T00:15:00Z"
+    )
+    track = parse_forecast_csv(data).track
+    assert list(track["leadtime"]) == [0, 6, 12]
+    interp = fcm.interpolated(track)
+    assert len(interp) == 25 and not interp[["lat", "lon"]].isna().any().any()
+    seg = fcm.segment(track, 6, 12)
+    assert seg["leadtime"].iloc[0] == 6 and seg["leadtime"].iloc[-1] == 12
+    assert not seg["lat"].isna().any()
+
+
+def test_interpolation_matches_the_design_on_grid():
+    from src.utils.wind_buffers import interpolate_track
+
+    track = parse_forecast_csv(SIM.read_bytes()).track
+    mine = fcm.interpolated(track)
+    design = interpolate_track(track)
+    assert len(mine) == len(design)
+    for col in ("lat", "lon", "r64_ne", "r34_sw", "leadtime"):
+        assert (mine[col].to_numpy() - design[col].to_numpy()).max() < 1e-9
+
+
+def test_segment_edges_are_exact_and_inclusive():
+    track = parse_forecast_csv(SIM.read_bytes()).track
+    seg = fcm.segment(track, 72, 120)
+    assert seg["leadtime"].min() == 72 and seg["leadtime"].max() == 120
+    assert len(seg) == 97
+    short = track[track["leadtime"] <= 72]
+    one = fcm.segment(short, 72, 120)
+    assert list(one["leadtime"]) == [72]  # a forecast ending at 72 h
+    assert fcm.segment(track[track["leadtime"] <= 60], 72, 120).empty

@@ -50,6 +50,7 @@ from src.monitoring.exposure import ExposureContext
 from src.monitoring.forecast import (
     OFFICIAL_TRACK,
     VUT_AEQD,
+    interpolated,
     min_distance_km,
     parse_forecast_csv,
     safe_name,
@@ -149,7 +150,8 @@ def swaths(track: pd.DataFrame) -> dict:
     out = {s: None for s in SPEEDS}
     if track.empty:
         return out
-    bufs = wind_buffers_from_track(track, speeds=SPEEDS)
+    # tracks come interpolated (src/monitoring/forecast.py)
+    bufs = wind_buffers_from_track(track, speeds=SPEEDS, interpolate=False)
     for speed, geom in zip(bufs["buffer_speed"], bufs.geometry):
         out[int(speed)] = geom
     return out
@@ -271,16 +273,6 @@ def main() -> None:
         f"{fc.track['leadtime'].max():.0f} h"
     )
 
-    if MAX_FORECAST_AGE_HOURS and not IS_TEST_SEND and not DRY_RUN:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        age_hours = (now - fc.base_time).total_seconds() / 3600
-        if age_hours > float(MAX_FORECAST_AGE_HOURS):
-            raise SystemExit(
-                f"Forecast issued {fc.base_time} is {age_hours:.0f} h old "
-                f"(limit {MAX_FORECAST_AGE_HOURS} h): not emailing the "
-                "real lists about it."
-            )
-
     adm2 = codab.load_codab_from_blob(admin_level=2)
     if source == "fms":
         distance = min_distance_km(
@@ -294,10 +286,22 @@ def main() -> None:
             )
             return
 
+    if MAX_FORECAST_AGE_HOURS and not IS_TEST_SEND and not DRY_RUN:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        age_hours = (now - fc.base_time).total_seconds() / 3600
+        if age_hours > float(MAX_FORECAST_AGE_HOURS):
+            raise SystemExit(
+                f"Forecast issued {fc.base_time} is {age_hours:.0f} h old "
+                f"(limit {MAX_FORECAST_AGE_HOURS} h): not emailing the "
+                "real lists about it."
+            )
+
     ctx = ExposureContext(adm2=adm2)
     lo, hi = WINDOWS[source]
     max_lt = fc.track["leadtime"].max()
-    window_covered = max_lt > lo
+    # a forecast that ends exactly at the window's start is evaluated on
+    # that one point (the window is inclusive)
+    window_covered = max_lt >= lo
     seg = segment(fc.track, lo, hi)
     geoms = swaths(seg)
     exp_aoi = {s: ctx.aoi(g) for s, g in geoms.items()}
@@ -309,6 +313,7 @@ def main() -> None:
     )
 
     early_exp = None
+    observed_error = None
     observational_exp = None
     observational = False
     n_observed = 0
@@ -318,24 +323,32 @@ def main() -> None:
         early_exp = ctx.aoi(early)
         logger.info(f"0 to {lo} h 64 kt exposure (info only): {early_exp:,}")
     else:
-        points = observed.load_points(IS_TEST_SEND)
-        points = observed.add_point(
-            points, observed.analysis_point(fc, content_sha12)
-        )
-        obs_track = observed.observed_track(
-            points, fc.disturbance_id, fc.season
-        )
-        n_observed = len(obs_track)
-        observed_display_str = vut_time_str(obs_track["valid_time"].max())
-        obs64 = swaths(obs_track)[64]
-        observational_exp = ctx.national(obs64)
-        observational = observational_exp >= EXP_THRESHOLD_64_KNOTS
-        logger.info(
-            f"Observed track ({n_observed} points) 64 kt exposure, all of "
-            f"Vanuatu: {observational_exp:,}"
-        )
-        if not DRY_RUN:
-            observed.save_points(points, IS_TEST_SEND)
+        # The observed track must never stop the action and info emails: a
+        # problem here is logged, the emails go out, and the run fails at
+        # the end so the maintainer hears about it.
+        try:
+            points = observed.load_points(IS_TEST_SEND)
+            points = observed.add_point(
+                points, observed.analysis_point(fc, content_sha12)
+            )
+            obs_track = observed.observed_track(
+                points, fc.disturbance_id, fc.season
+            )
+            n_observed = len(obs_track)
+            observed_display_str = vut_time_str(obs_track["valid_time"].max())
+            obs64 = swaths(interpolated(obs_track))[64]
+            observational_exp = ctx.national(obs64)
+            observational = observational_exp >= EXP_THRESHOLD_64_KNOTS
+            logger.info(
+                f"Observed track ({n_observed} points) 64 kt exposure, all "
+                f"of Vanuatu: {observational_exp:,}"
+            )
+            if not DRY_RUN:
+                observed.save_points(points, IS_TEST_SEND)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Observed track failed; observational not met")
+            observed_error = exc
+            observational_exp, observational = None, False
 
     email_base_name = ("[TEST]_" if IS_TEST_SEND else "") + forecast_id
     sent_record = None
@@ -389,7 +402,11 @@ def main() -> None:
         g = swaths(st)
         shifted[deg] = (st, g)
         rows.append(
-            {"shift_deg": deg, **{f"exp_{s}": ctx.aoi(g[s]) for s in SPEEDS}}
+            {
+                "shift_deg": deg,
+                **{f"exp_{s}": ctx.aoi(g[s]) for s in SPEEDS},
+                "nat_34": ctx.national(g[34]),
+            }
         )
     df_shift = pd.DataFrame(rows).sort_values(
         [f"exp_{s}" for s in (64, 50, 34)], ascending=False
@@ -405,8 +422,10 @@ def main() -> None:
     logger.info(
         f"Worst case:\n{worst_row.to_frame().T.to_string(index=False)}"
     )
+    # the thermometer is about the three provinces; the area-council CSV and
+    # PDF cover all of Vanuatu, so they're gated on national exposure
     any_64 = worst_row["exp_64"] > 0 or trigger_exp > 0
-    any_34 = worst_row["exp_34"] > 0 or exp_aoi[34] > 0
+    any_34 = df_shift["nat_34"].max() > 0 or ctx.national(geoms[34]) > 0
 
     img_base64_thermometer = None
     if any_64:
@@ -565,6 +584,11 @@ def main() -> None:
             body=body,
             media=[m for m in (adm2_exp_id, bubbles_plot_id) if m],
         )
+    if observed_error is not None:
+        raise RuntimeError(
+            "The observed track failed (see above); the other emails went "
+            "out, the observational trigger was not evaluated."
+        ) from observed_error
     logger.info("Vanuatu monitor forecast trigger pipeline completed.")
 
 

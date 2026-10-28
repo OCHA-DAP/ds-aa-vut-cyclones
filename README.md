@@ -117,7 +117,12 @@ variables `VUT_DBX_JOB_ID` and `VUT_MONITORING=test` (every Vanuatu run to
 list 5), turn the `vut_trigger_monitoring` flow on, and run the end-to-end
 test. `VUT_MONITORING=live` sends real forecasts to the real lists.
 `VUT_MONITORING=off` (or unset) stops all Vanuatu runs; the Fiji chain is
-not affected either way.
+not affected either way. Always go `off` → `test` → `live`, never straight
+to `live`: the first tick after switching on sends every CSV of the
+poller's 3-day look-back to the job (to list 5 in `test`), and the record
+of those test runs is what stops `live` sending them again to the real
+lists. Test runs keep their own observed-track record, so a storm already
+under way at the switch to `live` starts its real observed track there.
 
 **Testing.**
 
