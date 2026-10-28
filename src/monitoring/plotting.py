@@ -16,6 +16,7 @@ import warnings
 
 import geopandas as gpd
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -263,6 +264,7 @@ def plot_bullseye_exposures(
     ax=None,
     legend_loc: str = "best",
     legend_anchor: tuple | None = None,
+    show_legend: bool = True,
 ):
     """
     Draws (optionally) the template empty circles first, then concentric filled disks for exposures.
@@ -364,15 +366,16 @@ def plot_bullseye_exposures(
         mpatches.Patch(facecolor=colors_pale[50], label="≥ 50 kt"),
         mpatches.Patch(facecolor=colors_pale[64], label="≥ 64 kt"),
     ]
-    ax.legend(
-        handles=legend_patches,
-        title="Population exposed\nto wind speed (circle size\nproportional to population)",
-        frameon=True,
-        fontsize=7,
-        title_fontsize=8,
-        loc=legend_loc,
-        bbox_to_anchor=legend_anchor,
-    )
+    if show_legend:
+        ax.legend(
+            handles=legend_patches,
+            title="Population exposed\nto wind speed (circle size\nproportional to population)",
+            frameon=True,
+            fontsize=7,
+            title_fontsize=8,
+            loc=legend_loc,
+            bbox_to_anchor=legend_anchor,
+        )
 
     ax.set_aspect("equal")
     ax.axis("off")
@@ -469,78 +472,161 @@ def wrap_text(text, max_len=40, break_anywhere=False):
     return "\n".join(lines).removeprefix("\n")
 
 
-# observed swaths: the forecast colours, faded (as in ds-storms-alerts)
-OBSERVED_ALPHA = 0.3
+# --- Map style, from ds-storms-alerts (src/plots.py) -----------------------
+OCEAN = "#e3ecf0"  # pale blue-grey, so sea reads as sea
+LAND = "#f7f6f2"  # warm off-white
+COAST = "#a3aeb4"
+INK = "#1f2324"
+INK_2 = "#5e6a6b"
+PANEL = "#ffffff"
+GREY_EDGE = "#9db1b3"
+# One step of the HDX status ramp per wind threshold, amber to deep red
+WIND_COLORS = {34: "#d48f2a", 50: "#d06a5e", 64: "#9d372b"}
+FCAST_ALPHA = 0.52
+OBSERVED_ALPHA = 0.20
+TRACK_CASING = [path_effects.withStroke(linewidth=3.4, foreground=PANEL)]
+LABEL_HALO = [path_effects.withStroke(linewidth=2.5, foreground=PANEL)]
+OBS_TRACK = dict(color="#222222", linewidth=2)
+# short dash, so it reads as dashed in the legend's short sample too
+FCAST_TRACK = dict(color="#444444", linewidth=2, linestyle=(0, (2.4, 1.4)))
+CONE = dict(
+    facecolor="none", edgecolor="#7a8a8c", linewidth=1.2, linestyle=":"
+)
+SPEEDS = (34, 50, 64)
+MAP_MIN_ASPECT = 0.8  # width / height of a swath map
+
+
+def swath_patches(alpha: float) -> list:
+    return [
+        mpatches.Patch(
+            facecolor=WIND_COLORS[s], alpha=alpha, label=f"≥ {s} kt"
+        )
+        for s in SPEEDS
+    ]
 
 
 def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None, gdf_observed=None):
+    """One swath map: land on a pale sea, the observed swaths faded under
+    the forecast swaths, coastlines on top so islands read through. No
+    legend: plot_bubbles_and_swaths puts the legends under the maps."""
     warnings.filterwarnings("ignore", "GeoSeries.notna", UserWarning)
     if ax is not None:
         fig = ax.figure
     else:
         fig, ax = plt.subplots(dpi=200, figsize=(10, 8))
-    colors = {34: "gold", 50: "crimson", 64: "indigo"}
-    colors_pale = {s: lighten(colors[s]) for s in colors}
-
-    gdf_adm.to_crs(FJI_CRS).boundary.plot(ax=ax, color="black", linewidth=0.5)
-    xlims, ylims = ax.get_xlim(), ax.get_ylim()
-
-    ax.axis("off")
-    if gdf_observed is not None and not gdf_observed.empty:
-        for speed, color in colors.items():
-            obs = gdf_observed[gdf_observed["buffer_speed"] == speed]
-            obs = obs[~obs.geometry.is_empty & obs.geometry.notna()]
-            if not obs.empty:
-                obs.plot(
-                    ax=ax,
-                    color=color,
-                    alpha=OBSERVED_ALPHA,
-                    edgecolor="none",
-                    aspect="equal",
-                    zorder=0.5,
-                )
-    for speed, color in colors_pale.items():
-        gdf_speed = gdf_buffers[gdf_buffers["buffer_speed"] == speed]
-        gdf_speed = gdf_speed[
-            ~gdf_speed.geometry.is_empty
-            & gdf_speed.geometry.notna()
-            & gdf_speed.is_valid
-        ]
-
-        if gdf_speed.empty:
+    adm = gdf_adm.to_crs(FJI_CRS)
+    minx, miny, maxx, maxy = adm.total_bounds
+    padx, pady = (maxx - minx) * 0.06, (maxy - miny) * 0.04
+    ax.set_facecolor(OCEAN)
+    adm.plot(ax=ax, facecolor=LAND, edgecolor="none", zorder=1)
+    for gdf, alpha, z in (
+        (gdf_observed, OBSERVED_ALPHA, 2),
+        (gdf_buffers, FCAST_ALPHA, 2.1),
+    ):
+        if gdf is None or gdf.empty:
             continue
-
-        gdf_speed.plot(ax=ax, color=color, aspect="equal")
-
-    legend_patches = [
-        mpatches.Patch(
-            facecolor="white", edgecolor="gainsboro", label="< 34 kt"
-        ),
-        mpatches.Patch(facecolor=colors_pale[34], label="≥ 34 kt"),
-        mpatches.Patch(facecolor=colors_pale[50], label="≥ 50 kt"),
-        mpatches.Patch(facecolor=colors_pale[64], label="≥ 64 kt"),
-    ]
-    if gdf_observed is not None and not gdf_observed.empty:
-        legend_patches.append(
-            mpatches.Patch(
-                facecolor=colors[64],
-                alpha=OBSERVED_ALPHA,
-                label="faded: observed",
-            )
-        )
-    ax.legend(
-        handles=legend_patches,
-        title="Wind speed",
-        frameon=True,
-        loc="upper left",
-        fontsize=7,
-        title_fontsize=8,
-    )
-
-    ax.set_xlim(xlims)
-    ax.set_ylim(ylims)
-
+        for speed in SPEEDS:  # widest first, stronger winds on top
+            g = gdf[gdf["buffer_speed"] == speed]
+            g = g[~g.geometry.is_empty & g.geometry.notna()]
+            if not g.empty:
+                g.plot(
+                    ax=ax,
+                    color=WIND_COLORS[speed],
+                    alpha=alpha,
+                    edgecolor="none",
+                    zorder=z,
+                )
+    adm.boundary.plot(ax=ax, color=COAST, linewidth=0.5, zorder=3)
+    # Vanuatu is tall and thin: widen the view (more sea either side, and
+    # the swaths east and west of the islands) to at least MAP_MIN_ASPECT
+    x0, x1 = minx - padx, maxx + padx
+    y0, y1 = miny - pady, maxy + pady
+    min_width = MAP_MIN_ASPECT * (y1 - y0)
+    if x1 - x0 < min_width:
+        mid = (x0 + x1) / 2
+        x0, x1 = mid - min_width / 2, mid + min_width / 2
+    ax.set_xlim(x0, x1)
+    ax.set_ylim(y0, y1)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
     return fig, ax
+
+
+def draw_track(ax, track, kind: str, start=None, label_hours: bool = False):
+    """A track line with its fix markers (observed: solid, dots; forecast:
+    dashed, diamonds), white-cased. ``start`` (x, y) bridges the forecast
+    line from the last observed position, as in ds-storms-alerts."""
+    style = OBS_TRACK if kind == "observed" else FCAST_TRACK
+    xs, ys = list(track.geometry.x), list(track.geometry.y)
+    if start is not None:
+        xs, ys = [start[0]] + xs, [start[1]] + ys
+    ax.plot(xs, ys, **style, zorder=5, path_effects=TRACK_CASING)
+    ax.scatter(
+        track.geometry.x,
+        track.geometry.y,
+        color=style["color"],
+        s=15 if kind == "observed" else 18,
+        marker="o" if kind == "observed" else "D",
+        edgecolors=PANEL,
+        linewidths=0.6,
+        zorder=6,
+    )
+    if label_hours and "leadtime" in track.columns:
+        for x, y, lt in zip(
+            track.geometry.x, track.geometry.y, track["leadtime"]
+        ):
+            if lt > 0 and lt % 24 == 0:
+                ax.annotate(
+                    f"{lt:.0f} h",
+                    (x, y),
+                    xytext=(7, 0),
+                    textcoords="offset points",
+                    fontsize=9,
+                    color=INK_2,
+                    va="center",
+                    zorder=7,
+                    path_effects=LABEL_HALO,
+                )
+
+
+def legend_row(fig, groups: list, y: float, fontsize: float = 12) -> None:
+    """Titled legends side by side, centred, top edge at figure height y
+    (as ds-storms-alerts lays its legends out under the map)."""
+    groups = [(t, h) for t, h in groups if h]
+    if not groups:
+        return
+    renderer = fig.canvas.get_renderer()
+    legs = []
+    for title, handles in groups:
+        lines_only = all(isinstance(h, Line2D) for h in handles)
+        leg = fig.legend(
+            handles=handles,
+            title=title,
+            loc="upper left",
+            bbox_to_anchor=(0, y),
+            ncol=len(handles),
+            frameon=False,
+            fontsize=fontsize,
+            title_fontsize=fontsize,
+            handlelength=2.8 if lines_only else 1.4,
+            handleheight=0.9,
+            columnspacing=1.2,
+            alignment="left",
+        )
+        leg.get_title().set_fontweight("bold")
+        leg.get_title().set_color(INK)
+        legs.append(leg)
+    widths = [
+        leg.get_window_extent(renderer).width / fig.bbox.width for leg in legs
+    ]
+    gap = 0.04
+    x = 0.5 - (sum(widths) + gap * (len(legs) - 1)) / 2
+    for leg, w in zip(legs, widths):
+        leg.set_bbox_to_anchor((x, y), transform=fig.transFigure)
+        x += w + gap
 
 
 def plot_thermometer(
@@ -734,161 +820,77 @@ def plot_bubbles_and_swaths(
     forecast_display_str: str = "",
     forecast_id: str = "",
     save_local: bool = False,
-    gdf_tracks_plot: gpd.GeoDataFrame = None,
+    gdf_tracks_plot: list | None = None,
     uncertainty_cone=None,
-    forecast_label: str = "",
     id_col: str = ID_COL,
     name_col: str = NAME_COL,
     file_tag: str = "adm2",
     label_max_len: int = 9,
     label_font: tuple = (4, 20),
-    legend_loc: str = "best",
-    legend_anchor: tuple | None = None,
     gdf_observed_buffers: gpd.GeoDataFrame | None = None,
     gdf_observed_track: gpd.GeoDataFrame | None = None,
     swath_note: str = "",
 ):
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    """Three columns (most likely, worst case, best case): wind swath maps
+    on top, population exposure bubbles below, legends in rows under each
+    (map style from ds-storms-alerts)."""
+    fig, axes = plt.subplots(2, 3, figsize=(18, 13))
 
     gdf_adm = gdf_adm.copy()
     gdf_adm["adm_label"] = gdf_adm[name_col].apply(
         wrap_text, max_len=label_max_len, break_anywhere=False
     )
+    has_obs = gdf_observed_track is not None and not gdf_observed_track.empty
+    has_obs_swath = (
+        gdf_observed_buffers is not None and not gdf_observed_buffers.empty
+    )
+    last_obs = None
+    if has_obs:
+        last = gdf_observed_track.iloc[-1].geometry
+        last_obs = (last.x, last.y)
 
-    row_specs = [
-        ("middle", "Most likely track", gdf_mostlikely_buffers),
+    columns = [
+        ("middle", "Most likely track", gdf_mostlikely_buffers, INK, "bold"),
         (
             "worst",
             "Upper bound exposure\n(worst case scenario)",
             gdf_worst_buffers,
+            "#c0392b",
+            "normal",
         ),
         (
             "best",
             "Lower bound exposure\n(best case scenario)",
             gdf_best_buffers,
+            "#2e7d32",
+            "normal",
         ),
     ]
-
-    # ---- Plotting loop ----
-    for col, (limit, title_str, gdf_buffers) in enumerate(row_specs):
-        top_ax = axes[0, col]
-        bottom_ax = axes[1, col]
-
-        # Wind swaths
+    for col, (limit, title, buffers, color, weight) in enumerate(columns):
+        top_ax, bottom_ax = axes[0, col], axes[1, col]
         plot_wind_buffers(
             gdf_adm_swath_plot,
-            gdf_buffers,
+            buffers,
             ax=top_ax,
             gdf_observed=gdf_observed_buffers,
         )
-
-        # Track and uncertainty cone
-        _track = (
-            gdf_tracks_plot[col]
-            if isinstance(gdf_tracks_plot, list)
-            else gdf_tracks_plot
-        )
-        has_obs = gdf_observed_track is not None and not (
-            gdf_observed_track.empty
-        )
-        if has_obs:
-            # observed: solid, as in ds-storms-alerts
-            top_ax.plot(
-                gdf_observed_track.geometry.x.values,
-                gdf_observed_track.geometry.y.values,
-                color="#222222",
-                linewidth=1.5,
-                zorder=9,
-            )
-            gdf_observed_track.plot(
-                ax=top_ax, color="#222222", markersize=12, zorder=10
-            )
-        if _track is not None and uncertainty_cone is not None:
-            # forecast: dashed, with its 6-hourly points
-            xs = _track.geometry.x.values
-            ys = _track.geometry.y.values
-            top_ax.plot(
-                xs,
-                ys,
-                color="black",
-                linewidth=1.5,
-                linestyle=(0, (2.4, 1.4)),
-                zorder=9,
-            )
-            _track.plot(
-                ax=top_ax, color="black", marker="D", markersize=10, zorder=10
-            )
+        if uncertainty_cone is not None:
             gpd.GeoSeries([uncertainty_cone], crs=gdf_adm.crs).plot(
-                ax=top_ax,
-                facecolor="none",
-                edgecolor="grey",
-                linewidth=1.5,
-                linestyle=":",
-                zorder=10,
+                ax=top_ax, zorder=4, **CONE
             )
-            existing_legend = top_ax.get_legend()
-            if existing_legend is not None:
-                top_ax.add_artist(existing_legend)
-            col_label = (
-                forecast_label[col]
-                if isinstance(forecast_label, list)
-                else forecast_label
+        if has_obs:
+            draw_track(top_ax, gdf_observed_track, "observed")
+        if gdf_tracks_plot is not None:
+            draw_track(
+                top_ax,
+                gdf_tracks_plot[col],
+                "forecast",
+                start=last_obs,
+                label_hours=True,
             )
-            track_handle = Line2D(
-                [0],
-                [0],
-                color="black",
-                linewidth=1.5,
-                linestyle=(0, (2.4, 1.4)),
-                label=col_label,
-            )
-            cone_handle = Patch(
-                facecolor="none",
-                edgecolor="grey",
-                linewidth=1.5,
-                linestyle=":",
-                label="Uncertainty cone",
-            )
-            handles = [track_handle, cone_handle]
-            if has_obs:
-                handles.insert(
-                    0,
-                    Line2D(
-                        [0],
-                        [0],
-                        color="#222222",
-                        linewidth=1.5,
-                        label="Observed track",
-                    ),
-                )
-            legend_track = top_ax.legend(
-                handles=handles,
-                loc="upper right",
-                fontsize=7,
-                frameon=True,
-            )
-            top_ax.add_artist(legend_track)
-
-        # Column titles
-        if col == 0:
-            title_color = "black"
-            title_weight = "bold"
-        elif col == 1:
-            title_color = "red"
-            title_weight = "normal"
-        else:
-            title_color = "green"
-            title_weight = "normal"
-
         top_ax.set_title(
-            title_str,
-            fontsize=20,
-            fontweight=title_weight,
-            color=title_color,
-            pad=6,
+            title, fontsize=20, fontweight=weight, color=color, pad=6
         )
-
-        # Population exposure
         plot_bullseye_exposures(
             df_adm_template.merge(gdf_adm[[id_col, "adm_label"]]),
             df_exp_adm[df_exp_adm["limit"] == limit],
@@ -896,12 +898,11 @@ def plot_bubbles_and_swaths(
             label_col="adm_label",
             min_font=label_font[0],
             max_font=label_font[1],
-            legend_loc=legend_loc,
-            legend_anchor=legend_anchor,
+            colors=WIND_COLORS,
+            show_legend=False,
             ax=bottom_ax,
         )
 
-    # ---- Row labels (left side) ----
     for row_idx, row_label in enumerate(
         ["Wind swaths", "Population exposure"]
     ):
@@ -916,7 +917,6 @@ def plot_bubbles_and_swaths(
             transform=axes[row_idx, 0].transAxes,
         )
 
-    # ---- Main title ----
     fig.suptitle(
         f"{cyclone_name}: forecast issued {forecast_display_str}",
         fontsize=22,
@@ -926,8 +926,67 @@ def plot_bubbles_and_swaths(
     if swath_note:
         fig.text(0.5, 0.965, swath_note, ha="center", fontsize=13)
 
-    # ---- Layout ----
-    fig.tight_layout(rect=[0, 0, 1, 1])
+    # room between and under the rows for the legend rows
+    fig.tight_layout(rect=[0, 0.06, 1, 0.985], h_pad=8)
+    track_handles = []
+    if has_obs:
+        track_handles.append(
+            Line2D(
+                [0],
+                [0],
+                **OBS_TRACK,
+                marker="o",
+                ms=5,
+                mfc=OBS_TRACK["color"],
+                mec=PANEL,
+                label="Observed",
+            )
+        )
+    track_handles += [
+        Line2D(
+            [0],
+            [0],
+            **FCAST_TRACK,
+            marker="D",
+            ms=5,
+            mfc=FCAST_TRACK["color"],
+            mec=PANEL,
+            label="Forecast",
+        ),
+        Patch(**CONE, label="Uncertainty cone"),
+    ]
+    legend_row(
+        fig,
+        [
+            ("Forecast wind swaths", swath_patches(FCAST_ALPHA)),
+            (
+                "Observed wind swaths",
+                swath_patches(OBSERVED_ALPHA) if has_obs_swath else [],
+            ),
+            ("Track", track_handles),
+        ],
+        y=axes[0, 0].get_position().y0 - 0.008,
+    )
+    pale = {s: lighten(WIND_COLORS[s]) for s in SPEEDS}
+    legend_row(
+        fig,
+        [
+            (
+                "Population exposed to wind speed "
+                "(circle size proportional to population)",
+                [
+                    Patch(
+                        facecolor=PANEL, edgecolor=GREY_EDGE, label="< 34 kt"
+                    ),
+                    *[
+                        Patch(facecolor=pale[s], label=f"≥ {s} kt")
+                        for s in SPEEDS
+                    ],
+                ],
+            )
+        ],
+        y=axes[1, 0].get_position().y0 - 0.008,
+    )
 
     if save_local:
         if not forecast_id:
@@ -935,11 +994,7 @@ def plot_bubbles_and_swaths(
         filepath = f"temp/{forecast_id}_{file_tag}_exposure.pdf"
         if not os.path.exists("temp/"):
             os.makedirs("temp/", exist_ok=True)
-        fig.savefig(
-            filepath,
-            format="pdf",
-            bbox_inches="tight",
-        )
+        fig.savefig(filepath, format="pdf", bbox_inches="tight")
     else:
         filepath = None
     return fig, axes, filepath

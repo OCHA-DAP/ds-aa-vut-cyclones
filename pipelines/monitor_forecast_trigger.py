@@ -552,23 +552,16 @@ def main() -> None:
             ),
             swath_note=(
                 f"Wind swaths: the {WINDOW_STR[source]} part of the "
-                f"forecast ({SOURCE_NAME[source]}); faded: observed so far"
+                f"forecast ({SOURCE_NAME[source]}), and the swath observed so far"
                 if n_observed
                 else f"Wind swaths: the {WINDOW_STR[source]} part of the "
                 f"forecast ({SOURCE_NAME[source]})"
             ),
-            forecast_label=[
-                "Most likely track",
-                "Worst case track",
-                "Best case track",
-            ],
             id_col="ADM1_PCODE",
             name_col="ADM1_EN",
             file_tag="adm1",
             label_max_len=12,
             label_font=(10, 22),
-            legend_loc="upper right",
-            legend_anchor=(1.12, 1.0),
         )
         if not DRY_RUN:
             adm2_exp_id = upload_file(adm2_csv)["id"]
