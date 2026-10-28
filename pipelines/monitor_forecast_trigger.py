@@ -256,11 +256,6 @@ def main() -> None:
     content_sha12 = hashlib.sha256(csv_bytes).hexdigest()[:12]
 
     fc = parse_forecast_csv(csv_bytes)
-    if fc.track_type != OFFICIAL_TRACK:
-        raise SystemExit(
-            f"Track type {fc.track_type!r}, not {OFFICIAL_TRACK!r}: "
-            "not monitored."
-        )
     cyclone_name = fc.cyclone_name
     forecast_display_str = vut_time_str(fc.base_time)
     forecast_id = (
@@ -285,6 +280,14 @@ def main() -> None:
                 "Vanuatu emails for this forecast."
             )
             return
+
+    # after the distance check: a non-Official FMS track for a far-away
+    # storm ends quietly instead of failing the run
+    if fc.track_type != OFFICIAL_TRACK:
+        raise SystemExit(
+            f"Track type {fc.track_type!r}, not {OFFICIAL_TRACK!r}: "
+            "not monitored."
+        )
 
     if MAX_FORECAST_AGE_HOURS and not IS_TEST_SEND and not DRY_RUN:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
