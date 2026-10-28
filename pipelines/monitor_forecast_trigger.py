@@ -206,15 +206,17 @@ def load_historical_stats() -> pd.DataFrame:
     return pd.read_csv(HISTORICAL_EXPOSURE)
 
 
-def adm2_exposure(ctx: ExposureContext, geoms: dict) -> pd.DataFrame:
-    """Long table: ADM2_PCODE, buffer_speed, pop_exposed."""
+def area_exposure(
+    ctx: ExposureContext, geoms: dict, level: int = 2
+) -> pd.DataFrame:
+    """Long table: ADM{level}_PCODE, buffer_speed, pop_exposed."""
     frames = []
     for speed, geom in geoms.items():
-        s = ctx.by_adm2(geom)
+        s = ctx.by_area(geom, level)
         frames.append(
             pd.DataFrame(
                 {
-                    "ADM2_PCODE": s.index,
+                    f"ADM{level}_PCODE": s.index,
                     "buffer_speed": speed,
                     "pop_exposed": s.to_numpy(),
                 }
@@ -446,10 +448,10 @@ def main() -> None:
 
     adm2_exp_id = bubbles_plot_id = None
     if any_34:
-        logger.info("Calculating area council exposure.")
+        logger.info("Calculating province and area council exposure.")
         worst_track, worst_geoms = shifted[int(worst_row["shift_deg"])]
         best_track, best_geoms = shifted[int(best_row["shift_deg"])]
-        df_ml = adm2_exposure(ctx, geoms)
+        df_ml = area_exposure(ctx, geoms, level=2)
         df_out = df_ml.pivot(
             index="ADM2_PCODE", columns="buffer_speed", values="pop_exposed"
         )
@@ -468,20 +470,24 @@ def main() -> None:
         adm2_csv = f"temp/{forecast_id}_adm2_exposure.csv"
         df_out.to_csv(adm2_csv, index=False)
 
+        # The plot is by province: 66 area-council bubbles were unreadable
+        # (the CSV above keeps the area councils).
         df_exp = pd.concat(
             [
-                df_ml.assign(limit="middle"),
-                adm2_exposure(ctx, worst_geoms).assign(limit="worst"),
-                adm2_exposure(ctx, best_geoms).assign(limit="best"),
+                area_exposure(ctx, geoms, 1).assign(limit="middle"),
+                area_exposure(ctx, worst_geoms, 1).assign(limit="worst"),
+                area_exposure(ctx, best_geoms, 1).assign(limit="best"),
             ],
             ignore_index=True,
         )
-        gdf_adm = ctx.adm2.copy()
-        gdf_adm = gdf_adm.merge(
-            ctx.adm2_population().rename_axis("ADM2_PCODE").reset_index()
+        gdf_adm = (
+            ctx.adm2.dissolve(by=["ADM1_PCODE", "ADM1_EN"])
+            .reset_index()[["ADM1_PCODE", "ADM1_EN", "geometry"]]
+            .merge(ctx.population(1).rename_axis("ADM1_PCODE").reset_index())
         )
         template = build_circle_template(
             gdf_adm,
+            id_col="ADM1_PCODE",
             pop_col="pop_total",
             area_per_person=BUBBLE_AREA_PER_PERSON,
         )
@@ -512,6 +518,13 @@ def main() -> None:
                 "Worst case track",
                 "Best case track",
             ],
+            id_col="ADM1_PCODE",
+            name_col="ADM1_EN",
+            file_tag="adm1",
+            label_max_len=12,
+            label_font=(10, 22),
+            legend_loc="upper right",
+            legend_anchor=(1.12, 1.0),
         )
         if not DRY_RUN:
             adm2_exp_id = upload_file(adm2_csv)["id"]

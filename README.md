@@ -74,7 +74,8 @@ internal KB has the addresses.
 within 1,000 km of Vanuatu are skipped: FMS covers the whole South Pacific.
 Every other FMS forecast, and every VMHS forecast, gets an information
 email in the Fiji format (exposure, a likely-range plot against past
-storms, and the area-council exposure as a CSV and a PDF). Readiness and
+storms, the area-council exposure as a CSV and province plots as a
+PDF). Readiness and
 action emails go out for every forecast that meets them, as in Fiji. The
 observational email goes out once per storm: the observed track only grows,
 so it would otherwise be re-sent with every later VMHS forecast. Each email

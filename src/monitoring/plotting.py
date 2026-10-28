@@ -261,6 +261,8 @@ def plot_bullseye_exposures(
     outline_lw: float = 0.2,
     dpi: int = 200,
     ax=None,
+    legend_loc: str = "best",
+    legend_anchor: tuple | None = None,
 ):
     """
     Draws (optionally) the template empty circles first, then concentric filled disks for exposures.
@@ -368,6 +370,8 @@ def plot_bullseye_exposures(
         frameon=True,
         fontsize=7,
         title_fontsize=8,
+        loc=legend_loc,
+        bbox_to_anchor=legend_anchor,
     )
 
     ax.set_aspect("equal")
@@ -708,12 +712,19 @@ def plot_bubbles_and_swaths(
     gdf_tracks_plot: gpd.GeoDataFrame = None,
     uncertainty_cone=None,
     forecast_label: str = "",
+    id_col: str = ID_COL,
+    name_col: str = NAME_COL,
+    file_tag: str = "adm2",
+    label_max_len: int = 9,
+    label_font: tuple = (4, 20),
+    legend_loc: str = "best",
+    legend_anchor: tuple | None = None,
 ):
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
 
     gdf_adm = gdf_adm.copy()
-    gdf_adm["adm_label"] = gdf_adm[NAME_COL].apply(
-        wrap_text, max_len=9, break_anywhere=True
+    gdf_adm["adm_label"] = gdf_adm[name_col].apply(
+        wrap_text, max_len=label_max_len, break_anywhere=False
     )
 
     row_specs = [
@@ -804,11 +815,14 @@ def plot_bubbles_and_swaths(
 
         # Population exposure
         plot_bullseye_exposures(
-            df_adm_template.merge(gdf_adm[[ID_COL, "adm_label"]]),
+            df_adm_template.merge(gdf_adm[[id_col, "adm_label"]]),
             df_exp_adm[df_exp_adm["limit"] == limit],
+            id_col=id_col,
             label_col="adm_label",
-            min_font=4,
-            max_font=20,
+            min_font=label_font[0],
+            max_font=label_font[1],
+            legend_loc=legend_loc,
+            legend_anchor=legend_anchor,
             ax=bottom_ax,
         )
 
@@ -841,7 +855,7 @@ def plot_bubbles_and_swaths(
     if save_local:
         if not forecast_id:
             forecast_id = "test"
-        filepath = f"temp/{forecast_id}_adm2_exposure.pdf"
+        filepath = f"temp/{forecast_id}_{file_tag}_exposure.pdf"
         if not os.path.exists("temp/"):
             os.makedirs("temp/", exist_ok=True)
         fig.savefig(

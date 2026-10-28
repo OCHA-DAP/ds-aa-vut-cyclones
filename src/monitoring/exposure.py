@@ -124,6 +124,14 @@ class ExposureContext:
         self.da_nat = da.rio.clip([self.nat_union], all_touched=True)
         # adm2 areas in the raster's frame, for the per-area table
         self.adm2_wrapped = self.adm2_exp.to_crs(FJI_CRS)
+        # provinces: the expanded area councils dissolved by province
+        self.adm1_wrapped = (
+            self.adm2_wrapped.merge(
+                adm2[["ADM2_PCODE", "ADM1_PCODE", "ADM1_EN"]].drop_duplicates()
+            )
+            .dissolve(by=["ADM1_PCODE", "ADM1_EN"])
+            .reset_index()
+        )
         self.aoi_pop = _count(self.da_aoi, self.aoi_union, self.aoi_union)
         self.nat_pop = _count(self.da_nat, self.nat_union, self.nat_union)
 
@@ -135,26 +143,27 @@ class ExposureContext:
         """People inside the swath anywhere in Vanuatu."""
         return _count(self.da_nat, to_wrapped(geom_metric), self.nat_union)
 
-    def by_adm2(self, geom_metric) -> pd.Series:
-        """People inside the swath per area council (ADM2_PCODE)."""
+    def _areas(self, level: int) -> gpd.GeoDataFrame:
+        return self.adm1_wrapped if level == 1 else self.adm2_wrapped
+
+    def by_area(self, geom_metric, level: int = 2) -> pd.Series:
+        """People inside the swath per province (level 1, ADM1_PCODE) or
+        area council (level 2, ADM2_PCODE)."""
+        areas = self._areas(level)
         geom = to_wrapped(geom_metric)
         out = {}
-        for pcode, area in zip(
-            self.adm2_wrapped["ADM2_PCODE"], self.adm2_wrapped.geometry
-        ):
+        for pcode, area in zip(areas[f"ADM{level}_PCODE"], areas.geometry):
             part = None if geom is None else geom.intersection(area)
             out[pcode] = _count(self.da_nat, part, self.nat_union)
         return pd.Series(out, name="pop_exposed")
 
-    def adm2_population(self) -> pd.Series:
-        """Total population per area council, as counted here."""
+    def population(self, level: int = 2) -> pd.Series:
+        """Total population per province / area council, as counted here."""
+        areas = self._areas(level)
         return pd.Series(
             {
                 p: _count(self.da_nat, a, self.nat_union)
-                for p, a in zip(
-                    self.adm2_wrapped["ADM2_PCODE"],
-                    self.adm2_wrapped.geometry,
-                )
+                for p, a in zip(areas[f"ADM{level}_PCODE"], areas.geometry)
             },
             name="pop_total",
         )

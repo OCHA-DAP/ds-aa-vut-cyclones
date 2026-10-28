@@ -1,4 +1,4 @@
-<div class="disclaimer-box">
+<div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
     This email is purely advisory, and does not serve as an official notice for the anticipatory action framework. Official notices of activation are sent by a separate email. This email also does not constitute an official forecast. The Vanuatu Meteorology and Hydro-Meteorological Services (VMHS) is the national authority for tropical cyclone warnings in Vanuatu, and its <a href="https://www.vmgd.gov.vu/">warnings and forecasts</a> should be treated as authoritative. Under the World Meteorological Organization's Tropical Cyclone Programme, RSMC Nadi, operated by the Fiji Meteorological Service, is responsible for monitoring tropical cyclones in the region.
 </div>
 <div>
@@ -56,7 +56,7 @@
   </p>
   <img src="data:image/png;base64,{{ img_base64_thermometer }}" style="max-height:400px;"alt="Figure">
   <br>
-  <div class="disclaimer-box">
+  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
     <p>
       The <em>Most likely</em> value is based on the track forecast without considering the uncertainty cone, and is the value used for triggering (also listed in the section above). The <em>Max. reasonable</em> and <em>Min. reasonable</em> values are calculated by perturbing the track forecast for all points along the cone of uncertainty, and taking the perturbed tracks that cause the highest and lowest population exposures, respectively.
     </p>
@@ -68,15 +68,15 @@
   <p><i>No 64-knot exposure is forecasted in Sanma, Shefa or Tafea for the {{ window_str }} part of the forecast, even in worst case; plot is omitted.</i></p>
   {% endif %}
 
-  <h3>Area council-level exposure</h3>
+  <h3>Exposure by province and area council</h3>
   <p>
-    The area council-level predicted exposure, for all of Vanuatu and the {{ window_str }} part of the forecast, is shown in the attached files:
+    The predicted exposure for all of Vanuatu, for the {{ window_str }} part of the forecast, is shown in the attached files:
     <ul>
       <li>
         <b><em>{{ forecast_id }}_adm2_exposure.csv</em></b>: data indicating the area council-level exposure to 34-, 50-, and 64-knots winds. Only the <em>Most likely</em> scenario is indicated. The values are sorted by 64-, then 50-, then 34-knot exposure, so the area councils with the highest exposure are listed first.
       </li>
       <li>
-        <b><em>{{ forecast_id }}_adm2_exposure.pdf</em></b>: plots showing the area council-level exposure to 34-, 50-, and 64-knots winds. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above.
+        <b><em>{{ forecast_id }}_adm1_exposure.pdf</em></b>: plots showing the province-level exposure to 34-, 50-, and 64-knots winds. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above.
       </li>
     </ul>
   </p>
@@ -91,7 +91,7 @@
   <p>
     The trigger mechanism is set out in section III.2 (Triggers and thresholds) of the National Anticipatory Action Framework for Tropical Cyclones in Vanuatu:
   </p>
-  <div class="disclaimer-box">
+  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
     <p>
       This framework will be triggered by a tropical cyclone forecasted or observed to expose at least 15,000 people to winds of at least 64 knots (approximately 119 km/h):
     </p>
