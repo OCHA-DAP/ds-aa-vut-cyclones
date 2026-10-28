@@ -86,6 +86,7 @@ SPEEDS = (34, 50, 64)
 # lead-time windows (hours after the forecast was produced)
 WINDOWS = {"fms": (72, 120), "vmhs": (24, 72)}
 WINDOW_STR = {"fms": "72 to 120 hours", "vmhs": "24 to 72 hours"}
+SOURCE_NAME = {"fms": "RSMC Nadi", "vmhs": "VMHS"}
 SHIFT_DEG_STEP = 10
 # bubble size (m2 per person, equal-area); Fiji uses 80,000 over a country
 # half as long with twice the people
@@ -271,6 +272,30 @@ def main() -> None:
     )
 
     adm2 = codab.load_codab_from_blob(admin_level=2)
+    official = fc.track_type == OFFICIAL_TRACK
+
+    # The observed track (src/monitoring/observed.py), one per source: for
+    # VMHS it is the observational trigger, for FMS it is only drawn on the
+    # maps. Recorded before the distance check, so a storm's track is
+    # complete by the time it comes near. It must never stop the emails: a
+    # problem is logged, the emails go out, the run fails at the end.
+    observed_error = None
+    obs_track = None
+    if official:
+        try:
+            points = observed.load_points(IS_TEST_SEND, source)
+            points = observed.add_point(
+                points, observed.analysis_point(fc, content_sha12)
+            )
+            if not DRY_RUN:
+                observed.save_points(points, IS_TEST_SEND, source)
+            obs_track = observed.observed_track(
+                points, fc.disturbance_id, fc.season, until=fc.base_time
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Observed track failed")
+            observed_error = exc
+
     if source == "fms":
         distance = min_distance_km(
             fc.track, adm2, max_leadtime=WINDOWS["fms"][1]
@@ -281,11 +306,15 @@ def main() -> None:
                 f"More than {INFO_DISTANCE_KM:,} km from Vanuatu: no "
                 "Vanuatu emails for this forecast."
             )
+            if observed_error is not None:
+                raise RuntimeError(
+                    "The observed track failed (see above)."
+                ) from observed_error
             return
 
     # after the distance check: a non-Official FMS track for a far-away
     # storm ends quietly instead of failing the run
-    if fc.track_type != OFFICIAL_TRACK:
+    if not official:
         raise SystemExit(
             f"Track type {fc.track_type!r}, not {OFFICIAL_TRACK!r}: "
             "not monitored."
@@ -318,42 +347,34 @@ def main() -> None:
     )
 
     early_exp = None
-    observed_error = None
-    observational_exp = None
-    observational = False
-    n_observed = 0
-    observed_display_str = ""
     if source == "fms":
         early = swaths(segment(fc.track, 0, lo))[64]
         early_exp = ctx.aoi(early)
         logger.info(f"0 to {lo} h 64 kt exposure (info only): {early_exp:,}")
-    else:
-        # The observed track must never stop the action and info emails: a
-        # problem here is logged, the emails go out, and the run fails at
-        # the end so the maintainer hears about it.
+
+    observational_exp = None
+    observational = False
+    n_observed = 0
+    observed_display_str = ""
+    obs_geoms = {s: None for s in SPEEDS}
+    if obs_track is not None and not obs_track.empty:
         try:
-            points = observed.load_points(IS_TEST_SEND)
-            points = observed.add_point(
-                points, observed.analysis_point(fc, content_sha12)
-            )
-            obs_track = observed.observed_track(
-                points, fc.disturbance_id, fc.season
-            )
             n_observed = len(obs_track)
             observed_display_str = vut_time_str(obs_track["valid_time"].max())
-            obs64 = swaths(interpolated(obs_track))[64]
-            observational_exp = ctx.national(obs64)
-            observational = observational_exp >= EXP_THRESHOLD_64_KNOTS
+            obs_geoms = swaths(interpolated(obs_track))
+            obs_national = ctx.national(obs_geoms[64])
             logger.info(
                 f"Observed track ({n_observed} points) 64 kt exposure, all "
-                f"of Vanuatu: {observational_exp:,}"
+                f"of Vanuatu: {obs_national:,}"
             )
-            if not DRY_RUN:
-                observed.save_points(points, IS_TEST_SEND)
+            if source == "vmhs":
+                observational_exp = obs_national
+                observational = observational_exp >= EXP_THRESHOLD_64_KNOTS
         except Exception as exc:  # noqa: BLE001
             logger.exception("Observed track failed; observational not met")
             observed_error = exc
             observational_exp, observational = None, False
+            obs_geoms = {s: None for s in SPEEDS}
 
     email_base_name = ("[TEST]_" if IS_TEST_SEND else "") + forecast_id
     sent_record = None
@@ -449,8 +470,8 @@ def main() -> None:
     adm2_exp_id = bubbles_plot_id = None
     if any_34:
         logger.info("Calculating province and area council exposure.")
-        worst_track, worst_geoms = shifted[int(worst_row["shift_deg"])]
-        best_track, best_geoms = shifted[int(best_row["shift_deg"])]
+        _, worst_geoms = shifted[int(worst_row["shift_deg"])]
+        _, best_geoms = shifted[int(best_row["shift_deg"])]
         df_ml = area_exposure(ctx, geoms, level=2)
         df_out = df_ml.pivot(
             index="ADM2_PCODE", columns="buffer_speed", values="pop_exposed"
@@ -511,8 +532,31 @@ def main() -> None:
             forecast_display_str=forecast_display_str,
             forecast_id=forecast_id,
             save_local=True,
-            gdf_tracks_plot=[_pts(seg), _pts(worst_track), _pts(best_track)],
+            # the whole forecast track (6-hourly points); the swaths and
+            # the cone are the trigger window only
+            gdf_tracks_plot=[
+                _pts(fc.track),
+                _pts(shift_track(fc.track, worst_row["shift_deg"])),
+                _pts(shift_track(fc.track, best_row["shift_deg"])),
+            ],
             uncertainty_cone=uncertainty_cone(seg),
+            gdf_observed_buffers=(
+                swath_gdf(obs_geoms)
+                if any(g is not None for g in obs_geoms.values())
+                else None
+            ),
+            gdf_observed_track=(
+                _pts(obs_track)
+                if obs_track is not None and not obs_track.empty
+                else None
+            ),
+            swath_note=(
+                f"Wind swaths: the {WINDOW_STR[source]} part of the "
+                f"forecast ({SOURCE_NAME[source]}); faded: observed so far"
+                if n_observed
+                else f"Wind swaths: the {WINDOW_STR[source]} part of the "
+                f"forecast ({SOURCE_NAME[source]})"
+            ),
             forecast_label=[
                 "Most likely track",
                 "Worst case track",
@@ -573,6 +617,7 @@ def main() -> None:
             "n_observed": n_observed,
             "observed_display_str": observed_display_str,
             "window_str": WINDOW_STR[source],
+            "source_name": SOURCE_NAME[source],
             "img_base64_thermometer": img_base64_thermometer,
             "forecast_id": forecast_id,
             "any_64_knot_exposure": any_64,

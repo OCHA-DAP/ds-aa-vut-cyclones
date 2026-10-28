@@ -39,8 +39,21 @@ def test_track_builds_up_and_reissue_replaces():
     assert observed.observed_track(pts, "2526-07F", 2025).empty
 
 
-def test_test_and_real_records_are_separate():
-    assert observed.record_blob(True) != observed.record_blob(False)
+def test_records_are_separate_per_source_and_mode():
+    names = {
+        observed.record_blob(test, source)
+        for test in (True, False)
+        for source in ("fms", "vmhs")
+    }
+    assert len(names) == 4
+    # the VMHS record keeps the name it had
+    assert observed.record_blob(False).endswith(
+        "/monitoring/vmhs_observed_points.csv"
+    )
+    import pytest
+
+    with pytest.raises(ValueError):
+        observed.record_blob(False, "other")
 
 
 def test_track_is_numeric_from_an_empty_first_record():
@@ -83,3 +96,20 @@ def test_keys_match_whatever_the_dtypes():
         observed.add_point(numeric_id, pt), "07", 2026
     )
     assert len(tr) == 1
+
+
+def test_observed_track_stops_at_the_forecast_issue_time():
+    fc = parse_forecast_csv(make_csv(ROWS))
+    pts = observed.add_point(
+        pd.DataFrame(columns=observed.COLUMNS),
+        observed.analysis_point(fc, "a"),
+    )
+    later = observed.analysis_point(fc, "b").assign(
+        valid_time=pd.Timestamp("2026-02-01T12:00:00")
+    )
+    pts = observed.add_point(pts, later)
+    assert len(observed.observed_track(pts, "2526-07F", 2026)) == 2
+    upto = observed.observed_track(
+        pts, "2526-07F", 2026, until=pd.Timestamp("2026-02-01T06:00:00")
+    )
+    assert list(upto["valid_time"]) == [pd.Timestamp("2026-02-01T00:00:00")]

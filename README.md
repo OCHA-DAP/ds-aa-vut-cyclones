@@ -81,9 +81,13 @@ observational email goes out once per storm: the observed track only grows,
 so it would otherwise be re-sent with every later VMHS forecast. Each email
 is sent at most once per CSV (`ds-aa-vut-cyclones/monitoring/email_record.csv`
 on the dev blob; tests use `test_email_record.csv`). The observed track is
-kept in `monitoring/vmhs_observed_points.csv` (tests:
-`test_vmhs_observed_points.csv`), keyed by disturbance id and season, which
-stay the same when a storm is named.
+the analysis (0 h) point of every forecast received for the storm, as
+ds-storms-pipeline does for NHC, kept per source in
+`monitoring/{fms,vmhs}_observed_points.csv` (tests: `test_...`), keyed by
+disturbance id and season, which stay the same when a storm is named. The
+VMHS one is the observational trigger; both are drawn on the maps (the
+observed swath faded under the forecast swaths, as in ds-storms-alerts).
+FMS points are recorded even for storms still far from Vanuatu.
 
 **Method.** The swaths are built from the forecast's own 34/50/64 kt radii
 (FMS and VMHS use 10-minute winds, so the 64 kt radius is used as is), with

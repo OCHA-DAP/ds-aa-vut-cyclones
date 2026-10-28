@@ -1,10 +1,13 @@
-"""The observed track for the observational trigger, from VMHS forecasts.
+"""The observed track of a storm, from the forecasts we receive.
 
-The framework's observational trigger reads VMHS's observed track. We only
-receive forecast CSVs, so the observed track is the analysis point (lead
-time 0: the storm's position and wind radii at issue time) of every VMHS
-forecast received for the storm. Each VMHS run adds its analysis point to a
-record on the dev blob and reads back all points for that disturbance.
+We only receive forecast CSVs, so the observed track is the analysis point
+(lead time 0: the storm's position and wind radii at issue time) of every
+forecast received for the storm, as ds-storms-pipeline does for NHC
+(nhc_tracks_obsv_buffers). Each run adds its analysis point to a record on
+the dev blob and reads back all points for that disturbance. There is one
+record per source: VMHS's is the framework's observed track (the
+observational trigger); RSMC Nadi's is only drawn on the maps in the FMS
+emails.
 
 Test runs (TEST_EMAIL or SIMULATE_TRIGGER) keep a separate record, so a
 test CSV can never become part of a real storm's observed track. Under
@@ -18,8 +21,7 @@ from azure.core.exceptions import ResourceNotFoundError
 from src.constants import PROJECT_PREFIX
 from src.utils.wind_buffers import QUADS
 
-RECORD_BLOB = f"{PROJECT_PREFIX}/monitoring/vmhs_observed_points.csv"
-TEST_RECORD_BLOB = f"{PROJECT_PREFIX}/monitoring/test_vmhs_observed_points.csv"
+SOURCES = ("fms", "vmhs")
 RADII_COLS = [f"r{s}_{q}" for s in (34, 50, 64) for q in QUADS]
 COLUMNS = [
     "disturbance_id",
@@ -33,8 +35,12 @@ COLUMNS = [
 ]
 
 
-def record_blob(test: bool) -> str:
-    return TEST_RECORD_BLOB if test else RECORD_BLOB
+def record_blob(test: bool, source: str = "vmhs") -> str:
+    """monitoring/{source}_observed_points.csv (test_... for test runs)."""
+    if source not in SOURCES:
+        raise ValueError(f"source must be one of {SOURCES}, got {source!r}")
+    prefix = "test_" if test else ""
+    return f"{PROJECT_PREFIX}/monitoring/{prefix}{source}_observed_points.csv"
 
 
 def _normalise(df: pd.DataFrame) -> pd.DataFrame:
@@ -47,19 +53,19 @@ def _normalise(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def load_points(test: bool) -> pd.DataFrame:
+def load_points(test: bool, source: str = "vmhs") -> pd.DataFrame:
     try:
         # as text: a numeric-looking id must not become a number
         df = stratus.load_csv_from_blob(
-            record_blob(test), stage="dev", dtype=str
+            record_blob(test, source), stage="dev", dtype=str
         )
     except ResourceNotFoundError:
         return pd.DataFrame(columns=COLUMNS)
     return _normalise(df)
 
 
-def save_points(df: pd.DataFrame, test: bool) -> None:
-    stratus.upload_csv_to_blob(df, record_blob(test), stage="dev")
+def save_points(df: pd.DataFrame, test: bool, source: str = "vmhs") -> None:
+    stratus.upload_csv_to_blob(df, record_blob(test, source), stage="dev")
 
 
 # a first point this close to the issue time counts as the analysis
@@ -96,13 +102,21 @@ def add_point(points: pd.DataFrame, point: pd.DataFrame) -> pd.DataFrame:
 
 
 def observed_track(
-    points: pd.DataFrame, disturbance_id: str, season: int
+    points: pd.DataFrame,
+    disturbance_id: str,
+    season: int,
+    until: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
-    """All analysis points recorded for one storm, oldest first."""
+    """The analysis points recorded for one storm, oldest first; with
+    ``until``, only those up to that time (the forecast's issue time), as
+    ds-storms-pipeline's cumulative observed buffers: a forecast handled
+    late or out of order never sees positions from after it was issued."""
     sel = points[
         (points["disturbance_id"].astype(str) == str(disturbance_id))
         & (pd.to_numeric(points["season"]) == season)
     ].copy()
+    if until is not None:
+        sel = sel[pd.to_datetime(sel["valid_time"]) <= pd.Timestamp(until)]
     # numeric whatever the record's dtypes (an empty first record is object)
     for col in ["lat", "lon", *RADII_COLS]:
         sel[col] = pd.to_numeric(sel[col]).astype(float)

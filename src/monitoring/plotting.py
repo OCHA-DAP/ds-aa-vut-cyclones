@@ -469,7 +469,11 @@ def wrap_text(text, max_len=40, break_anywhere=False):
     return "\n".join(lines).removeprefix("\n")
 
 
-def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None):
+# observed swaths: the forecast colours, faded (as in ds-storms-alerts)
+OBSERVED_ALPHA = 0.3
+
+
+def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None, gdf_observed=None):
     warnings.filterwarnings("ignore", "GeoSeries.notna", UserWarning)
     if ax is not None:
         fig = ax.figure
@@ -482,6 +486,19 @@ def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None):
     xlims, ylims = ax.get_xlim(), ax.get_ylim()
 
     ax.axis("off")
+    if gdf_observed is not None and not gdf_observed.empty:
+        for speed, color in colors.items():
+            obs = gdf_observed[gdf_observed["buffer_speed"] == speed]
+            obs = obs[~obs.geometry.is_empty & obs.geometry.notna()]
+            if not obs.empty:
+                obs.plot(
+                    ax=ax,
+                    color=color,
+                    alpha=OBSERVED_ALPHA,
+                    edgecolor="none",
+                    aspect="equal",
+                    zorder=0.5,
+                )
     for speed, color in colors_pale.items():
         gdf_speed = gdf_buffers[gdf_buffers["buffer_speed"] == speed]
         gdf_speed = gdf_speed[
@@ -503,6 +520,14 @@ def plot_wind_buffers(gdf_adm, gdf_buffers, ax=None):
         mpatches.Patch(facecolor=colors_pale[50], label="≥ 50 kt"),
         mpatches.Patch(facecolor=colors_pale[64], label="≥ 64 kt"),
     ]
+    if gdf_observed is not None and not gdf_observed.empty:
+        legend_patches.append(
+            mpatches.Patch(
+                facecolor=colors[64],
+                alpha=OBSERVED_ALPHA,
+                label="faded: observed",
+            )
+        )
     ax.legend(
         handles=legend_patches,
         title="Wind speed",
@@ -719,6 +744,9 @@ def plot_bubbles_and_swaths(
     label_font: tuple = (4, 20),
     legend_loc: str = "best",
     legend_anchor: tuple | None = None,
+    gdf_observed_buffers: gpd.GeoDataFrame | None = None,
+    gdf_observed_track: gpd.GeoDataFrame | None = None,
+    swath_note: str = "",
 ):
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
 
@@ -747,7 +775,12 @@ def plot_bubbles_and_swaths(
         bottom_ax = axes[1, col]
 
         # Wind swaths
-        plot_wind_buffers(gdf_adm_swath_plot, gdf_buffers, ax=top_ax)
+        plot_wind_buffers(
+            gdf_adm_swath_plot,
+            gdf_buffers,
+            ax=top_ax,
+            gdf_observed=gdf_observed_buffers,
+        )
 
         # Track and uncertainty cone
         _track = (
@@ -755,17 +788,42 @@ def plot_bubbles_and_swaths(
             if isinstance(gdf_tracks_plot, list)
             else gdf_tracks_plot
         )
+        has_obs = gdf_observed_track is not None and not (
+            gdf_observed_track.empty
+        )
+        if has_obs:
+            # observed: solid, as in ds-storms-alerts
+            top_ax.plot(
+                gdf_observed_track.geometry.x.values,
+                gdf_observed_track.geometry.y.values,
+                color="#222222",
+                linewidth=1.5,
+                zorder=9,
+            )
+            gdf_observed_track.plot(
+                ax=top_ax, color="#222222", markersize=12, zorder=10
+            )
         if _track is not None and uncertainty_cone is not None:
+            # forecast: dashed, with its 6-hourly points
             xs = _track.geometry.x.values
             ys = _track.geometry.y.values
-            top_ax.plot(xs, ys, color="black", linewidth=1.5, zorder=9)
-            _track.plot(ax=top_ax, color="black", markersize=20, zorder=10)
+            top_ax.plot(
+                xs,
+                ys,
+                color="black",
+                linewidth=1.5,
+                linestyle=(0, (2.4, 1.4)),
+                zorder=9,
+            )
+            _track.plot(
+                ax=top_ax, color="black", marker="D", markersize=10, zorder=10
+            )
             gpd.GeoSeries([uncertainty_cone], crs=gdf_adm.crs).plot(
                 ax=top_ax,
                 facecolor="none",
                 edgecolor="grey",
                 linewidth=1.5,
-                linestyle="--",
+                linestyle=":",
                 zorder=10,
             )
             existing_legend = top_ax.get_legend()
@@ -777,17 +835,34 @@ def plot_bubbles_and_swaths(
                 else forecast_label
             )
             track_handle = Line2D(
-                [0], [0], color="black", linewidth=1.5, label=col_label
+                [0],
+                [0],
+                color="black",
+                linewidth=1.5,
+                linestyle=(0, (2.4, 1.4)),
+                label=col_label,
             )
             cone_handle = Patch(
                 facecolor="none",
                 edgecolor="grey",
                 linewidth=1.5,
-                linestyle="--",
+                linestyle=":",
                 label="Uncertainty cone",
             )
+            handles = [track_handle, cone_handle]
+            if has_obs:
+                handles.insert(
+                    0,
+                    Line2D(
+                        [0],
+                        [0],
+                        color="#222222",
+                        linewidth=1.5,
+                        label="Observed track",
+                    ),
+                )
             legend_track = top_ax.legend(
-                handles=[track_handle, cone_handle],
+                handles=handles,
                 loc="upper right",
                 fontsize=7,
                 frameon=True,
@@ -848,6 +923,8 @@ def plot_bubbles_and_swaths(
         fontweight="bold",
         y=1,
     )
+    if swath_note:
+        fig.text(0.5, 0.965, swath_note, ha="center", fontsize=13)
 
     # ---- Layout ----
     fig.tight_layout(rect=[0, 0, 1, 1])
