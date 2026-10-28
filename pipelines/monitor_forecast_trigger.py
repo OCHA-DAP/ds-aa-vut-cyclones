@@ -207,19 +207,24 @@ def cut(geoms: dict, minus: dict) -> dict:
     return out
 
 
-def map_layers(track: pd.DataFrame, window: dict, obs: dict) -> dict:
-    """The three swath layers of one map: the trigger window, the rest of
-    the forecast (fills the gap between what was observed and the window),
-    and what was observed, each with the layers above it cut out."""
-    full = swaths(interpolated(track))
+def union(a: dict, b: dict) -> dict:
+    """Per speed, the union of two sets of swaths (either may be None)."""
+    out = {}
+    for speed in SPEEDS:
+        ga, gb = a.get(speed), b.get(speed)
+        out[speed] = gb if ga is None else ga if gb is None else ga.union(gb)
+    return out
 
-    def footprint(geoms):  # the widest swath, for every speed
-        return {s: geoms.get(34) for s in SPEEDS}
 
+def map_layers(full: dict, window: dict, obs: dict) -> dict:
+    """The swath layers of one map, as in ds-storms-alerts: what was
+    observed, and the whole forecast with the observed swath of the same
+    speed cut out; plus the trigger window's 64 kt swath, drawn as an
+    outline."""
     return {
-        "window": swath_gdf(window),
-        "other": swath_gdf(cut(full, footprint(window))),
-        "observed": swath_gdf(cut(obs, footprint(full))),
+        "observed": swath_gdf(obs),
+        "forecast": swath_gdf(cut(full, obs)),
+        "window": swath_gdf({64: window.get(64)}),
     }
 
 
@@ -406,6 +411,7 @@ def main() -> None:
             observed_error = exc
             observational_exp, observational = None, False
             obs_geoms = {s: None for s in SPEEDS}
+            obs_track = None  # nor drawn on the maps
 
     email_base_name = ("[TEST]_" if IS_TEST_SEND else "") + forecast_id
     sent_record = None
@@ -459,11 +465,7 @@ def main() -> None:
         g = swaths(st)
         shifted[deg] = (st, g)
         rows.append(
-            {
-                "shift_deg": deg,
-                **{f"exp_{s}": ctx.aoi(g[s]) for s in SPEEDS},
-                "nat_34": ctx.national(g[34]),
-            }
+            {"shift_deg": deg, **{f"exp_{s}": ctx.aoi(g[s]) for s in SPEEDS}}
         )
     df_shift = pd.DataFrame(rows).sort_values(
         [f"exp_{s}" for s in (64, 50, 34)], ascending=False
@@ -479,10 +481,21 @@ def main() -> None:
     logger.info(
         f"Worst case:\n{worst_row.to_frame().T.to_string(index=False)}"
     )
-    # the thermometer is about the three provinces; the area-council CSV and
-    # PDF cover all of Vanuatu, so they're gated on national exposure
+    # The area-council CSV and the province PDF count, as ds-storms-alerts
+    # does, what was observed so far plus the whole forecast (most likely,
+    # and the worst and best case tracks in full). Only the thermometer and
+    # the trigger values are about the trigger window.
+    full_tracks = {
+        "middle": fc.track,
+        "worst": shift_track(fc.track, worst_row["shift_deg"]),
+        "best": shift_track(fc.track, best_row["shift_deg"]),
+    }
+    full_geoms = {k: swaths(interpolated(t)) for k, t in full_tracks.items()}
+    combined = {k: union(obs_geoms, g) for k, g in full_geoms.items()}
+    # the thermometer is about the three provinces; the CSV and PDF cover
+    # all of Vanuatu, so they're gated on national exposure
     any_64 = worst_row["exp_64"] > 0 or trigger_exp > 0
-    any_34 = df_shift["nat_34"].max() > 0 or ctx.national(geoms[34]) > 0
+    any_34 = any(ctx.national(g[34]) > 0 for g in combined.values())
 
     img_base64_thermometer = None
     if any_64:
@@ -501,9 +514,12 @@ def main() -> None:
     adm2_exp_id = bubbles_plot_id = None
     if any_34:
         logger.info("Calculating province and area council exposure.")
-        _, worst_geoms = shifted[int(worst_row["shift_deg"])]
-        _, best_geoms = shifted[int(best_row["shift_deg"])]
-        df_ml = area_exposure(ctx, geoms, level=2)
+        window_geoms = {
+            "middle": geoms,
+            "worst": shifted[int(worst_row["shift_deg"])][1],
+            "best": shifted[int(best_row["shift_deg"])][1],
+        }
+        df_ml = area_exposure(ctx, combined["middle"], level=2)
         df_out = df_ml.pivot(
             index="ADM2_PCODE", columns="buffer_speed", values="pop_exposed"
         )
@@ -526,9 +542,8 @@ def main() -> None:
         # (the CSV above keeps the area councils).
         df_exp = pd.concat(
             [
-                area_exposure(ctx, geoms, 1).assign(limit="middle"),
-                area_exposure(ctx, worst_geoms, 1).assign(limit="worst"),
-                area_exposure(ctx, best_geoms, 1).assign(limit="best"),
+                area_exposure(ctx, g, 1).assign(limit=k)
+                for k, g in combined.items()
             ],
             ignore_index=True,
         )
@@ -551,16 +566,11 @@ def main() -> None:
                 crs=FJI_CRS,
             )
 
-        # the maps show what was observed once there is some history (a
-        # storm's first forecast only has its own analysis point)
-        obs_plot = obs_geoms if n_observed >= 2 else {s: None for s in SPEEDS}
-        worst_full = shift_track(fc.track, worst_row["shift_deg"])
-        best_full = shift_track(fc.track, best_row["shift_deg"])
+        scenarios = ("middle", "worst", "best")
         _, _, pdf_path = plot_bubbles_and_swaths(
             layers=[
-                map_layers(fc.track, geoms, obs_plot),
-                map_layers(worst_full, worst_geoms, obs_plot),
-                map_layers(best_full, best_geoms, obs_plot),
+                map_layers(full_geoms[k], window_geoms[k], obs_geoms)
+                for k in scenarios
             ],
             gdf_adm_swath_plot=gdf_adm,
             df_adm_template=template,
@@ -572,18 +582,20 @@ def main() -> None:
             save_local=True,
             # the whole forecast track (6-hourly points); the cone is the
             # trigger window's
-            gdf_tracks_plot=[
-                _pts(fc.track),
-                _pts(worst_full),
-                _pts(best_full),
-            ],
+            gdf_tracks_plot=[_pts(full_tracks[k]) for k in scenarios],
             uncertainty_cone=uncertainty_cone(seg),
-            window_label=f"Forecast, {WINDOW_STR[source].replace(' to ', '–')}"
-            " (trigger)",
-            gdf_observed_track=_pts(obs_track) if n_observed >= 2 else None,
+            window_label=(
+                f"Trigger window, {WINDOW_STR[source].replace(' to ', '–')}"
+            ),
+            gdf_observed_track=(
+                _pts(obs_track)
+                if obs_track is not None and n_observed
+                else None
+            ),
             swath_note=(
-                f"{SOURCE_NAME[source]} forecast. The trigger counts the "
-                f"{WINDOW_STR[source]} part of it."
+                f"{SOURCE_NAME[source]} forecast and observed track. The "
+                "exposure counts both; the trigger counts only the "
+                f"{WINDOW_STR[source]} part of the forecast (outlined)."
             ),
             id_col="ADM1_PCODE",
             name_col="ADM1_EN",

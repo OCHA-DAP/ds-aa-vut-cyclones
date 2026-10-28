@@ -482,9 +482,11 @@ PANEL = "#ffffff"
 GREY_EDGE = "#9db1b3"
 # One step of the HDX status ramp per wind threshold, amber to deep red
 WIND_COLORS = {34: "#d48f2a", 50: "#d06a5e", 64: "#9d372b"}
-# swath layers, drawn in this order for each wind speed: what was observed,
-# the rest of the forecast, the trigger window (cut so they don't overlap)
-LAYER_ALPHA = {"observed": 0.2, "other": 0.34, "window": 0.6}
+# swath layers, as in ds-storms-alerts: what was observed, faded, then the
+# forecast beyond it
+LAYER_ALPHA = {"observed": 0.2, "forecast": 0.52}
+# the trigger window's 64 kt swath, as an outline
+WINDOW_EDGE = dict(facecolor="none", edgecolor=INK, linewidth=1.4)
 LEGEND_EDGE = "#c5cdd2"
 TRACK_CASING = [path_effects.withStroke(linewidth=3.4, foreground=PANEL)]
 LABEL_HALO = [path_effects.withStroke(linewidth=2.5, foreground=PANEL)]
@@ -495,14 +497,22 @@ CONE = dict(
     facecolor="none", edgecolor="#7a8a8c", linewidth=1.2, linestyle=":"
 )
 SPEEDS = (34, 50, 64)
-MAP_MIN_ASPECT = 0.8  # width / height of a swath map
+
+
+def _valid(gdf):
+    if gdf is None or gdf.empty:
+        return None
+    gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()]
+    return None if gdf.empty else gdf
 
 
 def plot_wind_buffers(gdf_adm, layers: dict, ax=None):
-    """One swath map: land on a pale sea, then for each wind speed (widest
-    first) the observed, other-forecast and trigger-window swaths, which
-    are cut so they don't overlap; coastlines on top so islands read
-    through. No legend: plot_bubbles_and_swaths draws it under the maps."""
+    """One swath map, as in ds-storms-alerts: land on a pale sea, the
+    observed swaths (faded) and the forecast swaths beyond them, widest
+    first, the trigger window's 64 kt swath outlined, and coastlines on top
+    so islands read through. ``layers``: "observed", "forecast" and
+    "window" GeoDataFrames. No legend: plot_bubbles_and_swaths draws it
+    under the maps."""
     warnings.filterwarnings("ignore", "GeoSeries.notna", UserWarning)
     if ax is not None:
         fig = ax.figure
@@ -510,33 +520,30 @@ def plot_wind_buffers(gdf_adm, layers: dict, ax=None):
         fig, ax = plt.subplots(dpi=200, figsize=(10, 8))
     adm = gdf_adm.to_crs(FJI_CRS)
     minx, miny, maxx, maxy = adm.total_bounds
-    padx, pady = (maxx - minx) * 0.06, (maxy - miny) * 0.04
     ax.set_facecolor(OCEAN)
     adm.plot(ax=ax, facecolor=LAND, edgecolor="none", zorder=1)
-    for i, speed in enumerate(SPEEDS):
-        for j, name in enumerate(("observed", "other", "window")):
-            gdf = layers.get(name)
-            if gdf is None or gdf.empty:
-                continue
-            g = gdf[gdf["buffer_speed"] == speed]
-            g = g[~g.geometry.is_empty & g.geometry.notna()]
-            if not g.empty:
-                g.plot(
-                    ax=ax,
-                    color=WIND_COLORS[speed],
-                    alpha=LAYER_ALPHA[name],
-                    edgecolor="none",
-                    zorder=2 + i * 0.1 + j * 0.01,
-                )
+    for j, name in enumerate(("observed", "forecast")):
+        gdf = _valid(layers.get(name))
+        if gdf is None:
+            continue
+        gdf = gdf.sort_values("buffer_speed")
+        gdf.plot(
+            ax=ax,
+            color=[WIND_COLORS[s] for s in gdf["buffer_speed"]],
+            alpha=LAYER_ALPHA[name],
+            edgecolor="none",
+            zorder=2 + j * 0.1,
+        )
+    window = _valid(layers.get("window"))
+    if window is not None:
+        window.plot(ax=ax, zorder=2.5, **WINDOW_EDGE)
     adm.boundary.plot(ax=ax, color=COAST, linewidth=0.5, zorder=3)
-    # Vanuatu is tall and thin: widen the view (more sea either side, and
-    # the swaths east and west of the islands) to at least MAP_MIN_ASPECT
-    x0, x1 = minx - padx, maxx + padx
-    y0, y1 = miny - pady, maxy + pady
-    min_width = MAP_MIN_ASPECT * (y1 - y0)
-    if x1 - x0 < min_width:
-        mid = (x0 + x1) / 2
-        x0, x1 = mid - min_width / 2, mid + min_width / 2
+    # a square view around Vanuatu (tall and thin), as ds-storms-alerts'
+    # maps are square: sea and swaths either side of the islands
+    pad = 0.05 * max(maxx - minx, maxy - miny)
+    half = max(maxx - minx, maxy - miny) / 2 + pad
+    cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
+    x0, x1, y0, y1 = cx - half, cx + half, cy - half, cy + half
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     ax.set_aspect("equal")
@@ -596,8 +603,9 @@ def swath_key_width() -> float:
 
 def swath_key(fig, x_in: float, top_in: float, rows: list) -> None:
     """Boxed key for the swath layers: a row per layer, a swatch per wind
-    speed. Placed by its top-left corner, in inches from the figure's
-    bottom-left."""
+    speed; a row with alpha None is the trigger window's outline, in the
+    64 kt column only. Placed by its top-left corner, in inches from the
+    figure's bottom-left."""
     fw, fh = fig.get_size_inches()
     w = swath_key_width()
     h = 2 * KEY_PAD + KEY_TITLE_H + KEY_HEAD_H + KEY_ROW_H * len(rows)
@@ -635,6 +643,15 @@ def swath_key(fig, x_in: float, top_in: float, rows: list) -> None:
         ax.text(*at(KEY_PAD, y + KEY_ROW_H / 2), label,
                 va="center", ha="left", **text)  # fmt: skip
         for cx, speed in zip(centres, SPEEDS):
+            if alpha is None and speed != 64:
+                continue
+            style = (
+                WINDOW_EDGE
+                if alpha is None
+                else dict(
+                    facecolor=WIND_COLORS[speed], alpha=alpha, edgecolor="none"
+                )
+            )
             x0, y0 = at(cx - KEY_SW_W / 2, y + (KEY_ROW_H + KEY_SW_H) / 2)
             ax.add_patch(
                 mpatches.Rectangle(
@@ -642,9 +659,7 @@ def swath_key(fig, x_in: float, top_in: float, rows: list) -> None:
                     KEY_SW_W / w,
                     KEY_SW_H / h,
                     transform=ax.transAxes,
-                    facecolor=WIND_COLORS[speed],
-                    alpha=alpha,
-                    edgecolor="none",
+                    **style,
                 )
             )
         y += KEY_ROW_H
@@ -875,12 +890,13 @@ def plot_bubbles_and_swaths(
     label_font: tuple = (4, 20),
     gdf_observed_track: gpd.GeoDataFrame | None = None,
     swath_note: str = "",
-    window_label: str = "Forecast, trigger window",
+    window_label: str = "Trigger window",
 ):
     """Three columns (most likely, worst case, best case): wind swath maps
     on top, population exposure bubbles below, boxed keys under each row
     (map style from ds-storms-alerts). ``layers``: per column, the
-    "window", "other" and "observed" swath GeoDataFrames."""
+    "observed", "forecast" and "window" swath GeoDataFrames
+    (plot_wind_buffers)."""
     fig, axes = plt.subplots(2, 3, figsize=(18, 13.5))
 
     gdf_adm = gdf_adm.copy()
@@ -922,11 +938,14 @@ def plot_bubbles_and_swaths(
         if has_obs:
             draw_track(top_ax, gdf_observed_track, "observed")
         if gdf_tracks_plot is not None:
+            # bridged from the last observed position; not the worst and
+            # best case tracks, which are the forecast moved by its
+            # uncertainty, starting point included
             draw_track(
                 top_ax,
                 gdf_tracks_plot[col],
                 "forecast",
-                start=last_obs,
+                start=last_obs if col == 0 else None,
                 label_hours=True,
             )
         top_ax.set_title(
@@ -945,7 +964,7 @@ def plot_bubbles_and_swaths(
         )
 
     for row_idx, row_label in enumerate(
-        ["Wind swaths", "Population exposure"]
+        ["Wind swaths", "Population exposure,\nobserved + forecast"]
     ):
         axes[row_idx, 0].text(
             -0.02,
@@ -999,12 +1018,12 @@ def plot_bubbles_and_swaths(
         ),
         Patch(**CONE, label="Uncertainty cone"),
     ]
-    rows = [
-        (window_label, LAYER_ALPHA["window"]),
-        ("Forecast, other lead times", LAYER_ALPHA["other"]),
-    ]
+    rows = []
     if has_obs_swath:
         rows.append(("Observed so far", LAYER_ALPHA["observed"]))
+    rows.append(("Forecast", LAYER_ALPHA["forecast"]))
+    if any(_valid(lay.get("window")) is not None for lay in layers):
+        rows.append((window_label, None))
     top_in = axes[0, 0].get_position().y0 * fh - 0.2
     track_leg, track_w = boxed_legend(fig, track_handles, "Track")
     gap = 0.35
