@@ -1,0 +1,29 @@
+# trackType=Official Forecast Track,baseTime=2026-02-01T00:00:00Z
+# DisturbanceId=2526-99F
+# CycloneName=SIMULATED
+# MathType of Data
+(Time->(Latitude,Longitude,Symbol,Category,Pressure,PressureOCI,RadiusOCI,Radius1000hPa,RadiusMaxWinds,MeanWind,WindGust,VerticalExtent,Uncertainty,FinalT,CurrentIntensity,GaleRadius,StrongGaleRadius,StormRadius,HurricaneRadius,NEGaleRadius,SEGaleRadius,SWGaleRadius,NWGaleRadius,NEStrongGaleRadius,SEStrongGaleRadius,SWStrongGaleRadius,NWStrongGaleRadius,NEStormRadius,SEStormRadius,SWStormRadius,NWStormRadius,NEHurricaneRadius,SEHurricaneRadius,SWHurricaneRadius,NWHurricaneRadius))
+# Column Headings
+Time[fmt=yyyy-MM-dd'T'HH:mm:ss'Z'],Latitude,Longitude,Symbol,Category,Pressure,PressureOCI,RadiusOCI,Radius1000hPa,RadiusMaxWinds,MeanWind,WindGust,VerticalExtent,Uncertainty,FinalT,CurrentIntensity,GaleRadius,StrongGaleRadius,StormRadius,HurricaneRadius,NEGaleRadius,SEGaleRadius,SWGaleRadius,NWGaleRadius,NEStrongGaleRadius,SEStrongGaleRadius,SWStrongGaleRadius,NWStrongGaleRadius,NEStormRadius,SEStormRadius,SWStormRadius,NWStormRadius,NEHurricaneRadius,SEHurricaneRadius,SWHurricaneRadius,NWHurricaneRadius
+# Start of data
+2026-02-01T00:00:00Z,-11.50,166.00,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,20.0,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-01T06:00:00Z,-11.97,166.11,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,26.6,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-01T12:00:00Z,-12.45,166.22,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,33.2,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-01T18:00:00Z,-12.93,166.34,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,39.8,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-02T00:00:00Z,-13.40,166.45,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,46.4,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-02T06:00:00Z,-13.88,166.56,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,53.0,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-02T12:00:00Z,-14.35,166.68,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,59.6,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-02T18:00:00Z,-14.83,166.79,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,66.2,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-03T00:00:00Z,-15.30,166.90,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,72.8,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-03T06:00:00Z,-15.78,167.18,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,79.4,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-03T12:00:00Z,-16.26,167.46,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,86.0,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-03T18:00:00Z,-16.74,167.74,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,92.6,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-04T00:00:00Z,-17.22,168.02,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,99.2,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-04T06:00:00Z,-17.70,168.30,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,105.8,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-04T12:00:00Z,-18.15,168.55,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,112.4,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-04T18:00:00Z,-18.60,168.80,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,119.0,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-05T00:00:00Z,-19.05,169.05,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,125.6,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-05T06:00:00Z,-19.50,169.30,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,132.2,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-05T12:00:00Z,-20.00,169.53,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,138.8,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-05T18:00:00Z,-20.50,169.77,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,145.4,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN
+2026-02-06T00:00:00Z,-21.00,170.00,NaN,4.0,NaN,NaN,NaN,NaN,NaN,95.0,NaN,NaN,152.0,NaN,NaN,100.0,NaN,50.0,30.0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN

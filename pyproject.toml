@@ -13,6 +13,7 @@ dependencies = [
     "ocha-stratus",
     "pandas",
     "plotly",
+    "python-dotenv>=1.2.4",
     "requests",
     "rioxarray",
     "tqdm",
@@ -26,6 +27,7 @@ dev = [
     "ipykernel",
     "isort",
     "pre-commit",
+    "pytest>=9.2.0",
 ]
 
 [build-system]

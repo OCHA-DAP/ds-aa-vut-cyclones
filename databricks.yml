@@ -1,0 +1,144 @@
+# Vanuatu tropical cyclone AA monitoring on Databricks.
+#
+# One job, one task (databricks/run_monitor.py): the trigger check and the
+# Listmonk emails, for one forecast CSV. Modelled on pa-aa-fji-storms'
+# "Fiji Cyclone Monitoring" job, without its ingest task.
+#
+# No schedule. The FMS inbox poller in pa-aa-fji-storms
+# (pipelines/poll_fms_inbox.py, GitHub Actions, every 10 minutes) starts a
+# run for every RSMC Nadi (FMS) forecast CSV and every VMHS forecast CSV,
+# once its repo variable VUT_MONITORING is test or live, through the Jobs
+# API as the fji-fms-relay service principal.
+#
+#   databricks bundle validate -t prod -p DEFAULT
+#   databricks bundle deploy -t prod -p DEFAULT
+#   databricks bundle run vut_monitoring -t prod -p DEFAULT \
+#     --params csv_blob=ds-aa-vut-cyclones/raw/vmhs/inbox/<file>,event=vmhs_forecast_test
+#
+# Send modes: test_email defaults to "True" (test list 5 only); the poller
+# passes test_email per run, "False" only for real forecasts once
+# VUT_MONITORING is live. A *_test event always forces test_email=True.
+# With dry_run=True the monitor sends and records nothing.
+#
+# Only csv_blob, event and test_email are run parameters: those are all the
+# poller's service principal can set. Everything else is fixed at deploy
+# (--var ...), so nobody holding that secret can choose the code that runs.
+
+bundle:
+  name: ds-aa-vut-cyclones
+
+sync:
+  exclude:
+    - docs/**
+    - exploration/**
+
+variables:
+  git_branch:
+    description: Branch the cluster pulls this repo's code from
+    default: main
+  test_email:
+    description: Default for runs started without parameters (safe test list)
+    default: "True"
+  dry_run:
+    default: "False"
+  simulate_trigger:
+    default: "False"
+  max_forecast_age_hours:
+    description: >-
+      The monitor refuses to email the real lists about a forecast older
+      than this, so an old CSV can't be replayed to partners.
+    default: "48"
+  relay_sp_application_id:
+    description: >-
+      Application id of the fji-fms-relay service principal the poller
+      authenticates as; it may only run this job and the Fiji one.
+    default: "234c8389-9862-4587-a050-21bab013f56c"
+
+targets:
+  prod:
+    mode: production
+    default: true
+    workspace:
+      profile: DEFAULT
+      root_path: /Workspace/Users/adm.tdowning@global.un.org/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      user_name: adm.tdowning@global.un.org
+  dev:
+    mode: development
+    workspace:
+      profile: DEFAULT
+
+resources:
+  jobs:
+    vut_monitoring:
+      name: Vanuatu Cyclone Monitoring
+      description: >-
+        Vanuatu tropical cyclone anticipatory action trigger monitor: the
+        readiness trigger on RSMC Nadi (FMS) forecasts, the action and
+        observational triggers on VMHS forecasts (info / readiness / action
+        / observational emails via Listmonk). Started per forecast CSV by
+        the FMS inbox poller in OCHA-DAP/pa-aa-fji-storms.
+      # Job-scoped permissions: directory ACLs are disabled on this
+      # workspace tier, so bundle-level permissions fail.
+      permissions:
+        - group_name: dsci
+          level: CAN_MANAGE
+        - service_principal_name: ${var.relay_sp_application_id}
+          level: CAN_MANAGE_RUN
+      git_source:
+        git_url: https://github.com/OCHA-DAP/ds-aa-vut-cyclones.git
+        git_provider: gitHub
+        git_branch: ${var.git_branch}
+      # One forecast at a time, in arrival order; never skip a run (the
+      # observed-track record is read and written by each VMHS run).
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        databricks: job
+        type: monitoring
+        hazard: tropical-cyclone
+        kb: vut-cyclones-monitoring
+        output_blob: projects/ds-aa-vut-cyclones/monitoring
+      email_notifications:
+        on_failure:
+          - tristan.downing@un.org
+        no_alert_for_skipped_runs: true
+      parameters:
+        - name: csv_blob       # dev-blob name the poller staged
+          default: ""
+        - name: event          # fms_forecast(_test) | vmhs_forecast(_test)
+          default: vmhs_forecast_test
+        - name: test_email
+          default: ${var.test_email}
+      job_clusters:
+        - job_cluster_key: vut_cluster
+          new_cluster:
+            # Job Compute (single node): injects the dsci DB/blob env vars,
+            # fixes num_workers=0. Listmonk creds come from the dsci scope
+            # in run_monitor.py. DBR 15.4 LTS = Python 3.11, the version
+            # requirements-dbx.txt is locked for.
+            policy_id: "0017962FF5D1E3B9"
+            apply_policy_default_values: true
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 0
+            data_security_mode: SINGLE_USER
+      tasks:
+        - task_key: monitor
+          job_cluster_key: vut_cluster
+          timeout_seconds: 3600
+          spark_python_task:
+            python_file: databricks/run_monitor.py
+            source: GIT
+            parameters:
+              - "{{job.parameters.event}}"
+              - "{{job.parameters.test_email}}"
+              - "{{job.parameters.csv_blob}}"
+              - "${var.dry_run}"
+              - "${var.simulate_trigger}"
+              - "${var.max_forecast_age_hours}"
+          # The cluster's whole non-DBR environment, installed in one pip
+          # resolve from a full lock (see requirements-dbx.in).
+          libraries:
+            - requirements: ${workspace.file_path}/requirements-dbx.txt
