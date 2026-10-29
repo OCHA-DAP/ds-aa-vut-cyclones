@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vanuatu cyclone trigger — design &amp; forecast check</title>
+<link rel="icon" href="../favicon.ico" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="page-head">
+  <h1>Vanuatu cyclone trigger</h1>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" role="tab" data-tab="design" id="tabbtn-design">Trigger design (observed record)</button>
+    <button class="tab" role="tab" data-tab="forecast" id="tabbtn-forecast">Forecast check</button>
+  </nav>
+</header>
+
+<!-- ================= TAB 1: trigger design on the observed record ========= -->
+<div class="tabpanel" id="panel-design" role="tabpanel">
+
+  <p class="lede">
+    How the trigger was set: every cyclone season since <strong>2006</strong> (20 seasons),
+    each storm placed by its <strong>wind exposure</strong> (population inside the observed
+    IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
+    <strong>2-day rainfall</strong> (IMERG). The controls start on the adopted trigger —
+    <strong>15,000 people exposed to 64&nbsp;kt (10-minute) winds</strong>, no rainfall condition —
+    adjust them to see how alternatives would have behaved, and click any storm to see its
+    observed wind swaths on the map.
+  </p>
+  <details class="caveat">
+    <summary>How to use, and where the numbers come from</summary>
+    <div>
+      <p>
+        <strong>The framework in development defines three triggers</strong>, all at
+        &ge;64&nbsp;kt (10-minute) / &ge;15,000 people exposed: a <strong>readiness trigger</strong>
+        (72&ndash;120&nbsp;h leadtime, RSMC Nadi extended track forecast, Shefa/Sanma/Tafea), an
+        <strong>action trigger</strong> (24&ndash;72&nbsp;h, VMHS track forecast, same provinces),
+        and an <strong>observational trigger</strong> (no leadtime, VMHS observed track,
+        <em>all of Vanuatu</em>). This tab explores how forecast-trigger thresholds behave on the
+        observed record; the forecast-check tab tests the forecast legs against historical
+        forecasts and shows the observational trigger's national scope.
+      </p>
+      <p>
+        <strong>How to use:</strong> set a wind-exposure and/or rainfall threshold, choose whether
+        both (<strong>AND</strong>) or either (<strong>OR</strong>) must be met, and pick the wind
+        speed. Storms meeting the rule are <strong>triggered</strong> (bold labels). Aim for the
+        target number of triggers — staying at or below it — while maximising the total people
+        affected by the triggered storms. Red labels are storms that received a CERF allocation;
+        dashed lines are your thresholds; the shaded region is the trigger zone.
+      </p>
+      <p>
+        The <strong>64&nbsp;kt column</strong> is read on the 10-minute scale: swaths are
+        rebuilt from the best-track quadrant radii at the &asymp;73&nbsp;kt 1-min-equivalent
+        contour (factor 0.88 — see the forecast tab's convention note). The 34/50&nbsp;kt columns
+        are 1-minute values from the corrected exposure table
+        (<code>adm2_usaradii_exp_dedup.parquet</code>: no boundary double-counting, no dateline
+        tearing). All exposure counts population in Shefa, Sanma and Tafea only. Rainfall is the maximum
+        2-day rolling mean of IMERG daily rain, averaged over the country. Impact
+        (<em>Total Affected</em>) is from EM-DAT. The return period is Weibull: (20&nbsp;+&nbsp;1)&nbsp;/&nbsp;activations. The record is
+        <strong>2006&ndash;2025</strong>: IBTrACS 64&nbsp;kt wind radii only exist reliably from
+        2005 (2003&ndash;04 storms, including Ivy 2004 — a direct hit on the AOI at 90&nbsp;kt —
+        carry none), and 2005 itself is excluded because its forecast archive is a single
+        anomalous year (full JTWC decks survive for 2005 alone among 2003&ndash;2011,
+        provenance unclear).
+      </p>
+    </div>
+  </details>
+
+  <section class="controls" aria-label="Trigger controls">
+    <label>Wind speed
+      <select id="dWind">
+        <option value="34">34 kt</option>
+        <option value="50">50 kt</option>
+        <option value="64" selected>64 kt</option>
+      </select>
+    </label>
+    <label class="thr wind-lab">Wind exposure &ge;
+      <input type="number" id="dWt" value="15000" min="0" step="1000" />
+      <span class="unit">people</span>
+    </label>
+    <label class="thr rain-lab">Rainfall &ge;
+      <input type="number" id="dRt" value="0" min="0" step="5" />
+      <span class="unit">mm / 2d (0 = no rain condition)</span>
+    </label>
+    <span class="radio-group" role="radiogroup" aria-label="Trigger logic">
+      <label class="check"><input type="radio" name="dLogic" value="AND" checked /> AND</label>
+      <label class="check"><input type="radio" name="dLogic" value="OR" /> OR</label>
+    </span>
+  </section>
+
+  <section class="summary" aria-label="Trigger summary">
+    <div class="stat-row" id="dStats"></div>
+  </section>
+
+  <section class="chart-wrap">
+    <div id="dScatter" role="img" aria-label="Storms by wind exposure and 2-day rainfall, with trigger zone"></div>
+  </section>
+
+  <section class="detail">
+    <h2 id="dMapTitle">Observed wind swaths</h2>
+    <p class="hint">Click a storm on the chart or in the table to map its observed swaths.</p>
+    <div id="dMap"></div>
+    <ul class="legend">
+      <li><span class="sw sw-r34"></span>34&nbsp;kt swath</li>
+      <li><span class="sw sw-r50"></span>50&nbsp;kt swath</li>
+      <li><span class="sw sw-r64"></span>64&nbsp;kt swath</li>
+      <li><span class="ln ln-obs"></span>Track (IBTrACS)</li>
+      <li><span class="sw sw-aoi"></span>AOI provinces</li>
+    </ul>
+  </section>
+
+  <section class="chart-wrap">
+    <h2>Storms, ranked by impact</h2>
+    <div id="dTable" class="scroll-x"></div>
+  </section>
+
+  <details class="caveat block">
+    <summary>Correlations with impact indicators</summary>
+    <div>
+      <p>
+        Pearson correlation of each candidate indicator with <strong>Total Affected</strong>
+        (left) and with whether a <strong>CERF allocation</strong> occurred (right). Longer bars
+        flag indicators that more closely track historical impact, helping decide which to build
+        the trigger on.
+      </p>
+      <div id="dCorr" class="corr-grid"></div>
+    </div>
+  </details>
+
+  <details class="caveat block">
+    <summary>Optimal trigger combinations (exactly 5 storms)</summary>
+    <div>
+      <p>
+        For each trigger structure, the threshold combination that activates on
+        <strong>exactly 5 storms</strong> in the 21-season record (return period 4.4 seasons)
+        while maximising the total people affected by the triggered storms.
+      </p>
+      <div id="dOpt" class="scroll-x"></div>
+    </div>
+  </details>
+
+</div>
+
+<!-- ================= TAB 2: forecast check ================================ -->
+<div class="tabpanel" id="panel-forecast" role="tabpanel" hidden>
+
+  <p class="lede">
+    The trigger above was designed on <em>observed</em> storm tracks. This tab re-runs it
+    against the <em>forecasts</em> that were actually on the table at the time, to see which
+    storms would have triggered an activation in real time.
+  </p>
+  <details class="caveat">
+    <summary>What the numbers are, and what they are not</summary>
+    <div>
+      <p>
+        Forecast exposure is computed from <strong>JTWC official forecasts</strong> in the VMGD
+        historical archive: the 34/50/64&nbsp;kt quadrant wind radii from each forecast cycle are
+        swept along the forecast track into a wind swath, and WorldPop population inside it is
+        summed.
+      </p>
+      <p>
+        <strong>The two columns mirror the framework's trigger table.</strong> The forecast
+        column corresponds to the <strong>action trigger</strong>: exposure counted in
+        <strong>Shefa, Sanma and Tafea</strong> only (population
+        <strong id="aoiPop">&mdash;</strong>). The observed column corresponds to the
+        <strong>observational trigger</strong>: exposure counted over <strong>all of
+        Vanuatu</strong> (population <strong id="natPop">&mdash;</strong>) — a storm striking
+        Torba or Penama shows its real observed exposure and can activate the framework through
+        the observational leg even though the forecast legs do not count those provinces. The
+        exposure method and population raster are otherwise identical.
+      </p>
+      <p>
+        <strong>Wind-averaging convention:</strong> the trigger's 64&nbsp;kt is read on the
+        <strong>10-minute</strong> scale used by RSMC Nadi and VMHS (severe tropical cyclone,
+        Category&nbsp;3 on the Australian scale). JTWC and IBTrACS-USA radii are 1-minute means,
+        so every 64&nbsp;kt number on this page — forecast action windows and observed exposure
+        alike — is evaluated at the <strong>&asymp;73&nbsp;kt 1-min-equivalent contour</strong>
+        (factor 0.88; per-quadrant log-linear extrapolation of the R50&rarr;R64 decay, gated on
+        intensity). The 34/50&nbsp;kt values remain 1-minute context. Under the milder 0.93
+        conversion (69&nbsp;kt equivalent) the activating set is unchanged and exposures sit
+        between these and the raw 1-minute values (Judy&nbsp;143k).
+      </p>
+      <p>
+        Against the framework as written: the forecast column evaluates the
+        <strong>action leg only</strong>, from each cycle's 24&ndash;72&nbsp;h track segment. The
+        <strong>readiness leg (72&ndash;120&nbsp;h) is deliberately not assessed</strong> —
+        historical 64&nbsp;kt wind radii at those leadtimes are too sparse to score it fairly.
+        And the framework's forecast sources are the RSMC Nadi extended track (readiness) and the
+        VMHS track forecast (action), but <strong>neither carries historical wind radii</strong> —
+        JTWC official forecasts are the proxy here.
+      </p>
+      <p>
+        <strong>VMGD's own forecast tracks carry no wind radii</strong> &mdash; their Forecast Track
+        Maps give position, intensity category and a position-accuracy figure only, with the wind
+        boundaries drawn on the map image. They are shown here as tracks for context, but they
+        cannot produce an exposure number.
+      </p>
+      <p>
+        Each storm's <strong>peak</strong> value is the highest exposure across all of its forecast
+        cycles &mdash; i.e. would the trigger have fired at <em>any</em> point during the event.
+        Invest-numbered decks (90&ndash;99) are excluded because they duplicate the named storm.
+      </p>
+      <p>
+        Two artifacts in the original per-adm2 exposure table on blob are corrected here (and in
+        <code>adm2_usaradii_exp_dedup.parquet</code>): per-adm2 <code>all_touched</code> clips
+        counted shared boundary pixels more than once (+23% on AOI totals), and swaths crossing
+        the 180&deg; meridian were torn by the coordinate conversion into shapes that spuriously
+        covered Vanuatu &mdash; Fiji storms like Tomas, Yasa, Evan and Keni showed large exposure
+        they never had. All buffers here are handled in a longitude-wrapped frame, so figures
+        read substantially lower than the uncorrected ones.
+      </p>
+    </div>
+  </details>
+
+  <section class="controls" aria-label="Controls">
+    <span class="locked-trigger">Trigger: <strong>15,000 people at 64&nbsp;kt (10-min)</strong>
+      <span class="unit">(adopted by the working group — explore alternatives on the design tab)</span></span>
+    <label>Sort
+      <select id="sort">
+        <option value="peak">Peak forecast exposure</option>
+        <option value="season">Season</option>
+        <option value="name">Name</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="showZero" /> Show storms with no exposure at all</label>
+  </section>
+
+  <section class="summary" aria-label="Summary">
+    <div class="stat-row" id="stats"></div>
+    <p class="note" id="cerfNote"></p>
+  </section>
+
+  <section class="chart-wrap">
+    <h2>Action-leg forecast peak (24&ndash;72&nbsp;h, AOI) vs observed (whole country), by storm</h2>
+    <p class="hint">Click a storm to inspect its forecast cycles on the map.
+      <span id="hiddenNote"></span></p>
+    <div id="chart" role="img" aria-label="Peak forecast and observed 64 kt exposure by storm"></div>
+    <details class="tableview">
+      <summary>Table view</summary>
+      <div id="table"></div>
+    </details>
+  </section>
+
+  <section class="chart-wrap" id="rpSection">
+    <h2>Return periods at this trigger</h2>
+    <div id="rpTable" class="scroll-x"></div>
+    <h3 class="rp-chart-title">Combined RP vs exposure threshold</h3>
+    <div id="rpChart" role="img" aria-label="Estimated combined return period as a function of the exposure threshold"></div>
+    <p class="note" id="rpNote"></p>
+
+    <h3 class="rp-chart-title">Interactive: pick a threshold, read off the RP</h3>
+    <section class="controls" aria-label="RP explorer controls">
+      <label class="thr">Threshold
+        <input type="range" id="rpxT" min="1000" max="80000" step="1000" value="15000" />
+        <span class="unit" id="rpxTv"></span>
+      </label>
+      <label>Assumed extra activated seasons (2006&ndash;11, no forecast decks)
+        <select id="rpxExtra">
+          <option value="0">+0</option>
+          <option value="1" selected>+1</option>
+          <option value="2">+2</option>
+          <option value="3">+3</option>
+          <option value="4">+4</option>
+        </select>
+      </label>
+    </section>
+    <div class="stat-row" id="rpxStats"></div>
+    <div id="rpxScatter" role="img" aria-label="Storms by observed exposure and action-window forecast peak"></div>
+    <p class="note" id="rpxGap"></p>
+  </section>
+
+  <section class="detail" id="detail" hidden>
+    <h2 id="detailTitle">&nbsp;</h2>
+    <div class="detail-grid">
+      <div>
+        <div id="map"></div>
+        <div class="cycle-ctl">
+          <button id="playBtn" type="button" aria-label="Play through forecast cycles">▶</button>
+          <input type="range" id="cycle" min="0" max="0" value="0" />
+          <span id="cycleLabel" class="cycle-label">&nbsp;</span>
+        </div>
+        <ul class="legend" id="mapLegend">
+          <li><span class="sw sw-fcst"></span>Forecast 64&nbsp;kt swath (JTWC, selected cycle)</li>
+          <li><span class="sw sw-obs"></span>Observed 64&nbsp;kt swath (IBTrACS)</li>
+          <li><span class="ln ln-fcst"></span>Forecast track</li>
+          <li><span class="ln ln-obs"></span>Observed track</li>
+          <li><span class="ln ln-vmgd"></span>VMGD forecast track <em>(no radii)</em></li>
+          <li><span class="sw sw-aoi"></span>AOI provinces</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Action-window exposure by cycle (24&ndash;72&nbsp;h, AOI)</h3>
+        <div id="cycleChart" role="img" aria-label="Action-window exposure by cycle"></div>
+        <div id="cycleInfo" class="cycle-info"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="page-foot">
+  <p>
+    Sources: IBTrACS USA radii (observed swaths); IMERG (rainfall); EM-DAT (impact);
+    VMGD historical tropical cyclone archive
+    (<code>ds-aa-vut-cyclones/raw/vmgd/</code>) and JTWC ATCF a-decks (forecasts);
+    population from WorldPop 1&nbsp;km.
+    <span id="generated"></span>
+  </p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="app.js"></script>
+</body>
+</html>

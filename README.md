@@ -2,6 +2,33 @@
 
 [![Generic badge](https://img.shields.io/badge/STATUS-UNDER%20DEVELOPMENT-%23007CE0)](https://shields.io/)
 
+## Published pages
+
+Both are served from `docs/` on GitHub Pages:
+
+| Page | What it is |
+|---|---|
+| [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Trigger design on the observed record **and** the forecast check (plain JS + Leaflet, two tabs) |
+| [`/trigger/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/trigger/) | Plain-language explainer: how the trigger works, historical activations, why no rainfall, interactive forecast explorer |
+| [`/slides/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/slides/) | Summary deck: trigger definition + Trigger Mechanism Statistics, historical storm table (reads the forecast-check data) |
+
+`/` redirects there — the old marimo WASM explorer was retired 2026-08-11
+(slow to load; fully superseded).
+
+The forecast-check page is a static JS app with its data pre-baked into
+`docs/forecast-check/data/`:
+
+```shell
+# observed-record trigger data (hist.json, obsgeom/, plus a provenance CSV)
+uv run python exploration/make_trigger_data.py
+# forecast-cycle exposure + map geometry (core.json, geom/)
+uv run python exploration/make_forecast_check_data.py
+```
+
+`make_forecast_check_data.py` needs a local copy of the VMGD archive zip
+(`ds-aa-vut-cyclones/raw/vmgd/vmgd_historical_tc_archive_2026-08-05.zip` on
+blob) — set the path at the top of the script.
+
 ## Directory structure
 
 The code in this repository is organized as follows:

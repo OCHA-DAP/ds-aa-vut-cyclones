@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vanuatu AA — cyclone trigger (draft)</title>
+<link rel="icon" href="../favicon.ico" />
+<style>
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb; --surface-2: #f2f2ef; --border: #d8d8d2;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #767570;
+  --critical: #c02526; --critical-pale: #f2c9c9;
+  --grey-head: #e4e4e0; --impact: #8e44ad; --cerf-blue: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --surface-2: #262625; --border: #3d3d3a;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a998f;
+    --critical: #e66767; --critical-pale: #5c2f2f;
+    --grey-head: #33332f; --impact: #a86fc7; --cerf-blue: #3987e5;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--surface-2);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-primary); }
+.deck { height: 100%; overflow: hidden; position: relative; }
+.slide {
+  position: absolute; inset: 0; display: none; overflow: auto;
+  padding: 2.6rem 4.5rem 4rem; background: var(--surface-1);
+}
+.slide.active { display: block; }
+.slide h1 { font-size: 1.75rem; margin: 0 0 .3rem; line-height: 1.2; }
+.slide .sub { color: var(--text-secondary); margin: 0 0 1.3rem; font-size: 1rem; }
+.slide h2 { font-size: 1.1rem; margin: 1.5rem 0 .5rem; }
+.opt {
+  display: inline-block; padding: .05em .55em; border-radius: 4px;
+  background: var(--grey-head); font-size: .95rem; vertical-align: middle;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { border: 1px solid var(--border); padding: .45rem .65rem; text-align: left;
+  vertical-align: middle; }
+thead th { background: var(--grey-head); font-weight: 650; }
+.center { text-align: center; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.trig-def td.big { font-size: 1.05rem; font-weight: 650; text-align: center; }
+
+.muted { color: var(--text-muted); font-weight: 400; font-size: .85rem; }
+
+/* the standard "Trigger Mechanism Statistics" panel — fixed light figure */
+.tms { background: #f0f0f0; color: #000; padding: 1.3rem 1.9rem 1.5rem;
+  max-width: 1050px; font-family: Arial, Helvetica, sans-serif; border-radius: 2px; }
+.tms .tms-title { font-weight: 700; font-style: italic; font-size: 1.02rem; margin: 0 0 1.4rem; }
+.tms .secbar { display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 2px solid #000; padding-bottom: 2px; }
+.tms .secbar .sec { font-weight: 700; }
+.tms .secbar .yrs { font-style: italic; }
+.tms table { border-collapse: collapse; width: 100%; background: none; font-size: .95rem; }
+.tms table th, .tms table td { border: none; background: none; padding: 4px 10px;
+  text-align: center; }
+.tms thead th { font-style: italic; font-weight: 400; border-bottom: 1.5px solid #000;
+  background: none; white-space: normal; }
+.tms tbody tr:last-child td { border-bottom: 2px solid #000; }
+.tms .overall { margin-top: 1.6rem; max-width: 460px; }
+.tms .overall .sec { font-weight: 700; border-bottom: 1.5px solid #000;
+  display: block; padding-bottom: 2px; }
+.tms .overall table td.lbl { font-style: italic; text-align: right; width: 68%; }
+.tms .overall table td.val { text-align: left; }
+.tms .overall tbody tr:last-child td { border-bottom: 2px solid #000; }
+.tms-foot { font-size: .78rem; color: var(--text-muted); margin-top: .6rem; max-width: 100ch; }
+
+.storms td, .storms th { padding: .3rem .55rem; }
+.storms { font-size: .88rem; }
+td.trig { background: var(--critical); color: #fff; font-weight: 650; }
+td.trig-pale { background: var(--critical-pale); }
+td.cerf { background: var(--cerf-blue); color: #fff; font-weight: 650; }
+.impact-bar {
+  display: inline-block; min-width: 9.5em; text-align: right; padding-right: .3em;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--impact) 32%, transparent) var(--w), transparent var(--w));
+}
+.footnote { color: var(--text-muted); font-size: .78rem; margin-top: .9rem; max-width: 100ch; }
+
+.nav {
+  position: fixed; bottom: 1rem; right: 1.3rem; z-index: 10;
+  display: flex; gap: .4rem; align-items: center;
+  color: var(--text-muted); font-size: .85rem;
+}
+.nav button {
+  font: inherit; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-primary);
+  border-radius: 4px; width: 2.1rem; height: 2rem;
+}
+.brand {
+  position: fixed; bottom: 1rem; left: 1.3rem; z-index: 10;
+  color: var(--text-muted); font-size: .8rem;
+}
+@media print {
+  .slide { position: static; display: block; page-break-after: always; }
+  .nav, .brand { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck"></div>
+
+<div class="brand">Vanuatu AA — cyclones &middot; draft, Aug 2026 &middot;
+  <a href="../forecast-check/" style="color:inherit">full analysis</a></div>
+<div class="nav">
+  <button id="prev" aria-label="Previous slide">&larr;</button>
+  <span id="pos">1 / 2</span>
+  <button id="next" aria-label="Next slide">&rarr;</button>
+</div>
+
+<script>
+const THRESHOLDS = [15000];
+const fmt = (n) => n.toLocaleString("en-US");
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---------- slide builders (data-driven, per threshold) ---------- */
+
+function trigDefTable(T) {
+  return `
+  <table class="trig-def">
+    <thead>
+      <tr><th>Trigger</th><th>Leadtime</th><th>Wind speed</th>
+          <th>Number of people exposed</th><th>Provinces</th><th>Data source</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Readiness</strong></td>
+        <td>72 to 120 hours</td>
+        <td class="big" rowspan="3">&ge; 64 knots<br>
+          <span class="muted">(10-minute mean)</span></td>
+        <td class="big" rowspan="3">&ge; ${fmt(T)} people</td>
+        <td rowspan="2">Shefa, Sanma, Tafea</td>
+        <td>RSMC Nadi extended track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Action</strong></td>
+        <td>24 to 72 hours</td>
+        <td>VMHS track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Observational</strong></td>
+        <td>n/a</td>
+        <td>All of Vanuatu</td>
+        <td>VMHS observed track</td>
+      </tr>
+    </tbody>
+  </table>`;
+}
+
+function rpTable(rp, T) {
+  const N = rp.n_seasons, EXTRA = rp.combined.extra_default ?? 1;
+  const rpv = (k) => (N + 1) / k;
+  const yrs = (v) => (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "") + " years";
+  const pct = (v) => Math.round(100 / v) + "%";
+  const act = [...new Set(rp.scored_storms
+    .filter((s) => s.peakA >= T).map((s) => s.season))].sort();
+  const obs = [...new Set(rp.scored_storms
+    .filter((s) => s.obs >= T).map((s) => s.season))].sort();
+  const all = [...new Set([...act, ...obs])].sort();
+  const rpAct = rpv(act.length + EXTRA);
+  const rpObs = rpv(obs.length);
+  const rpAll = rpv(all.length + EXTRA);
+  const spend = "$" + (1.5 / rpAll).toFixed(1) + "M";
+  return `
+  <div class="tms">
+    <p class="tms-title">Trigger Mechanism Statistics</p>
+    <div class="secbar"><span class="sec">Stats by trigger</span>
+      <span class="yrs">Analysis years: ${rp.first_season}-${rp.last_season}</span></div>
+    <table>
+      <thead><tr><th>Trigger</th><th>Return period</th>
+        <th>Activation<br>probability</th><th>Years activated</th></tr></thead>
+      <tbody>
+        <tr><td>Action</td><td>${yrs(rpAct)}</td><td>${pct(rpAct)}</td>
+            <td>${act.join(", ")}, +1 assumed*</td></tr>
+        <tr><td>Observational</td><td>${yrs(rpObs)}</td><td>${pct(rpObs)}</td>
+            <td>${obs.join(", ")}</td></tr>
+      </tbody>
+    </table>
+    <div class="overall">
+      <span class="sec">Overall stats</span>
+      <table>
+        <tbody>
+          <tr><td class="lbl">Overall return period</td>
+              <td class="val">&le; ${yrs(rpAll)}</td></tr>
+          <tr><td class="lbl">Overall probability of activation</td>
+              <td class="val">&ge; ${pct(rpAll)}</td></tr>
+          <tr><td class="lbl">Average total spending per year</td>
+              <td class="val">&ge; $${(1.5 / rpAll).toFixed(1)}M</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="tms-foot">*One assumed action activation in 2008 (Gene) or 2011 (Atu): both
+  storms' observed 64&nbsp;kt swaths reached or nearly reached the AOI, but no forecast
+  records survive for 2006&ndash;11. The readiness window is not assessed (historical
+  long-lead wind radii too sparse), so the overall return period is reported as
+  &le; the computed value. Pre-arranged financing: $1.5M, disbursed in full on either an
+  action or an observational activation — expected spend per activation is $1.5M.</p>`;
+}
+
+
+
+function defSlide(rp, T) {
+  return `
+  <h1>Vanuatu anticipatory action — tropical cyclones</h1>
+  <p class="sub">Draft trigger mechanism &middot; August 2026</p>
+  <h2>Trigger definition</h2>
+  ${trigDefTable(T)}
+  ${rpTable(rp, T)}
+  <p class="footnote">
+    Backtest record: ${rp.first_season}&ndash;${rp.last_season}. IBTrACS 64-kt radii exist
+    reliably from 2005; season 2005 itself is excluded (its forecast archive is a single
+    anomalous year). Forecast legs scored where JTWC decks survive (2012&ndash;2025); the six
+    2006&ndash;11 seasons are unscorable and carried as ${rp.combined.extra_default ?? 1}
+    assumed activation. All wind thresholds on the 10-minute scale (evaluated at the 73-kt
+    1-min-equivalent contour in JTWC/IBTrACS data).
+  </p>`;
+}
+
+function stormSlide(rp, hist, T) {
+  const MAXROWS = 20;
+  const scored = new Map(rp.scored_storms.map((s) => [s.name.toUpperCase() + s.season, s]));
+  const pale = new Set(["GENE2008", "ATU2011"]);
+  const all = hist.storms.map((h) => {
+    const key = h.name.toUpperCase() + h.season;
+    const s = scored.get(key);
+    return {
+      name: h.name.charAt(0) + h.name.slice(1).toLowerCase(),
+      season: h.season,
+      peakA: s ? s.peakA : null,
+      obs: s ? s.obs : 0,
+      cerf: h.cerf, affected: h.affected,
+      exp34: h.exp34 || 0,
+      pale: pale.has(key),
+    };
+  });
+  const interesting = all.filter((r) =>
+    (r.peakA || 0) > 0 || r.obs > 0 || r.cerf || r.affected > 0 || r.pale);
+  const negatives = all.filter((r) => !interesting.includes(r))
+    .sort((x, y) => y.exp34 - x.exp34);
+  const rows = interesting
+    .concat(negatives.slice(0, Math.max(0, MAXROWS - interesting.length)))
+    .sort((x, y) => y.affected - x.affected || y.obs - x.obs ||
+      (y.peakA || 0) - (x.peakA || 0) || y.exp34 - x.exp34);
+  const maxTA = Math.max(...rows.map((r) => r.affected), 1);
+
+  const body = rows.map((r) => {
+    const fCell = r.pale
+      ? `<td class="num trig-pale">no record*</td>`
+      : r.peakA === null
+        ? `<td class="num" style="color:var(--text-muted)">no record</td>`
+        : `<td class="num${r.peakA >= T ? " trig" : ""}">${fmt(r.peakA)}</td>`;
+    const oCell = `<td class="num${r.obs >= T ? " trig" : ""}">${fmt(r.obs)}</td>`;
+    return `<tr>
+      <td>${esc(r.name)} ${r.season}</td>
+      ${fCell}${oCell}
+      <td class="center${r.cerf ? " cerf" : ""}">${r.cerf ? "&#10003;" : "—"}</td>
+      <td><span class="impact-bar" style="--w:${Math.round((r.affected / maxTA) * 100)}%">${fmt(r.affected)}</span></td>
+    </tr>`;
+  }).join("");
+
+  return `
+  <h1>Historical storms near Vanuatu, ${hist.first_season}&ndash;${hist.last_season}</h1>
+  <p class="sub">Exposure to &ge;64&nbsp;kt (10-min) winds &middot;
+    <span style="color:var(--critical);font-weight:650">red</span> = would have triggered
+    (&ge;${fmt(T)} people) &middot;
+    <span style="background:var(--critical-pale);padding:0 .35em;border-radius:2px">pale red</span>
+    = no forecast record survives, plausibly triggered</p>
+  <table class="storms">
+    <thead><tr>
+      <th>Storm</th>
+      <th class="num">64&nbsp;kt forecast exposure<br><span class="muted">action window 24&ndash;72&nbsp;h, AOI provinces</span></th>
+      <th class="num">64&nbsp;kt observed exposure<br><span class="muted">whole country</span></th>
+      <th class="center">CERF allocation</th>
+      <th>EM-DAT total affected</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+  <p class="footnote">
+    Forecast exposure: JTWC official forecasts (proxy — the framework's forecast sources carry
+    no historical wind radii), 24&ndash;72&nbsp;h track segment, WorldPop population inside the
+    forecast 64&nbsp;kt swath in Shefa/Sanma/Tafea, at the 73&nbsp;kt 1-min-equivalent contour.
+    Observed exposure: IBTrACS best-track radii, same contour, whole country. *Gene 2008 and
+    Atu 2011: observed swaths reached or nearly reached the AOI but no forecast decks survive
+    for 2006&ndash;11 — marked as plausible triggers; both caused documented damage (Gene:
+    severe damage on Futuna, in the AOI; Atu: outer-island damage, transport halted) that
+    EM-DAT does not record for Vanuatu. Donna 2017's impact fell on the Torres Islands
+    (pop&nbsp;~1,000) — no people-exposed threshold can catch a Torres-only hit. Storms shown:
+    all with nonzero 64-kt exposure, impact or CERF, plus the closest remaining passes
+    (largest observed gale-force exposure) as true negatives.
+  </p>`;
+}
+
+/* ---------- assemble deck ---------- */
+Promise.all([
+  fetch("../forecast-check/data/rp.json").then((r) => r.json()),
+  fetch("../forecast-check/data/hist.json").then((r) => r.json()),
+]).then(([rp, hist]) => {
+  const deck = document.getElementById("deck");
+  const defs = THRESHOLDS.map((T) => defSlide(rp, T));
+  const storms = THRESHOLDS.map((T) => stormSlide(rp, hist, T));
+  const slidesHtml = [...defs, ...storms];
+  deck.innerHTML = slidesHtml.map((h, i) =>
+    `<section class="slide${i === 0 ? " active" : ""}">${h}</section>`).join("");
+
+  const slides = [...deck.querySelectorAll(".slide")];
+  let cur = 0;
+  const show = (i) => {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle("active", j === cur));
+    document.getElementById("pos").textContent = `${cur + 1} / ${slides.length}`;
+    history.replaceState(null, "", "#" + (cur + 1));
+  };
+  document.getElementById("prev").addEventListener("click", () => show(cur - 1));
+  document.getElementById("next").addEventListener("click", () => show(cur + 1));
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowRight", "PageDown", " "].includes(e.key)) show(cur + 1);
+    if (["ArrowLeft", "PageUp"].includes(e.key)) show(cur - 1);
+  });
+  const h = parseInt((location.hash || "").slice(1), 10);
+  if (h >= 1 && h <= slides.length) show(h - 1);
+});
+</script>
+</body>
+</html>

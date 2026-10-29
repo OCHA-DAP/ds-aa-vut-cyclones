@@ -6,6 +6,7 @@ from typing import Literal
 import geopandas as gpd
 import xarray as xr
 
+import src.constants
 from src.datasources import codab
 from src.utils import blob
 
@@ -82,14 +83,18 @@ def process_vut_distances():
         gdf.to_crs(3832).geometry.distance(adm.to_crs(3832).iloc[0].geometry)
         / 1000
     )
-    blob_name = f"{blob.PROJECT_PREFIX}/processed/vut_distances.parquet"
+    blob_name = (
+        f"{src.constants.PROJECT_PREFIX}/processed/vut_distances.parquet"
+    )
     blob.upload_parquet_to_blob(
         blob_name, gdf.drop(columns="geometry"), stage="dev"
     )
 
 
 def load_vut_distances():
-    blob_name = f"{blob.PROJECT_PREFIX}/processed/vut_distances.parquet"
+    blob_name = (
+        f"{src.constants.PROJECT_PREFIX}/processed/vut_distances.parquet"
+    )
     return blob.load_parquet_from_blob(blob_name, stage="dev")
 
 

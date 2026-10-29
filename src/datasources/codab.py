@@ -1,5 +1,6 @@
 import requests
 
+import src.constants
 from src.utils import blob
 
 FIELDMAPS_BASE_URL = "https://data.fieldmaps.io/cod/originals/{iso3}.shp.zip"
@@ -7,14 +8,14 @@ FIELDMAPS_BASE_URL = "https://data.fieldmaps.io/cod/originals/{iso3}.shp.zip"
 
 def get_blob_name(iso3: str = "vut"):
     iso3 = iso3.lower()
-    return f"{blob.PROJECT_PREFIX}/raw/codab/{iso3}.shp.zip"
+    return f"{src.constants.PROJECT_PREFIX}/raw/codab/{iso3}.shp.zip"
 
 
 def download_codab_to_blob(iso3: str = "vut", clobber: bool = False):
     iso3 = iso3.lower()
     blob_name = get_blob_name(iso3)
     if not clobber and blob_name in blob.list_container_blobs(
-        name_starts_with=f"{blob.PROJECT_PREFIX}/raw/codab/"
+        name_starts_with=f"{src.constants.PROJECT_PREFIX}/raw/codab/"
     ):
         print(f"{blob_name} already exists in blob storage")
         return
