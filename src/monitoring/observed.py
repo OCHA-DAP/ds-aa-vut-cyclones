@@ -90,6 +90,17 @@ def analysis_point(forecast, content_sha12: str) -> pd.DataFrame:
     return row.reindex(columns=COLUMNS)
 
 
+def cutoff(forecast, point: pd.DataFrame) -> pd.Timestamp:
+    """Where a forecast's observed track ends (observed_track's ``until``):
+    its issue time, or its own analysis point if that is a little later
+    (within ANALYSIS_TOLERANCE_H), so the newest position is never left
+    out."""
+    return max(
+        pd.Timestamp(forecast.base_time),
+        pd.Timestamp(point["valid_time"].iloc[0]),
+    )
+
+
 def add_point(points: pd.DataFrame, point: pd.DataFrame) -> pd.DataFrame:
     """Add a point; a later forecast for the same storm and time replaces
     the earlier one (a corrected re-issue)."""

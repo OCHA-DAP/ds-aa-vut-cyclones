@@ -55,3 +55,18 @@ def test_info_email_shows_only_the_sources_triggers():
 def test_cyclone_name_is_escaped():
     r = render_template("readiness.html", dict(BASE, cyclone_name="<b>x</b>"))
     assert "<b>x</b>" not in r and "&lt;b&gt;x&lt;/b&gt;" in r
+
+
+def test_info_email_only_claims_the_observed_swath_when_there_is_one():
+    kw = dict(any_34_knot_exposure=True, source_name="VMHS")
+    seen = info("vmhs", has_observed=True, observational_exp="1,439", **kw)
+    assert "Observed so far (1 VMHS position up to" in seen
+    assert "<b>1,439 people</b>" in seen
+    assert "observed so far plus forecast" in seen
+    assert "The maps show, faded, the wind swath observed" in seen
+    none = info("vmhs", has_observed=False, observational_exp="", **kw)
+    assert "Observed so far (all of Vanuatu): <b>not available</b>" in none
+    assert "observed so far plus forecast" not in none
+    assert "faded" not in none
+    assert "The maps show the forecast wind swath along" in none
+    assert "people</b>" not in none.split("Observed so far")[1][:80]

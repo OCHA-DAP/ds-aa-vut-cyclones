@@ -320,13 +320,15 @@ def main() -> None:
     if official:
         try:
             points = observed.load_points(IS_TEST_SEND, source)
-            points = observed.add_point(
-                points, observed.analysis_point(fc, content_sha12)
-            )
+            point = observed.analysis_point(fc, content_sha12)
+            points = observed.add_point(points, point)
             if not DRY_RUN:
                 observed.save_points(points, IS_TEST_SEND, source)
             obs_track = observed.observed_track(
-                points, fc.disturbance_id, fc.season, until=fc.base_time
+                points,
+                fc.disturbance_id,
+                fc.season,
+                until=observed.cutoff(fc, point),
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("Observed track failed")
@@ -412,6 +414,8 @@ def main() -> None:
             observational_exp, observational = None, False
             obs_geoms = {s: None for s in SPEEDS}
             obs_track = None  # nor drawn on the maps
+    # whether the observed swath is drawn and counted in the attachments
+    has_observed = obs_track is not None and not obs_track.empty
 
     email_base_name = ("[TEST]_" if IS_TEST_SEND else "") + forecast_id
     sent_record = None
@@ -587,15 +591,15 @@ def main() -> None:
             window_label=(
                 f"Trigger window, {WINDOW_STR[source].replace(' to ', '–')}"
             ),
-            gdf_observed_track=(
-                _pts(obs_track)
-                if obs_track is not None and n_observed
-                else None
-            ),
+            gdf_observed_track=_pts(obs_track) if has_observed else None,
             swath_note=(
                 f"{SOURCE_NAME[source]} forecast and observed track. The "
                 "exposure counts both; the trigger counts only the "
                 f"{WINDOW_STR[source]} part of the forecast (outlined)."
+                if has_observed
+                else f"{SOURCE_NAME[source]} forecast. The exposure counts "
+                "all of it; the trigger counts only the "
+                f"{WINDOW_STR[source]} part (outlined)."
             ),
             id_col="ADM1_PCODE",
             name_col="ADM1_EN",
@@ -648,6 +652,7 @@ def main() -> None:
                 else ""
             ),
             "n_observed": n_observed,
+            "has_observed": has_observed,
             "observed_display_str": observed_display_str,
             "window_str": WINDOW_STR[source],
             "source_name": SOURCE_NAME[source],

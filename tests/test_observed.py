@@ -113,3 +113,26 @@ def test_observed_track_stops_at_the_forecast_issue_time():
         pts, "2526-07F", 2026, until=pd.Timestamp("2026-02-01T06:00:00")
     )
     assert list(upto["valid_time"]) == [pd.Timestamp("2026-02-01T00:00:00")]
+
+
+def test_own_analysis_point_after_issue_time_is_kept():
+    # first row 1 h after issue: accepted as the analysis point, so the
+    # forecast's own observed track must include it
+    fc = parse_forecast_csv(make_csv(ROWS))
+    late = fc.track.copy()
+    late["valid_time"] = late["valid_time"] + pd.Timedelta(hours=1)
+    late["leadtime"] = late["leadtime"] + 1
+    fc.track = late
+    pt = observed.analysis_point(fc, "a")
+    pts = observed.add_point(pd.DataFrame(columns=observed.COLUMNS), pt)
+    tr = observed.observed_track(
+        pts, "2526-07F", 2026, until=observed.cutoff(fc, pt)
+    )
+    assert len(tr) == 1
+    # a later forecast's point stays out
+    later = pt.assign(valid_time=pt["valid_time"] + pd.Timedelta(hours=6))
+    pts = observed.add_point(pts, later)
+    tr = observed.observed_track(
+        pts, "2526-07F", 2026, until=observed.cutoff(fc, pt)
+    )
+    assert len(tr) == 1

@@ -964,7 +964,11 @@ def plot_bubbles_and_swaths(
         )
 
     for row_idx, row_label in enumerate(
-        ["Wind swaths", "Population exposure,\nobserved + forecast"]
+        [
+            "Wind swaths",
+            "Population exposure,\n"
+            + ("observed + forecast" if has_obs else "forecast"),
+        ]
     ):
         axes[row_idx, 0].text(
             -0.02,

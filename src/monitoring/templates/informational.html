@@ -34,7 +34,11 @@
     &nbsp;&nbsp;&nbsp;Rest of the forecast (up to 72 hours, Sanma, Shefa and Tafea; for information only): <b>{{ early_exp }} people</b><br>
     {% else %}
     &nbsp;&nbsp;&nbsp;Action forecast (24 to 72 hours, Sanma, Shefa and Tafea): <b>{{ action_exp }} people</b><br>
+    {% if has_observed %}
     &nbsp;&nbsp;&nbsp;Observed so far ({{ n_observed }} VMHS position{{ "s" if n_observed != 1 else "" }} up to {{ observed_display_str }}, all of Vanuatu): <b>{{ observational_exp }} people</b><br>
+    {% else %}
+    &nbsp;&nbsp;&nbsp;Observed so far (all of Vanuatu): <b>not available</b><br>
+    {% endif %}
     {% endif %}
   </p>
   <p>
@@ -70,13 +74,13 @@
 
   <h3>Exposure by province and area council</h3>
   <p>
-    The exposure for all of Vanuatu, counting both the wind swath observed so far and the whole forecast (not only its {{ window_str }} part), is shown in the attached files:
+    The exposure for all of Vanuatu, counting {% if has_observed %}both the wind swath observed so far and {% endif %}the whole forecast (not only its {{ window_str }} part), is shown in the attached files:
     <ul>
       <li>
-        <b><em>{{ forecast_id }}_adm2_exposure.csv</em></b>: data indicating the area council-level exposure to 34-, 50-, and 64-knots winds, observed so far plus forecast. Only the <em>Most likely</em> scenario is indicated. The values are sorted by 64-, then 50-, then 34-knot exposure, so the area councils with the highest exposure are listed first.
+        <b><em>{{ forecast_id }}_adm2_exposure.csv</em></b>: data indicating the area council-level exposure to 34-, 50-, and 64-knots winds{% if has_observed %}, observed so far plus forecast{% endif %}. Only the <em>Most likely</em> scenario is indicated. The values are sorted by 64-, then 50-, then 34-knot exposure, so the area councils with the highest exposure are listed first.
       </li>
       <li>
-        <b><em>{{ forecast_id }}_adm1_exposure.pdf</em></b>: plots showing the province-level exposure to 34-, 50-, and 64-knots winds, observed so far plus forecast. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above (the observed part is the same in all three). The maps show, faded, the wind swath observed so far along the storm's observed track (solid), made of the current positions of all the {{ source_name }} forecasts received for this cyclone; the forecast wind swath beyond it, along the forecast track (dashed); and an outline of the 64-knot swath of the {{ window_str }} part of the forecast, which the trigger counts.
+        <b><em>{{ forecast_id }}_adm1_exposure.pdf</em></b>: plots showing the province-level exposure to 34-, 50-, and 64-knots winds{% if has_observed %}, observed so far plus forecast{% endif %}. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above{% if has_observed %} (the observed part is the same in all three){% endif %}. The worst and best case tracks are the ones with the highest and lowest exposure in the {{ window_str }} part of the forecast, so on the whole forecast their totals can come out close to, or on the other side of, the <em>Most likely</em> total. The maps show{% if has_observed %}, faded, the wind swath observed so far along the storm's observed track (solid), made of the current positions of all the {{ source_name }} forecasts received for this cyclone; the forecast wind swath beyond it, {% else %} the forecast wind swath {% endif %}along the forecast track (dashed); and an outline of the 64-knot swath of the {{ window_str }} part of the forecast, which the trigger counts in Sanma, Shefa and Tafea.
       </li>
     </ul>
   </p>
