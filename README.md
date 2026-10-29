@@ -57,8 +57,8 @@ humdata.org relay inbox: "[fji-relay] fms_forecast" / "[vut-relay] vmhs_forecast
 Databricks job "Vanuatu Cyclone Monitoring" (databricks.yml), one run per CSV
   |  pipelines/monitor_forecast_trigger.py --source fms | vmhs
   v
-Listmonk: an information email per forecast, and readiness / action /
-observational emails when a trigger is met
+Listmonk: readiness / action / observational emails as soon as a trigger
+is met, and one information email per forecast time with both forecasts
 ```
 
 FMS forecasts reach the job through the existing Fiji chain: the poller
@@ -72,21 +72,34 @@ internal KB has the addresses.
 
 **What gets emailed.** FMS forecasts whose track (to 120 h) never comes
 within 1,000 km of Vanuatu are skipped: FMS covers the whole South Pacific.
-Every other FMS forecast, and every VMHS forecast, gets an information
-email in the Fiji format (exposure, a likely-range plot against past
-storms, the area-council exposure as a CSV and province plots as a
-PDF). Readiness and
-action emails go out for every forecast that meets them, as in Fiji. The
-observational email goes out once per storm: the observed track only grows,
-so it would otherwise be re-sent with every later VMHS forecast. Each email
-is sent at most once per CSV (`ds-aa-vut-cyclones/monitoring/email_record.csv`
-on the dev blob; tests use `test_email_record.csv`). The observed track is
-the analysis (0 h) point of every forecast received for the storm, as
-ds-storms-pipeline does for NHC, kept per source in
-`monitoring/{fms,vmhs}_observed_points.csv` (tests: `test_...`), keyed by
-disturbance id and season, which stay the same when a storm is named. The
-VMHS one is the observational trigger. FMS points are recorded even for
-storms still far from Vanuatu.
+
+- *Trigger emails* go out at once, from the forecast that meets them:
+  readiness (RSMC Nadi), action and observational (VMHS). Readiness and
+  action go out for every forecast that meets them, as in Fiji; the
+  observational email once per storm (the observed track only grows).
+- *The information email* is one per storm and forecast time, with both
+  providers: the VMHS forecast in the Fiji format (exposure, a likely-range
+  plot against past storms, the area-council exposure as a CSV and province
+  plots as a PDF) and the RSMC Nadi readiness result as a few lines (no
+  RSMC Nadi maps or data). VMHS is named as the only official source
+  throughout. The first forecast of a pair waits for the second
+  (`src/monitoring/info_bundle.py`): a forecast of the other source issued
+  within 3 h and with the same disturbance id, the same name, or an
+  analysis position within 300 km. If none arrives within 1 h
+  (`INFO_WAIT_HOURS`), the email goes out with the one forecast; a
+  late partner, or a re-issue, sends the pair again. The next forecast run
+  sends overdue emails, and so does the poller in pa-aa-fji-storms: it
+  reads the queue (`monitoring/info_pending.csv`, `test_...` for tests)
+  every 10 minutes and starts this job with the event `info_flush`
+  (`info_flush_test`) when one is overdue.
+
+Each email is sent at most once per CSV (or pair of CSVs)
+(`ds-aa-vut-cyclones/monitoring/email_record.csv` on the dev blob; tests
+use `test_email_record.csv`). The observed track is the analysis (0 h)
+point of every VMHS forecast received for the storm, as ds-storms-pipeline
+does for NHC (`monitoring/vmhs_observed_points.csv`, tests: `test_...`),
+keyed by disturbance id and season, which stay the same when a storm is
+named.
 
 The CSV and the province plots count, as ds-storms-alerts does, what was
 observed so far plus the whole forecast (the union of the two swaths, per

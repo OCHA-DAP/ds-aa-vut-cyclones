@@ -61,3 +61,14 @@ def test_prefixes_match_the_poller():
     assert rm.EVENTS["vmhs_forecast"][1] == (
         "ds-aa-vut-cyclones/raw/vmhs/inbox/"
     )
+
+
+def test_flush_events_take_no_csv():
+    assert rm.monitor_args("info_flush", "") == ["--flush"]
+    assert rm.monitor_args("info_flush_test", "") == ["--flush"]
+    assert "info_flush_test" in rm.TEST_EVENTS
+    assert "info_flush" not in rm.TEST_EVENTS
+    with pytest.raises(ValueError):
+        rm.monitor_args(
+            "info_flush", "ds-aa-vut-cyclones/raw/vmhs/inbox/x.csv"
+        )

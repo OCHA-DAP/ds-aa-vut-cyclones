@@ -4,10 +4,10 @@ We only receive forecast CSVs, so the observed track is the analysis point
 (lead time 0: the storm's position and wind radii at issue time) of every
 forecast received for the storm, as ds-storms-pipeline does for NHC
 (nhc_tracks_obsv_buffers). Each run adds its analysis point to a record on
-the dev blob and reads back all points for that disturbance. There is one
-record per source: VMHS's is the framework's observed track (the
-observational trigger); RSMC Nadi's is only drawn on the maps in the FMS
-emails.
+the dev blob and reads back all points for that disturbance. Only VMHS
+forecasts are recorded: their track is the framework's observed track (the
+observational trigger). The record is per source (``fms`` was recorded
+until the information emails were bundled, src/monitoring/info_bundle.py).
 
 Test runs (TEST_EMAIL or SIMULATE_TRIGGER) keep a separate record, so a
 test CSV can never become part of a real storm's observed track. Under
