@@ -7,7 +7,10 @@ in the dev blob:
 - an RSMC Nadi (FMS) forecast (``fms_forecast``, staged by the poller for
   the Fiji job too) -> the readiness trigger;
 - a VMHS forecast (``vmhs_forecast``, from the "[vut-relay]" relay emails)
-  -> the action and observational triggers.
+  -> the action and observational triggers;
+- ``info_flush``: no CSV; sends the information emails whose partner
+  forecast didn't arrive in time (src/monitoring/info_bundle.py). The
+  poller starts it when the queue has one past its deadline.
 
 The FMS CSV is read straight from the staged file, not from storms.fms_*:
 the Fiji job ingests it at the same moment, and this job must not wait on
@@ -15,10 +18,11 @@ or race that. Adapted from pa-aa-fji-storms (databricks/run_monitor.py).
 
 Positional parameters (databricks.yml):
     1 event                   fms_forecast | fms_forecast_test |
-                              vmhs_forecast | vmhs_forecast_test (a test
-                              event forces TEST_EMAIL=True)
+                              vmhs_forecast | vmhs_forecast_test |
+                              info_flush | info_flush_test (a test event
+                              forces TEST_EMAIL=True)
     2 test_email              True | False (from the poller)
-    3 csv_blob                the staged CSV
+    3 csv_blob                the staged CSV (empty for info_flush)
     4 dry_run                 True | False (fixed at deploy)
     5 simulate_trigger        True | False (fixed at deploy)
     6 max_forecast_age_hours  no real-list emails for older forecasts
@@ -43,7 +47,8 @@ EVENTS = {
     "vmhs_forecast": ("vmhs", "ds-aa-vut-cyclones/raw/vmhs/inbox/"),
     "vmhs_forecast_test": ("vmhs", "ds-aa-vut-cyclones/raw/vmhs/inbox/"),
 }
-TEST_EVENTS = ("fms_forecast_test", "vmhs_forecast_test")
+FLUSH_EVENTS = ("info_flush", "info_flush_test")
+TEST_EVENTS = ("fms_forecast_test", "vmhs_forecast_test", "info_flush_test")
 LISTMONK_SECRETS = (
     "DSCI_LISTMONK_BASE_URL",
     "DSCI_LISTMONK_API_USERNAME",
@@ -77,8 +82,14 @@ def env_flag(name: str, value: str) -> bool:
 
 def monitor_args(event: str, csv_blob: str) -> list[str]:
     """The monitor's arguments; refuses a CSV outside the event's inbox."""
+    if event in FLUSH_EVENTS:
+        if csv_blob:
+            raise ValueError(f"{event} takes no csv_blob, got {csv_blob!r}")
+        return ["--flush"]
     if event not in EVENTS:
-        raise ValueError(f"event must be one of {list(EVENTS)}, got {event!r}")
+        raise ValueError(
+            f"event must be one of {[*EVENTS, *FLUSH_EVENTS]}, got {event!r}"
+        )
     source, prefix = EVENTS[event]
     if (
         not csv_blob.startswith(prefix)

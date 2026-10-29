@@ -44,7 +44,7 @@ from src.constants import (
     LOCAL_TIMEZONE,
 )
 from src.datasources import codab
-from src.monitoring import email_record, observed
+from src.monitoring import email_record, info_bundle, observed
 from src.monitoring.content import render_template
 from src.monitoring.exposure import ExposureContext
 from src.monitoring.forecast import (
@@ -106,10 +106,18 @@ SUBJECT_PREFIX = "[TEST] " if IS_TEST_SEND else ""
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", choices=["fms", "vmhs"], required=True)
+    parser.add_argument("--source", choices=["fms", "vmhs"])
     parser.add_argument("--csv-blob", default="", help="dev-blob CSV name")
     parser.add_argument("--csv-file", default="", help="local CSV path")
-    return parser.parse_args()
+    parser.add_argument(
+        "--flush",
+        action="store_true",
+        help="no forecast: send the information emails past their deadline",
+    )
+    args = parser.parse_args()
+    if not args.flush and not args.source:
+        parser.error("--source is required (or --flush)")
+    return args
 
 
 def vut_time_str(dt: pd.Timestamp) -> str:
@@ -274,6 +282,80 @@ def load_csv(args) -> bytes:
     raise SystemExit("No forecast CSV given (--csv-blob or --csv-file).")
 
 
+def utc_now() -> pd.Timestamp:
+    return pd.Timestamp.now(tz="UTC").tz_localize(None)
+
+
+def deliver_info(actions, contexts: dict, sent_record):
+    """Send the information emails ``actions`` asks for (tuples of index
+    keys, src/monitoring/info_bundle.py); under DRY_RUN, write them to
+    temp/ instead."""
+    for keys in actions:
+        ctxs = [
+            contexts[k]
+            if k in contexts
+            else info_bundle.load_context(IS_TEST_SEND, k)
+            for k in keys
+        ]
+        email = info_bundle.render_info(ctxs, SUBJECT_PREFIX)
+        if DRY_RUN:
+            os.makedirs("temp", exist_ok=True)
+            path = f"temp/{email['record_id']}_info.html"
+            Path(path).write_text(email["body"])
+            logger.info(f"DRY RUN: not sending {email['subject']!r} ({path})")
+            continue
+        sent_record = send_once(
+            sent_record,
+            "forecast_info",
+            email["record_id"],
+            email["record_sha"],
+            subject=email["subject"],
+            name=(
+                ("[TEST]_" if IS_TEST_SEND else "")
+                + f"{email['record_id']}_forecast_info"
+            ),
+            list_ids=INFO_LIST_IDS,
+            body=email["body"],
+            media=email["media"],
+        )
+    return sent_record
+
+
+def queue_info(source, fc, content_sha12, forecast_id, sent_record, context):
+    """Store this forecast's part of the information email and send what
+    is ready: the email with both forecasts if its partner is in, any other
+    email past its deadline."""
+    now = utc_now()
+    row = info_bundle.make_row(source, fc, content_sha12, forecast_id, now)
+    index = info_bundle.load_index(IS_TEST_SEND)
+    index, actions = info_bundle.plan(index, row, now)
+    logger.info(f"Information emails now: {actions or 'none, waiting'}")
+    if DRY_RUN:
+        # nothing is stored; show this forecast's email on its own too
+        if not any(row["key"] in keys for keys in actions):
+            actions = actions + [(row["key"],)]
+        deliver_info(actions, {row["key"]: context}, sent_record)
+        return
+    info_bundle.save_context(context, IS_TEST_SEND, row["key"])
+    deliver_info(actions, {row["key"]: context}, sent_record)
+    info_bundle.save_index(index, IS_TEST_SEND)
+
+
+def flush_info() -> None:
+    """The information emails past their deadline, on their own."""
+    index, actions = info_bundle.plan_flush(
+        info_bundle.load_index(IS_TEST_SEND), utc_now()
+    )
+    logger.info(f"Information emails past their deadline: {actions or 'none'}")
+    sent_record = None
+    if not DRY_RUN:
+        sent_record = email_record.load_record(IS_TEST_SEND)
+        email_record.save_record(sent_record, IS_TEST_SEND)
+    deliver_info(actions, {}, sent_record)
+    if not DRY_RUN:
+        info_bundle.save_index(index, IS_TEST_SEND)
+
+
 def main() -> None:
     logger.info("Vanuatu monitor forecast trigger pipeline started.")
     logger.info(
@@ -290,6 +372,9 @@ def main() -> None:
             "ALLOW_REAL_SIMULATION=True if that is really what you want."
         )
     args = parse_args()
+    if args.flush:
+        flush_info()
+        return
     source = args.source
     csv_bytes = load_csv(args)
     content_sha12 = hashlib.sha256(csv_bytes).hexdigest()[:12]
@@ -310,14 +395,14 @@ def main() -> None:
     adm2 = codab.load_codab_from_blob(admin_level=2)
     official = fc.track_type == OFFICIAL_TRACK
 
-    # The observed track (src/monitoring/observed.py), one per source: for
-    # VMHS it is the observational trigger, for FMS it is only drawn on the
-    # maps. Recorded before the distance check, so a storm's track is
-    # complete by the time it comes near. It must never stop the emails: a
-    # problem is logged, the emails go out, the run fails at the end.
+    # The observed track (src/monitoring/observed.py): the VMHS forecasts'
+    # analysis points, the observational trigger. It must never stop the
+    # emails: a problem is logged, the emails go out, the run fails at the
+    # end. (RSMC Nadi's contribution to the emails is the readiness result
+    # only, so it keeps no observed track.)
     observed_error = None
     obs_track = None
-    if official:
+    if official and source == "vmhs":
         try:
             points = observed.load_points(IS_TEST_SEND, source)
             point = observed.analysis_point(fc, content_sha12)
@@ -344,10 +429,6 @@ def main() -> None:
                 f"More than {INFO_DISTANCE_KM:,} km from Vanuatu: no "
                 "Vanuatu emails for this forecast."
             )
-            if observed_error is not None:
-                raise RuntimeError(
-                    "The observed track failed (see above)."
-                ) from observed_error
             return
 
     # after the distance check: a non-Official FMS track for a far-away
@@ -384,11 +465,13 @@ def main() -> None:
         + ", ".join(f"{s} kt {v:,}" for s, v in exp_aoi.items())
     )
 
-    early_exp = None
-    if source == "fms":
-        early = swaths(segment(fc.track, 0, lo))[64]
-        early_exp = ctx.aoi(early)
-        logger.info(f"0 to {lo} h 64 kt exposure (info only): {early_exp:,}")
+    def status(met: bool) -> str:
+        return "ACTIVATED" if met else "NOT ACTIVATED"
+
+    def exp_str(value, covered=True) -> str:
+        if not covered:
+            return f"n/a (the forecast only goes to {max_lt:.0f} hours)"
+        return f"{value:,.0f}"
 
     observational_exp = None
     observational = False
@@ -460,6 +543,28 @@ def main() -> None:
                     },
                 ),
             )
+
+    if source == "fms":
+        # RSMC Nadi's part of the information email: the readiness result
+        queue_info(
+            source,
+            fc,
+            content_sha12,
+            forecast_id,
+            sent_record,
+            {
+                "source": "fms",
+                "forecast_id": forecast_id,
+                "content_sha12": content_sha12,
+                "cyclone_name": cyclone_name,
+                "forecast_display_str": forecast_display_str,
+                "readiness_met": bool(triggered),
+                "readiness_str": status(triggered),
+                "readiness_exp": exp_str(trigger_exp, window_covered),
+            },
+        )
+        logger.info("Vanuatu monitor forecast trigger pipeline completed.")
+        return
 
     # Perturbed tracks: the likely range around the most likely value
     rows = []
@@ -613,39 +718,25 @@ def main() -> None:
         else:
             logger.info(f"DRY RUN: wrote {adm2_csv} and {pdf_path}.")
 
-    def status(met: bool) -> str:
-        return "ACTIVATED" if met else "NOT ACTIVATED"
-
-    def exp_str(value, covered=True) -> str:
-        if not covered:
-            return f"n/a (the forecast only goes to {max_lt:.0f} hours)"
-        return f"{value:,.0f}"
-
-    met = []
-    if source == "fms" and triggered:
-        met.append("READINESS")
-    if source == "vmhs" and triggered:
-        met.append("ACTION")
-    if observational:
-        met.append("OBSERVATIONAL")
-    if met:
-        trigger_word = "TRIGGERS" if len(met) > 1 else "TRIGGER"
-        activation_subject = f"({' AND '.join(met)} {trigger_word} ACTIVATED)"
-    else:
-        activation_subject = "(NOT ACTIVATED)"
-
-    body = render_template(
-        "informational.html",
+    # VMHS's part of the information email: all of it but the readiness
+    # result (src/monitoring/info_bundle.py)
+    queue_info(
+        source,
+        fc,
+        content_sha12,
+        forecast_id,
+        sent_record,
         {
-            "source": source,
+            "source": "vmhs",
+            "forecast_id": forecast_id,
+            "content_sha12": content_sha12,
             "cyclone_name": cyclone_name,
             "forecast_display_str": forecast_display_str,
-            "readiness_str": status(triggered),
+            "action_met": bool(triggered),
             "action_str": status(triggered),
-            "observational_str": status(observational),
-            "readiness_exp": exp_str(trigger_exp, window_covered),
-            "early_exp": exp_str(early_exp) if early_exp is not None else "",
             "action_exp": exp_str(trigger_exp, window_covered),
+            "observational_met": bool(observational),
+            "observational_str": status(observational),
             "observational_exp": (
                 exp_str(observational_exp)
                 if observational_exp is not None
@@ -657,38 +748,11 @@ def main() -> None:
             "window_str": WINDOW_STR[source],
             "source_name": SOURCE_NAME[source],
             "img_base64_thermometer": img_base64_thermometer,
-            "forecast_id": forecast_id,
-            "any_64_knot_exposure": any_64,
-            "any_34_knot_exposure": any_34,
+            "any_64_knot_exposure": bool(any_64),
+            "any_34_knot_exposure": bool(any_34),
+            "media": [m for m in (adm2_exp_id, bubbles_plot_id) if m],
         },
     )
-    # the provider in the subject, so the RSMC Nadi (readiness only) and
-    # VMHS emails can be told apart in the inbox
-    info_kind = {
-        "fms": "readiness monitoring, RSMC Nadi forecast",
-        "vmhs": "VMHS forecast information",
-    }[source]
-    subject = (
-        f"{SUBJECT_PREFIX}Anticipatory action Vanuatu: Cyclone "
-        f"{cyclone_name} {info_kind} {activation_subject}"
-    )
-    if DRY_RUN:
-        os.makedirs("temp", exist_ok=True)
-        Path(f"temp/{forecast_id}_info.html").write_text(body)
-        logger.info(f"DRY RUN: not sending {subject!r}")
-    else:
-        logger.info("Sending info email.")
-        send_once(
-            sent_record,
-            "forecast_info",
-            forecast_id,
-            content_sha12,
-            subject=subject,
-            name=f"{email_base_name}_forecast_info",
-            list_ids=INFO_LIST_IDS,
-            body=body,
-            media=[m for m in (adm2_exp_id, bubbles_plot_id) if m],
-        )
     if observed_error is not None:
         raise RuntimeError(
             "The observed track failed (see above); the other emails went "

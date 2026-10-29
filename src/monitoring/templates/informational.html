@@ -1,67 +1,59 @@
 <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
     This email is purely advisory, and does not serve as an official notice for the anticipatory action framework. Official notices of activation are sent by a separate email. This email does not constitute an official forecast. The Vanuatu Meteorology and Hydro-Meteorological Services (VMHS) is the national authority for tropical cyclone forecasts and warnings in Vanuatu: all official information on tropical cyclones in Vanuatu comes from VMHS, and its <a href="https://www.vmgd.gov.vu/">warnings and forecasts</a> should be treated as authoritative.
-    {% if source == "fms" %}
-    This email reports the extended track forecast of the Regional Specialized Meteorological Centre (RSMC) Nadi, the regional centre for tropical cyclones in the South Pacific, operated by the Fiji Meteorological Service. The framework uses this forecast, which reaches 120 hours ahead, only for its readiness trigger (72 to 120 hours ahead).
+    {% if fms %}
+    The readiness trigger uses the extended track forecast of the Regional Specialized Meteorological Centre (RSMC) Nadi, the regional centre for tropical cyclones in the South Pacific, operated by the Fiji Meteorological Service. The framework uses this forecast, which reaches 120 hours ahead, only for its readiness trigger (72 to 120 hours ahead).
     {% endif %}
 </div>
 <div>
   <p>Dear colleagues,</p>
   <p>
-    {% if source == "fms" %}
-    The RSMC Nadi extended track forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Fiji Meteorological Service. It is used only for the readiness trigger.
-    {% else %}
-    The forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Vanuatu Meteorology and Hydro-Meteorological Services (VMHS).
+    {% if vmhs %}
+    The forecast for cyclone {{ cyclone_name }} produced at {{ vmhs.forecast_display_str }} has been shared with us by the Vanuatu Meteorology and Hydro-Meteorological Services (VMHS).
+    {% endif %}
+    {% if fms %}
+    {% if vmhs %}For the readiness trigger only, the{% else %}The{% endif %} RSMC Nadi extended track forecast for cyclone {{ cyclone_name }} produced at {{ fms.forecast_display_str }} has been shared with us by the Fiji Meteorological Service.
     {% endif %}
   </p>
   <p>
-    {% if source == "fms" %}
-    &nbsp;&nbsp;&nbsp;Readiness trigger: <b>{{ readiness_str }}</b><br>
-    {% else %}
-    &nbsp;&nbsp;&nbsp;Action trigger: <b>{{ action_str }}</b><br>
-    &nbsp;&nbsp;&nbsp;Observational trigger: <b>{{ observational_str }}</b><br>
-    {% endif %}
-  </p>
-  <p>
-    {% if source == "fms" %}
-    <i>The action and observational triggers are assessed on VMHS forecasts, which are reported in separate emails.</i>
-    {% else %}
-    <i>The readiness trigger is reported in separate emails.</i>
-    {% endif %}
+    &nbsp;&nbsp;&nbsp;Readiness trigger: <b>{{ fms.readiness_str if fms else "not assessed (no RSMC Nadi forecast received for this time)" }}</b><br>
+    &nbsp;&nbsp;&nbsp;Action trigger: <b>{{ vmhs.action_str if vmhs else "not assessed (no VMHS forecast received for this time)" }}</b><br>
+    &nbsp;&nbsp;&nbsp;Observational trigger: <b>{{ vmhs.observational_str if vmhs else "not assessed (no VMHS forecast received for this time)" }}</b><br>
   </p>
   <p>
     The number of people forecasted to be exposed to at least 64-knot ("hurricane-force") winds is indicated below. Recall that the trigger threshold is <b>15,000 people</b>.
   </p>
   <p>
-    {% if source == "fms" %}
-    &nbsp;&nbsp;&nbsp;Readiness forecast (72 to 120 hours, Sanma, Shefa and Tafea): <b>{{ readiness_exp }} people</b><br>
-    &nbsp;&nbsp;&nbsp;Rest of the forecast (up to 72 hours, Sanma, Shefa and Tafea; for information only): <b>{{ early_exp }} people</b><br>
-    {% else %}
-    &nbsp;&nbsp;&nbsp;Action forecast (24 to 72 hours, Sanma, Shefa and Tafea): <b>{{ action_exp }} people</b><br>
-    {% if has_observed %}
-    &nbsp;&nbsp;&nbsp;Observed so far ({{ n_observed }} VMHS position{{ "s" if n_observed != 1 else "" }} up to {{ observed_display_str }}, all of Vanuatu): <b>{{ observational_exp }} people</b><br>
+    {% if fms %}
+    &nbsp;&nbsp;&nbsp;Readiness, RSMC Nadi forecast (72 to 120 hours, Sanma, Shefa and Tafea): <b>{{ fms.readiness_exp }} people</b><br>
+    {% endif %}
+    {% if vmhs %}
+    &nbsp;&nbsp;&nbsp;Action, VMHS forecast (24 to 72 hours, Sanma, Shefa and Tafea): <b>{{ vmhs.action_exp }} people</b><br>
+    {% if vmhs.has_observed %}
+    &nbsp;&nbsp;&nbsp;Observed so far ({{ vmhs.n_observed }} VMHS position{{ "s" if vmhs.n_observed != 1 else "" }} up to {{ vmhs.observed_display_str }}, all of Vanuatu): <b>{{ vmhs.observational_exp }} people</b><br>
     {% else %}
     &nbsp;&nbsp;&nbsp;Observed so far (all of Vanuatu): <b>not available</b><br>
     {% endif %}
     {% endif %}
   </p>
   <p>
-    Please find more information about this forecast below. As always, the official tropical cyclone forecasts and warnings for Vanuatu are those of VMHS, on the <a href="https://www.vmgd.gov.vu/">VMHS website</a>.
+    {% if vmhs %}Please find more information about the VMHS forecast below. {% endif %}As always, the official tropical cyclone forecasts and warnings for Vanuatu are those of VMHS, on the <a href="https://www.vmgd.gov.vu/">VMHS website</a>.
   </p>
   <p>Best wishes,</p>
   <p>OCHA Centre for Humanitarian Data</p>
 </div>
+{% if vmhs %}
 <hr class="hr-divider">
 <div>
   <h2>Forecast information</h2>
-  {% if any_34_knot_exposure %}
+  {% if vmhs.any_34_knot_exposure %}
 
   <h3>Exposure in Sanma, Shefa and Tafea</h3>
 
-  {% if any_64_knot_exposure %}
+  {% if vmhs.any_64_knot_exposure %}
   <p>
-    The plot below shows the likely range of population exposure to 64-knot winds in Sanma, Shefa and Tafea, for the {{ window_str }} part of the forecast.
+    The plot below shows the likely range of population exposure to 64-knot winds in Sanma, Shefa and Tafea, for the {{ vmhs.window_str }} part of the forecast.
   </p>
-  <img src="data:image/png;base64,{{ img_base64_thermometer }}" style="max-height:400px;"alt="Figure">
+  <img src="data:image/png;base64,{{ vmhs.img_base64_thermometer }}" style="max-height:400px;"alt="Figure">
   <br>
   <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
     <p>
@@ -72,18 +64,18 @@
     </p>
   </div>
   {% else %}
-  <p><i>No 64-knot exposure is forecasted in Sanma, Shefa or Tafea for the {{ window_str }} part of the forecast, even in worst case; plot is omitted.</i></p>
+  <p><i>No 64-knot exposure is forecasted in Sanma, Shefa or Tafea for the {{ vmhs.window_str }} part of the forecast, even in worst case; plot is omitted.</i></p>
   {% endif %}
 
   <h3>Exposure by province and area council</h3>
   <p>
-    The exposure for all of Vanuatu, counting {% if has_observed %}both the wind swath observed so far and {% endif %}the whole forecast (not only its {{ window_str }} part), is shown in the attached files:
+    The exposure for all of Vanuatu, counting {% if vmhs.has_observed %}both the wind swath observed so far and {% endif %}the whole forecast (not only its {{ vmhs.window_str }} part), is shown in the attached files:
     <ul>
       <li>
-        <b><em>{{ forecast_id }}_adm2_exposure.csv</em></b>: data indicating the area council-level exposure to 34-, 50-, and 64-knots winds{% if has_observed %}, observed so far plus forecast{% endif %}. Only the <em>Most likely</em> scenario is indicated. The values are sorted by 64-, then 50-, then 34-knot exposure, so the area councils with the highest exposure are listed first.
+        <b><em>{{ vmhs.forecast_id }}_adm2_exposure.csv</em></b>: data indicating the area council-level exposure to 34-, 50-, and 64-knots winds{% if vmhs.has_observed %}, observed so far plus forecast{% endif %}. Only the <em>Most likely</em> scenario is indicated. The values are sorted by 64-, then 50-, then 34-knot exposure, so the area councils with the highest exposure are listed first.
       </li>
       <li>
-        <b><em>{{ forecast_id }}_adm1_exposure.pdf</em></b>: plots showing the province-level exposure to 34-, 50-, and 64-knots winds{% if has_observed %}, observed so far plus forecast{% endif %}. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above{% if has_observed %} (the observed part is the same in all three){% endif %}. The worst and best case tracks are the ones with the highest and lowest exposure in the {{ window_str }} part of the forecast, so on the whole forecast their totals can come out close to, or on the other side of, the <em>Most likely</em> total. The maps show{% if has_observed %}, faded, the wind swath observed so far along the storm's observed track (solid), made of the current positions of all the {{ source_name }} forecasts received for this cyclone; the forecast wind swath beyond it, {% else %} the forecast wind swath {% endif %}along the forecast track (dashed); and an outline of the 64-knot swath of the {{ window_str }} part of the forecast, which the trigger counts in Sanma, Shefa and Tafea.
+        <b><em>{{ vmhs.forecast_id }}_adm1_exposure.pdf</em></b>: plots showing the province-level exposure to 34-, 50-, and 64-knots winds{% if vmhs.has_observed %}, observed so far plus forecast{% endif %}. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above{% if vmhs.has_observed %} (the observed part is the same in all three){% endif %}. The worst and best case tracks are the ones with the highest and lowest exposure in the {{ vmhs.window_str }} part of the forecast, so on the whole forecast their totals can come out close to, or on the other side of, the <em>Most likely</em> total. The maps show{% if vmhs.has_observed %}, faded, the wind swath observed so far along the storm's observed track (solid), made of the current positions of all the {{ vmhs.source_name }} forecasts received for this cyclone; the forecast wind swath beyond it, {% else %} the forecast wind swath {% endif %}along the forecast track (dashed); and an outline of the 64-knot swath of the {{ vmhs.window_str }} part of the forecast, which the trigger counts in Sanma, Shefa and Tafea.
       </li>
     </ul>
   </p>
@@ -91,6 +83,7 @@
   <p><i>No exposure in Vanuatu, observed or forecasted, even in worst case; plots and CSV omitted.</i></p>
   {% endif %}
 </div>
+{% endif %}
 <hr class="hr-divider">
 <div>
   <h2>Reference</h2>
