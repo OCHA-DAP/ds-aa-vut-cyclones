@@ -15,9 +15,9 @@
     {% endif %}
   </p>
   <p>
-    &nbsp;&nbsp;&nbsp;Readiness trigger: <b>{{ fms.readiness_str if fms else "not assessed (no RSMC Nadi forecast received for this time)" }}</b><br>
-    &nbsp;&nbsp;&nbsp;Action trigger: <b>{{ vmhs.action_str if vmhs else "not assessed (no VMHS forecast received for this time)" }}</b><br>
-    &nbsp;&nbsp;&nbsp;Observational trigger: <b>{{ vmhs.observational_str if vmhs else "not assessed (no VMHS forecast received for this time)" }}</b><br>
+    &nbsp;&nbsp;&nbsp;Readiness trigger: <b>{{ fms.readiness_str if fms else "not assessed in this email" }}</b><br>
+    &nbsp;&nbsp;&nbsp;Action trigger: <b>{{ vmhs.action_str if vmhs else "not assessed in this email" }}</b><br>
+    &nbsp;&nbsp;&nbsp;Observational trigger: <b>{{ vmhs.observational_str if vmhs else "not assessed in this email" }}</b><br>
   </p>
   <p>
     The number of people forecasted to be exposed to at least 64-knot ("hurricane-force") winds is indicated below. Recall that the trigger threshold is <b>15,000 people</b>.

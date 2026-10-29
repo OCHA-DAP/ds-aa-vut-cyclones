@@ -286,15 +286,26 @@ def utc_now() -> pd.Timestamp:
     return pd.Timestamp.now(tz="UTC").tz_localize(None)
 
 
-def deliver_info(actions, contexts: dict, sent_record):
+def info_max_age() -> float | None:
+    """Overdue information emails for the real lists expire with the
+    forecast age limit."""
+    if IS_TEST_SEND or not MAX_FORECAST_AGE_HOURS:
+        return None
+    return float(MAX_FORECAST_AGE_HOURS)
+
+
+def deliver_info(index, actions, contexts: dict, sent_record):
     """Send the information emails ``actions`` asks for (tuples of index
-    keys, src/monitoring/info_bundle.py); under DRY_RUN, write them to
-    temp/ instead."""
+    keys, src/monitoring/info_bundle.py), marking each one's rows sent and
+    saving the index straight after it went out; under DRY_RUN, write them
+    to temp/ instead."""
     for keys in actions:
         ctxs = [
-            contexts[k]
-            if k in contexts
-            else info_bundle.load_context(IS_TEST_SEND, k)
+            (
+                contexts[k]
+                if k in contexts
+                else info_bundle.load_context(IS_TEST_SEND, k)
+            )
             for k in keys
         ]
         email = info_bundle.render_info(ctxs, SUBJECT_PREFIX)
@@ -318,7 +329,18 @@ def deliver_info(actions, contexts: dict, sent_record):
             body=email["body"],
             media=email["media"],
         )
+        index = info_bundle.mark_sent(index, keys)
+        info_bundle.save_index(index, IS_TEST_SEND)
     return sent_record
+
+
+def log_plan(actions, expired) -> None:
+    logger.info(f"Information emails now: {actions or 'none'}")
+    if expired:
+        logger.warning(
+            f"Not sent, the forecast is older than {MAX_FORECAST_AGE_HOURS} "
+            f"h: {expired}"
+        )
 
 
 def queue_info(source, fc, content_sha12, forecast_id, sent_record, context):
@@ -327,33 +349,38 @@ def queue_info(source, fc, content_sha12, forecast_id, sent_record, context):
     email past its deadline."""
     now = utc_now()
     row = info_bundle.make_row(source, fc, content_sha12, forecast_id, now)
-    index = info_bundle.load_index(IS_TEST_SEND)
-    index, actions = info_bundle.plan(index, row, now)
-    logger.info(f"Information emails now: {actions or 'none, waiting'}")
+    index, actions, expired = info_bundle.plan(
+        info_bundle.load_index(IS_TEST_SEND), row, now, info_max_age()
+    )
+    log_plan(actions, expired)
     if DRY_RUN:
         # nothing is stored; show this forecast's email on its own too
         if not any(row["key"] in keys for keys in actions):
             actions = actions + [(row["key"],)]
-        deliver_info(actions, {row["key"]: context}, sent_record)
+        deliver_info(index, actions, {row["key"]: context}, sent_record)
         return
+    # this forecast's row and context first, before anything is sent
     info_bundle.save_context(context, IS_TEST_SEND, row["key"])
-    deliver_info(actions, {row["key"]: context}, sent_record)
     info_bundle.save_index(index, IS_TEST_SEND)
+    deliver_info(index, actions, {row["key"]: context}, sent_record)
 
 
 def flush_info() -> None:
-    """The information emails past their deadline, on their own."""
-    index, actions = info_bundle.plan_flush(
-        info_bundle.load_index(IS_TEST_SEND), utc_now()
+    """The information emails past their deadline (with their partner if
+    it has arrived since)."""
+    index, actions, expired = info_bundle.plan_flush(
+        info_bundle.load_index(IS_TEST_SEND),
+        utc_now(),
+        max_age_hours=info_max_age(),
     )
-    logger.info(f"Information emails past their deadline: {actions or 'none'}")
+    log_plan(actions, expired)
     sent_record = None
     if not DRY_RUN:
         sent_record = email_record.load_record(IS_TEST_SEND)
         email_record.save_record(sent_record, IS_TEST_SEND)
-    deliver_info(actions, {}, sent_record)
-    if not DRY_RUN:
-        info_bundle.save_index(index, IS_TEST_SEND)
+        if expired:
+            info_bundle.save_index(index, IS_TEST_SEND)
+    deliver_info(index, actions, {}, sent_record)
 
 
 def main() -> None:

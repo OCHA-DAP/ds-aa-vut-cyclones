@@ -128,6 +128,10 @@ resources:
         - task_key: monitor
           job_cluster_key: vut_cluster
           timeout_seconds: 3600
+          # one retry for a passing Listmonk or blob failure: a run can be
+          # repeated (every email is sent once, src/monitoring/info_bundle.py)
+          max_retries: 1
+          min_retry_interval_millis: 300000
           spark_python_task:
             python_file: databricks/run_monitor.py
             source: GIT

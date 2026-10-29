@@ -68,10 +68,9 @@ def test_info_email_only_claims_the_observed_swath_when_there_is_one():
 def test_vmhs_is_the_only_authority_and_nadi_only_for_readiness():
     official = "all official information on tropical cyclones in Vanuatu"
     # VMHS on its own: only VMHS, no RSMC Nadi outside the framework
-    # reference (bar the line saying none was received)
+    # reference
     v = info(fms=False)
     body = v.split("<h2>Reference</h2>")[0]
-    body = body.replace("no RSMC Nadi forecast received", "")
     assert official in body and "Nadi" not in body
     assert "met.gov.fj" not in v
     for t in ("action.html", "observational.html"):

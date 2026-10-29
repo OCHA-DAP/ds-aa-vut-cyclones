@@ -9,10 +9,12 @@ the dev blob. The information email then goes out:
 - with both forecasts, as soon as the second one for the same storm and
   time arrives: the VMHS forecast in full (maps, likely range,
   attachments), RSMC Nadi's readiness result as a few lines;
-- with one, if its partner hasn't arrived WAIT_HOURS after it did. The
-  next forecast run of either source sends these, and so does a "flush"
-  run, which the Fiji poller (pa-aa-fji-storms) starts when the index has
-  a row past its deadline;
+- with one, if its partner hasn't arrived WAIT_HOURS after it did (with
+  both, if the partner is in by then). The next forecast run of either
+  source sends these, and so does a "flush" run, which the Fiji poller
+  (pa-aa-fji-storms) starts when the index has a row past its deadline.
+  On the real lists, one whose forecast is older than
+  MAX_FORECAST_AGE_HOURS expires instead;
 - again with both, if a partner arrives after the first one went out on
   its own, or a forecast is re-issued after its email went out.
 
@@ -21,8 +23,11 @@ MATCH_HOURS apart and have the same disturbance id, the same name, or
 analysis positions at most MATCH_KM apart (early systems have no name, and
 VMHS's ids are unknown until it sends a CSV).
 
-Test runs use their own index and contexts (test_...). Under DRY_RUN
-nothing is written.
+A run writes its row before sending anything and marks each email's rows
+sent once it went out, so a failure leaves them waiting: the next run sends
+them again, and the email record (email_record.py) stops a repeat. Test
+runs use their own index and contexts (test_...). Under DRY_RUN nothing is
+written.
 """
 
 import json
@@ -53,7 +58,7 @@ COLUMNS = [
     "lon",
     "received_at",
     "deadline",
-    "status",  # pending | sent | superseded
+    "status",  # pending | sent | superseded | expired
 ]
 TIME_COLS = ["base_time", "received_at", "deadline"]
 
@@ -173,25 +178,95 @@ def _due(index: pd.DataFrame, now: pd.Timestamp) -> pd.Series:
     return (index["status"] == "pending") & (index["deadline"] <= now)
 
 
-def plan_flush(index: pd.DataFrame, now: pd.Timestamp):
-    """Rows past their deadline go out on their own. Returns (index,
-    actions); an action is a tuple of index keys, one email each."""
+def _partner(index: pd.DataFrame, key: str, taken: set) -> str | None:
+    """The other provider's forecast for the same storm and time: one
+    still waiting first, then the latest one already sent; the nearest if
+    there are several (two storms at once)."""
+    row = index[index["key"] == key].iloc[0]
+    cands = index[
+        (index["source"] != row["source"])
+        & index["status"].isin(["pending", "sent"])
+        & ~index["key"].isin(taken)
+    ]
+    if cands.empty:
+        return None
+    cands = cands[cands.apply(lambda r: same_storm_and_time(r, row), axis=1)]
+    if cands.empty:
+        return None
+    cands = cands.assign(
+        waiting=cands["status"] == "pending",
+        km=cands.apply(
+            lambda r: distance_km(r["lat"], r["lon"], row["lat"], row["lon"]),
+            axis=1,
+        ),
+    ).sort_values(
+        ["waiting", "km", "received_at"], ascending=[False, True, False]
+    )
+    return cands.iloc[0]["key"]
+
+
+def _prune(index: pd.DataFrame, now: pd.Timestamp) -> pd.DataFrame:
+    """Drop old rows, but never one still waiting: those go out (or
+    expire) first."""
+    old = index["received_at"] < now - pd.Timedelta(days=KEEP_DAYS)
+    return index[~old | (index["status"] == "pending")].reset_index(drop=True)
+
+
+def plan_flush(
+    index: pd.DataFrame,
+    now: pd.Timestamp,
+    new_key: str | None = None,
+    max_age_hours: float | None = None,
+):
+    """The information emails that go out now: ``new_key``'s with its
+    partner if it has one, and every row past its deadline, with its
+    partner if one has arrived by now, else alone. A row past its deadline
+    whose forecast is older than ``max_age_hours`` expires instead.
+
+    Returns (index, actions, expired): an action is a tuple of index keys,
+    one email each. Nothing is marked sent here: mark_sent after each
+    email went out, so a failure leaves the rows waiting and the next run
+    sends them again (the email record stops a repeat)."""
+    index = _prune(index, now)
+    actions, taken = [], set()
+    if new_key is not None:
+        partner = _partner(index, new_key, taken)
+        if partner is not None:
+            actions.append((new_key, partner))
+            taken |= {new_key, partner}
+    due = index[_due(index, now) & ~index["key"].isin(taken)]
+    due = due.sort_values("deadline")
+    expired = []
+    for key, base in zip(due["key"], due["base_time"]):
+        if key in taken:
+            continue
+        if max_age_hours is not None and now - base > pd.Timedelta(
+            hours=max_age_hours
+        ):
+            expired.append(key)
+            continue
+        partner = _partner(index, key, taken)
+        actions.append((key,) if partner is None else (key, partner))
+        taken |= {key} | ({partner} if partner else set())
+    index.loc[index["key"].isin(expired), "status"] = "expired"
+    return index, actions, expired
+
+
+def plan(
+    index: pd.DataFrame,
+    row: dict,
+    now: pd.Timestamp,
+    max_age_hours: float | None = None,
+):
+    """Add a forecast's row (waiting) and decide which information emails
+    go out now: see plan_flush."""
     index = index.copy()
-    due = _due(index, now)
-    actions = [(k,) for k in index.loc[due, "key"]]
-    index.loc[due, "status"] = "sent"
-    return index, actions
-
-
-def plan(index: pd.DataFrame, row: dict, now: pd.Timestamp):
-    """Add a forecast's row and decide which information emails go out
-    now. Returns (index, actions): see the module docstring."""
-    index = index.copy()
-    keep = index["received_at"] >= now - pd.Timedelta(days=KEEP_DAYS)
-    index = index[keep].reset_index(drop=True)
-    if (index["key"] == row["key"]).any():  # the same CSV again
-        return plan_flush(index, now)
-
+    same = index["key"] == row["key"]
+    if same.any():  # the same CSV again (a retry): pair it if still waiting
+        waiting = (index.loc[same, "status"] == "pending").any()
+        return plan_flush(
+            index, now, row["key"] if waiting else None, max_age_hours
+        )
     matches = (
         index.apply(lambda r: same_storm_and_time(r, row), axis=1).astype(bool)
         if not index.empty
@@ -202,37 +277,16 @@ def plan(index: pd.DataFrame, row: dict, now: pd.Timestamp):
     index.loc[
         earlier & (index["status"] == "pending"), "status"
     ] = "superseded"
-
-    partners = index[
-        matches
-        & (index["source"] != row["source"])
-        & index["status"].isin(["pending", "sent"])
-    ]
-    actions = []
-    new = dict(row)
-    if not partners.empty:
-        # a waiting partner first, then the latest one already sent; the
-        # nearest if there are several (two storms at once)
-        partners = partners.assign(
-            waiting=partners["status"] == "pending",
-            km=partners.apply(
-                lambda r: distance_km(
-                    r["lat"], r["lon"], row["lat"], row["lon"]
-                ),
-                axis=1,
-            ),
-        ).sort_values(
-            ["waiting", "km", "received_at"], ascending=[False, True, False]
-        )
-        partner = partners.iloc[0]
-        index.loc[index["key"] == partner["key"], "status"] = "sent"
-        new["status"] = "sent"
-        actions.append((row["key"], partner["key"]))
     index = _normalise(
-        pd.concat([index, pd.DataFrame([new])], ignore_index=True)
+        pd.concat([index, pd.DataFrame([dict(row)])], ignore_index=True)
     )
-    index, flushed = plan_flush(index, now)
-    return index, actions + flushed
+    return plan_flush(index, now, row["key"], max_age_hours)
+
+
+def mark_sent(index: pd.DataFrame, keys) -> pd.DataFrame:
+    index = index.copy()
+    index.loc[index["key"].isin(list(keys)), "status"] = "sent"
+    return index
 
 
 def render_info(contexts: list, subject_prefix: str = "") -> dict:
@@ -253,8 +307,12 @@ def render_info(contexts: list, subject_prefix: str = "") -> dict:
     if met:
         word = "TRIGGERS" if len(met) > 1 else "TRIGGER"
         activation = f"({' AND '.join(met)} {word} ACTIVATED)"
-    else:
+    elif vmhs and fms:
         activation = "(NOT ACTIVATED)"
+    elif fms:
+        activation = "(READINESS TRIGGER NOT ACTIVATED)"
+    else:
+        activation = "(ACTION AND OBSERVATIONAL TRIGGERS NOT ACTIVATED)"
     ordered = [c for c in (vmhs, fms) if c]
     return {
         "subject": (
