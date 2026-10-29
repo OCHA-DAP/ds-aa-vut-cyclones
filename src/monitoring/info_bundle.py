@@ -43,7 +43,7 @@ from src.constants import PROJECT_PREFIX
 
 MATCH_HOURS = 3
 MATCH_KM = 300
-WAIT_HOURS = float(os.getenv("INFO_WAIT_HOURS", "2"))
+WAIT_HOURS = float(os.getenv("INFO_WAIT_HOURS", "1"))
 KEEP_DAYS = 5  # index rows older than this are dropped
 COLUMNS = [
     "key",

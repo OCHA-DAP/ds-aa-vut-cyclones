@@ -1,8 +1,5 @@
-<div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
+<div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;font-style:italic;">
     This email is purely advisory, and does not serve as an official notice for the anticipatory action framework. Official notices of activation are sent by a separate email. This email does not constitute an official forecast. The Vanuatu Meteorology and Hydro-Meteorological Services (VMHS) is the national authority for tropical cyclone forecasts and warnings in Vanuatu: all official information on tropical cyclones in Vanuatu comes from VMHS, and its <a href="https://www.vmgd.gov.vu/">warnings and forecasts</a> should be treated as authoritative.
-    {% if fms %}
-    The readiness trigger uses the extended track forecast of the Regional Specialized Meteorological Centre (RSMC) Nadi, the regional centre for tropical cyclones in the South Pacific, operated by the Fiji Meteorological Service. The framework uses this forecast, which reaches 120 hours ahead, only for its readiness trigger (72 to 120 hours ahead).
-    {% endif %}
 </div>
 <div>
   <p>Dear colleagues,</p>
@@ -11,7 +8,7 @@
     The forecast for cyclone {{ cyclone_name }} produced at {{ vmhs.forecast_display_str }} has been shared with us by the Vanuatu Meteorology and Hydro-Meteorological Services (VMHS).
     {% endif %}
     {% if fms %}
-    {% if vmhs %}For the readiness trigger only, the{% else %}The{% endif %} RSMC Nadi extended track forecast for cyclone {{ cyclone_name }} produced at {{ fms.forecast_display_str }} has been shared with us by the Fiji Meteorological Service.
+    For the readiness trigger only, the RSMC Nadi extended track forecast for cyclone {{ cyclone_name }} produced at {{ fms.forecast_display_str }} has been shared with us by the Fiji Meteorological Service.
     {% endif %}
   </p>
   <p>
@@ -55,7 +52,7 @@
   </p>
   <img src="data:image/png;base64,{{ vmhs.img_base64_thermometer }}" style="max-height:400px;"alt="Figure">
   <br>
-  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
+  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;font-style:italic;">
     <p>
       The <em>Most likely</em> value is based on the track forecast without considering the uncertainty cone, and is the value used for triggering (also listed in the section above). The <em>Max. reasonable</em> and <em>Min. reasonable</em> values are calculated by perturbing the track forecast for all points along the cone of uncertainty, and taking the perturbed tracks that cause the highest and lowest population exposures, respectively.
     </p>
@@ -91,7 +88,7 @@
   <p>
     The trigger mechanism is set out in section III.2 (Triggers and thresholds) of the National Anticipatory Action Framework for Tropical Cyclones in Vanuatu:
   </p>
-  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
+  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;font-style:italic;">
     <p>
       This framework will be triggered by a tropical cyclone forecasted or observed to expose at least 15,000 people to winds of at least 64 knots (approximately 119 km/h):
     </p>

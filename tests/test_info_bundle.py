@@ -107,11 +107,12 @@ def test_nothing_is_marked_sent_until_it_went_out():
 def test_alone_after_the_deadline_then_both_when_the_partner_is_late():
     now = T0 + pd.Timedelta(hours=1)
     index, _ = step(empty(), row("vmhs", "v"), now)
-    index, actions, _ = flush(index, now + pd.Timedelta(hours=1))
+    wait = pd.Timedelta(hours=ib.WAIT_HOURS)
+    index, actions, _ = flush(index, now + wait / 2)
     assert actions == []  # not due yet
-    index, actions, _ = flush(index, now + pd.Timedelta(hours=3))
+    index, actions, _ = flush(index, now + wait + pd.Timedelta(minutes=10))
     assert actions == [("v",)] and status(index, "v") == "sent"
-    late = now + pd.Timedelta(hours=4)
+    late = now + wait + pd.Timedelta(hours=1)
     index, actions = step(index, row("fms", "f", received=late), late)
     assert actions == [("f", "v")]  # the late partner: both again
 

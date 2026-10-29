@@ -85,7 +85,7 @@ within 1,000 km of Vanuatu are skipped: FMS covers the whole South Pacific.
   throughout. The first forecast of a pair waits for the second
   (`src/monitoring/info_bundle.py`): a forecast of the other source issued
   within 3 h and with the same disturbance id, the same name, or an
-  analysis position within 300 km. If none arrives within 2 h
+  analysis position within 300 km. If none arrives within 1 h
   (`INFO_WAIT_HOURS`), the email goes out with the one forecast; a
   late partner, or a re-issue, sends the pair again. The next forecast run
   sends overdue emails, and so does the poller in pa-aa-fji-storms: it

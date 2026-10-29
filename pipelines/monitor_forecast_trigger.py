@@ -130,6 +130,29 @@ def vut_time_str(dt: pd.Timestamp) -> str:
     return f"{local:%Y-%m-%d %H:%M} (Vanuatu time)"
 
 
+def trigger_time_str(dt: pd.Timestamp) -> str:
+    """UTC (naive) -> '11:00 on 3 February 2026', Vanuatu time (the
+    framework's draft activation messages: 'produced at time on date
+    (Vanuatu local time)')."""
+    local = (
+        pd.Timestamp(dt)
+        .tz_localize("UTC")
+        .tz_convert(ZoneInfo(LOCAL_TIMEZONE))
+    )
+    return f"{local:%H:%M} on {local.day} {local:%B %Y}"
+
+
+# The framework's draft activation messages (annex 7); it has none for the
+# observational trigger, which follows the action one.
+TRIGGER_SUBJECTS = {
+    "readiness": "Readiness Trigger Threshold Reached",
+    "action": "Action Trigger Threshold Reached (FRAMEWORK ACTIVATED)",
+    "observational": (
+        "Observational Trigger Threshold Reached (FRAMEWORK ACTIVATED)"
+    ),
+}
+
+
 def send_once(
     record, email_type: str, forecast_id: str, content_sha12: str, **campaign
 ):
@@ -503,12 +526,14 @@ def main() -> None:
     observational_exp = None
     observational = False
     n_observed = 0
-    observed_display_str = ""
+    observed_display_str = observed_time_str = ""
     obs_geoms = {s: None for s in SPEEDS}
     if obs_track is not None and not obs_track.empty:
         try:
             n_observed = len(obs_track)
-            observed_display_str = vut_time_str(obs_track["valid_time"].max())
+            last_obs = obs_track["valid_time"].max()
+            observed_display_str = vut_time_str(last_obs)
+            observed_time_str = trigger_time_str(last_obs)
             obs_geoms = swaths(interpolated(obs_track))
             obs_national = ctx.national(obs_geoms[64])
             logger.info(
@@ -556,8 +581,9 @@ def main() -> None:
                 record_id,
                 record_sha,
                 subject=(
-                    f"{SUBJECT_PREFIX}Anticipatory action Vanuatu: Cyclone "
-                    f"{cyclone_name} {email_type} trigger ACTIVATED"
+                    f"{SUBJECT_PREFIX}Activation of Anticipatory Action "
+                    "framework for Cyclones in Vanuatu: "
+                    f"{TRIGGER_SUBJECTS[email_type]}"
                 ),
                 name=f"{email_base_name}_{email_type}",
                 list_ids=TRIGGER_LIST_IDS,
@@ -565,8 +591,8 @@ def main() -> None:
                     f"{email_type}.html",
                     {
                         "cyclone_name": cyclone_name,
-                        "forecast_display_str": forecast_display_str,
-                        "observed_display_str": observed_display_str,
+                        "forecast_time_str": trigger_time_str(fc.base_time),
+                        "observed_time_str": observed_time_str,
                     },
                 ),
             )

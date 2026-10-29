@@ -3,21 +3,38 @@ from src.monitoring.content import render_template
 
 BASE = {
     "cyclone_name": "Simulated",
-    "forecast_display_str": "2026-02-01 11:00 (Vanuatu time)",
-    "observed_display_str": "2026-02-01 11:00 (Vanuatu time)",
+    "forecast_time_str": "11:00 on 1 February 2026",
+    "observed_time_str": "11:00 on 1 February 2026",
 }
 
 
-def test_trigger_emails_name_the_right_trigger_and_source():
+def test_trigger_emails_follow_the_framework_draft_messages():
     r = render_template("readiness.html", BASE)
-    assert "readiness trigger" in r and "120 hours" in r and "RSMC" in r
-    assert "action trigger" not in r and "72-hour" not in r
+    assert (
+        "The readiness trigger of the coordinated anticipatory action pilot "
+        "for tropical cyclones in Vanuatu has been reached in line with the "
+        "120-hour forecast for Cyclone Simulated produced at 11:00 on 1 "
+        "February 2026 (Vanuatu local time) by the Regional Specialized "
+        "Meteorological Centre (RSMC) Nadi, operated by the Fiji "
+        "Meteorological Service."
+    ) in " ".join(r.split())
     a = render_template("action.html", BASE)
-    assert "action trigger" in a and "72-hour" in a and "(VMHS)" in a
+    assert (
+        "72-hour forecast for Cyclone Simulated produced at 11:00 on 1 "
+        "February 2026 (Vanuatu local time) by the Vanuatu Meteorology and "
+        "Hydro-Meteorological Services (VMHS)."
+    ) in " ".join(a.split())
+    for body in (r, a):
+        assert (
+            "All activities in line with the framework document should now "
+            "commence. OCHA may convene a meeting of the participating "
+            "partners."
+        ) in " ".join(body.split())
     o = render_template("observational.html", BASE)
     assert "observational trigger" in o and "all-clear" in o
     for body in (r, a, o):
-        assert "Vanuatu" in body and "Fiji Tropical" not in body
+        assert "Dear NDMO Director, dear Resident Coordinator" in body
+        assert "Fiji Tropical" not in body
 
 
 def info(vmhs=True, fms=True, **vmhs_kw):
@@ -74,12 +91,9 @@ def test_vmhs_is_the_only_authority_and_nadi_only_for_readiness():
     assert official in body and "Nadi" not in body
     assert "met.gov.fj" not in v
     for t in ("action.html", "observational.html"):
-        e = render_template(t, BASE)
-        assert "national authority" in e and "Nadi" not in e
+        assert "Nadi" not in render_template(t, BASE)
     # with RSMC Nadi: readiness only, VMHS the official source
     for f in (info(), info(vmhs=False)):
-        assert official in f and "only for its readiness trigger" in f
+        assert official in f and "For the readiness trigger only" in f
+        assert "extended track forecast of the Regional" not in f
         assert "met.gov.fj" not in f
-    r = render_template("readiness.html", BASE)
-    assert "only for this readiness trigger" in r
-    assert "not an official forecast for Vanuatu" in r and "(VMHS)" in r
