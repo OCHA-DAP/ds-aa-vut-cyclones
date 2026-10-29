@@ -662,9 +662,15 @@ def main() -> None:
             "any_34_knot_exposure": any_34,
         },
     )
+    # the provider in the subject, so the RSMC Nadi (readiness only) and
+    # VMHS emails can be told apart in the inbox
+    info_kind = {
+        "fms": "readiness monitoring, RSMC Nadi forecast",
+        "vmhs": "VMHS forecast information",
+    }[source]
     subject = (
         f"{SUBJECT_PREFIX}Anticipatory action Vanuatu: Cyclone "
-        f"{cyclone_name} forecast information {activation_subject}"
+        f"{cyclone_name} {info_kind} {activation_subject}"
     )
     if DRY_RUN:
         os.makedirs("temp", exist_ok=True)

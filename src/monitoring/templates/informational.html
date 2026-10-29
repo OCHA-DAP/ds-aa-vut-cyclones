@@ -1,11 +1,14 @@
 <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
-    This email is purely advisory, and does not serve as an official notice for the anticipatory action framework. Official notices of activation are sent by a separate email. This email also does not constitute an official forecast. The Vanuatu Meteorology and Hydro-Meteorological Services (VMHS) is the national authority for tropical cyclone warnings in Vanuatu, and its <a href="https://www.vmgd.gov.vu/">warnings and forecasts</a> should be treated as authoritative. Under the World Meteorological Organization's Tropical Cyclone Programme, RSMC Nadi, operated by the Fiji Meteorological Service, is responsible for monitoring tropical cyclones in the region.
+    This email is purely advisory, and does not serve as an official notice for the anticipatory action framework. Official notices of activation are sent by a separate email. This email does not constitute an official forecast. The Vanuatu Meteorology and Hydro-Meteorological Services (VMHS) is the national authority for tropical cyclone forecasts and warnings in Vanuatu: all official information on tropical cyclones in Vanuatu comes from VMHS, and its <a href="https://www.vmgd.gov.vu/">warnings and forecasts</a> should be treated as authoritative.
+    {% if source == "fms" %}
+    This email reports the extended track forecast of the Regional Specialized Meteorological Centre (RSMC) Nadi, the regional centre for tropical cyclones in the South Pacific, operated by the Fiji Meteorological Service. The framework uses this forecast, which reaches 120 hours ahead, only for its readiness trigger (72 to 120 hours ahead).
+    {% endif %}
 </div>
 <div>
   <p>Dear colleagues,</p>
   <p>
     {% if source == "fms" %}
-    The forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Fiji Meteorological Service, operators of Regional Specialized Meteorological Centre (RSMC) Nadi.
+    The RSMC Nadi extended track forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Fiji Meteorological Service. It is used only for the readiness trigger.
     {% else %}
     The forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Vanuatu Meteorology and Hydro-Meteorological Services (VMHS).
     {% endif %}
@@ -22,7 +25,7 @@
     {% if source == "fms" %}
     <i>The action and observational triggers are assessed on VMHS forecasts, which are reported in separate emails.</i>
     {% else %}
-    <i>The readiness trigger is assessed on RSMC Nadi forecasts, which are reported in separate emails.</i>
+    <i>The readiness trigger is reported in separate emails.</i>
     {% endif %}
   </p>
   <p>
@@ -42,7 +45,7 @@
     {% endif %}
   </p>
   <p>
-    Please find more information about this forecast below. As always, the official tropical cyclone warnings for Vanuatu can be found on the <a href="https://www.vmgd.gov.vu/">VMHS website</a>, and the RSMC Nadi track map on the <a href="https://www.met.gov.fj/tropical-cyclone/tc-forecast-track-map/">Fiji Meteorological Service website</a>.
+    Please find more information about this forecast below. As always, the official tropical cyclone forecasts and warnings for Vanuatu are those of VMHS, on the <a href="https://www.vmgd.gov.vu/">VMHS website</a>.
   </p>
   <p>Best wishes,</p>
   <p>OCHA Centre for Humanitarian Data</p>

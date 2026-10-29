@@ -9,7 +9,7 @@ BASE = {
 
 def test_trigger_emails_name_the_right_trigger_and_source():
     r = render_template("readiness.html", BASE)
-    assert "readiness trigger" in r and "120-hour" in r and "RSMC" in r
+    assert "readiness trigger" in r and "120 hours" in r and "RSMC" in r
     assert "action trigger" not in r and "72-hour" not in r
     a = render_template("action.html", BASE)
     assert "action trigger" in a and "72-hour" in a and "(VMHS)" in a
@@ -70,3 +70,22 @@ def test_info_email_only_claims_the_observed_swath_when_there_is_one():
     assert "faded" not in none
     assert "The maps show the forecast wind swath along" in none
     assert "people</b>" not in none.split("Observed so far")[1][:80]
+
+
+def test_vmhs_is_the_only_authority_and_nadi_only_for_readiness():
+    official = "all official information on tropical cyclones in Vanuatu"
+    # VMHS emails: only VMHS, no RSMC Nadi outside the framework reference
+    v = info("vmhs", has_observed=True, any_34_knot_exposure=True)
+    body = v.split("<h2>Reference</h2>")[0]
+    assert official in body and "Nadi" not in body
+    assert "met.gov.fj" not in v
+    for t in ("action.html", "observational.html"):
+        e = render_template(t, BASE)
+        assert "national authority" in e and "Nadi" not in e
+    # RSMC Nadi emails: readiness only, VMHS the official source
+    f = info("fms", any_34_knot_exposure=True)
+    assert official in f and "only for its readiness trigger" in f
+    assert "met.gov.fj" not in f
+    r = render_template("readiness.html", BASE)
+    assert "only for this readiness trigger" in r
+    assert "not an official forecast for Vanuatu" in r and "(VMHS)" in r
