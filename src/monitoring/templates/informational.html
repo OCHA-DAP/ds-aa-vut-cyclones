@@ -1,0 +1,127 @@
+<div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
+    This email is purely advisory, and does not serve as an official notice for the anticipatory action framework. Official notices of activation are sent by a separate email. This email also does not constitute an official forecast. The Vanuatu Meteorology and Hydro-Meteorological Services (VMHS) is the national authority for tropical cyclone warnings in Vanuatu, and its <a href="https://www.vmgd.gov.vu/">warnings and forecasts</a> should be treated as authoritative. Under the World Meteorological Organization's Tropical Cyclone Programme, RSMC Nadi, operated by the Fiji Meteorological Service, is responsible for monitoring tropical cyclones in the region.
+</div>
+<div>
+  <p>Dear colleagues,</p>
+  <p>
+    {% if source == "fms" %}
+    The forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Fiji Meteorological Service, operators of Regional Specialized Meteorological Centre (RSMC) Nadi.
+    {% else %}
+    The forecast for cyclone {{ cyclone_name }} produced at {{ forecast_display_str }} has been shared with us by the Vanuatu Meteorology and Hydro-Meteorological Services (VMHS).
+    {% endif %}
+  </p>
+  <p>
+    {% if source == "fms" %}
+    &nbsp;&nbsp;&nbsp;Readiness trigger: <b>{{ readiness_str }}</b><br>
+    {% else %}
+    &nbsp;&nbsp;&nbsp;Action trigger: <b>{{ action_str }}</b><br>
+    &nbsp;&nbsp;&nbsp;Observational trigger: <b>{{ observational_str }}</b><br>
+    {% endif %}
+  </p>
+  <p>
+    {% if source == "fms" %}
+    <i>The action and observational triggers are assessed on VMHS forecasts, which are reported in separate emails.</i>
+    {% else %}
+    <i>The readiness trigger is assessed on RSMC Nadi forecasts, which are reported in separate emails.</i>
+    {% endif %}
+  </p>
+  <p>
+    The number of people forecasted to be exposed to at least 64-knot ("hurricane-force") winds is indicated below. Recall that the trigger threshold is <b>15,000 people</b>.
+  </p>
+  <p>
+    {% if source == "fms" %}
+    &nbsp;&nbsp;&nbsp;Readiness forecast (72 to 120 hours, Sanma, Shefa and Tafea): <b>{{ readiness_exp }} people</b><br>
+    &nbsp;&nbsp;&nbsp;Rest of the forecast (up to 72 hours, Sanma, Shefa and Tafea; for information only): <b>{{ early_exp }} people</b><br>
+    {% else %}
+    &nbsp;&nbsp;&nbsp;Action forecast (24 to 72 hours, Sanma, Shefa and Tafea): <b>{{ action_exp }} people</b><br>
+    {% if has_observed %}
+    &nbsp;&nbsp;&nbsp;Observed so far ({{ n_observed }} VMHS position{{ "s" if n_observed != 1 else "" }} up to {{ observed_display_str }}, all of Vanuatu): <b>{{ observational_exp }} people</b><br>
+    {% else %}
+    &nbsp;&nbsp;&nbsp;Observed so far (all of Vanuatu): <b>not available</b><br>
+    {% endif %}
+    {% endif %}
+  </p>
+  <p>
+    Please find more information about this forecast below. As always, the official tropical cyclone warnings for Vanuatu can be found on the <a href="https://www.vmgd.gov.vu/">VMHS website</a>, and the RSMC Nadi track map on the <a href="https://www.met.gov.fj/tropical-cyclone/tc-forecast-track-map/">Fiji Meteorological Service website</a>.
+  </p>
+  <p>Best wishes,</p>
+  <p>OCHA Centre for Humanitarian Data</p>
+</div>
+<hr class="hr-divider">
+<div>
+  <h2>Forecast information</h2>
+  {% if any_34_knot_exposure %}
+
+  <h3>Exposure in Sanma, Shefa and Tafea</h3>
+
+  {% if any_64_knot_exposure %}
+  <p>
+    The plot below shows the likely range of population exposure to 64-knot winds in Sanma, Shefa and Tafea, for the {{ window_str }} part of the forecast.
+  </p>
+  <img src="data:image/png;base64,{{ img_base64_thermometer }}" style="max-height:400px;"alt="Figure">
+  <br>
+  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
+    <p>
+      The <em>Most likely</em> value is based on the track forecast without considering the uncertainty cone, and is the value used for triggering (also listed in the section above). The <em>Max. reasonable</em> and <em>Min. reasonable</em> values are calculated by perturbing the track forecast for all points along the cone of uncertainty, and taking the perturbed tracks that cause the highest and lowest population exposures, respectively.
+    </p>
+    <p>
+      Population exposure values for all historical storms that would have reached the threshold are shown on the left. Storms for which there was a CERF allocation are shown in red.
+    </p>
+  </div>
+  {% else %}
+  <p><i>No 64-knot exposure is forecasted in Sanma, Shefa or Tafea for the {{ window_str }} part of the forecast, even in worst case; plot is omitted.</i></p>
+  {% endif %}
+
+  <h3>Exposure by province and area council</h3>
+  <p>
+    The exposure for all of Vanuatu, counting {% if has_observed %}both the wind swath observed so far and {% endif %}the whole forecast (not only its {{ window_str }} part), is shown in the attached files:
+    <ul>
+      <li>
+        <b><em>{{ forecast_id }}_adm2_exposure.csv</em></b>: data indicating the area council-level exposure to 34-, 50-, and 64-knots winds{% if has_observed %}, observed so far plus forecast{% endif %}. Only the <em>Most likely</em> scenario is indicated. The values are sorted by 64-, then 50-, then 34-knot exposure, so the area councils with the highest exposure are listed first.
+      </li>
+      <li>
+        <b><em>{{ forecast_id }}_adm1_exposure.pdf</em></b>: plots showing the province-level exposure to 34-, 50-, and 64-knots winds{% if has_observed %}, observed so far plus forecast{% endif %}. All three scenarios are shown: the <em>Most likely</em>, <em>Max. reasonable total exposure</em>, and <em>Min. reasonable total exposure</em>, corresponding to the three cases outlined in the section above{% if has_observed %} (the observed part is the same in all three){% endif %}. The worst and best case tracks are the ones with the highest and lowest exposure in the {{ window_str }} part of the forecast, so on the whole forecast their totals can come out close to, or on the other side of, the <em>Most likely</em> total. The maps show{% if has_observed %}, faded, the wind swath observed so far along the storm's observed track (solid), made of the current positions of all the {{ source_name }} forecasts received for this cyclone; the forecast wind swath beyond it, {% else %} the forecast wind swath {% endif %}along the forecast track (dashed); and an outline of the 64-knot swath of the {{ window_str }} part of the forecast, which the trigger counts in Sanma, Shefa and Tafea.
+      </li>
+    </ul>
+  </p>
+  {% else %}
+  <p><i>No exposure in Vanuatu, observed or forecasted, even in worst case; plots and CSV omitted.</i></p>
+  {% endif %}
+</div>
+<hr class="hr-divider">
+<div>
+  <h2>Reference</h2>
+  <h3>Framework</h3>
+  <p>
+    The trigger mechanism is set out in section III.2 (Triggers and thresholds) of the National Anticipatory Action Framework for Tropical Cyclones in Vanuatu:
+  </p>
+  <div class="disclaimer-box" style="font-size:14px;padding:6px 10px;background-color:#F0F0F0;color:#000000;margin-bottom:12px;font-family:Helvetica,Arial,sans-serif;">
+    <p>
+      This framework will be triggered by a tropical cyclone forecasted or observed to expose at least 15,000 people to winds of at least 64 knots (approximately 119 km/h):
+    </p>
+    <ul>
+      <li>
+        Readiness trigger: the RSMC Nadi forecast indicates that at least 15,000 people in Sanma, Shefa or Tafea are expected to be exposed to winds of at least 64 knots, 120 to 72 hours ahead.
+      </li>
+      <li>
+        Action trigger: the VMHS forecast indicates that at least 15,000 people in Sanma, Shefa or Tafea are expected to be exposed to winds of at least 64 knots, 72 to 24 hours ahead. Anticipatory activities should be completed before the operational cut-off of 24 hours before landfall.
+      </li>
+      <li>
+        Observational trigger: the VMHS observed track indicates that at least 15,000 people anywhere in Vanuatu have been exposed to winds of at least 64 knots. Activities under this trigger start after landfall and NDMO's all-clear bulletin.
+      </li>
+    </ul>
+    <p>
+      Every time RSMC Nadi or VMHS shares a tropical cyclone track forecast, it is evaluated by an automated script to determine whether the trigger conditions have been met. Lead times are counted from the time the forecast was produced: the readiness value uses the part of the RSMC Nadi forecast track 72 to 120 hours ahead, and the action value the part of the VMHS forecast track 24 to 72 hours ahead. The observed track is made of the analysis (current) positions of all VMHS forecasts received for the cyclone. Population: WorldPop 2026, 1 km.
+    </p>
+  </div>
+  <div>
+    <h3>Monitoring emails</h3>
+    <p>
+      To be added to or removed from the mailing lists for this framework, please contact OCHA Data Science at <a href="mailto:ocha-datascience@un.org">ocha-datascience@un.org</a>.
+    </p>
+  </div>
+  <h3>Code</h3>
+  <p>
+    The code used to produce this alert is available on GitHub <a href="https://github.com/OCHA-DAP/ds-aa-vut-cyclones">here</a>.
+  </p>
+</div>

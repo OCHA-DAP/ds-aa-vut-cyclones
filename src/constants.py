@@ -45,3 +45,6 @@ ADM1_AOI_PCODES = [
     SANMA1,
     TAFEA1,
 ]
+
+# Trigger threshold: people exposed to >= 64 kt winds (all three triggers)
+EXP_THRESHOLD_64_KNOTS = 15_000
