@@ -592,20 +592,20 @@ def draw_track(ax, track, kind: str, start=None, label_hours: bool = False):
 
 
 # boxed keys (sizes in inches)
-KEY_PAD, KEY_TITLE_H, KEY_HEAD_H, KEY_ROW_H = 0.16, 0.3, 0.26, 0.27
-KEY_LABEL_W, KEY_COL_W, KEY_SW_W, KEY_SW_H = 2.9, 0.82, 0.5, 0.17
-KEY_FONTSIZE = 11.5
+KEY_PAD, KEY_TITLE_H, KEY_HEAD_H, KEY_ROW_H = 0.18, 0.36, 0.3, 0.32
+KEY_LABEL_W, KEY_COL_W, KEY_SW_W, KEY_SW_H = 2.85, 0.78, 0.52, 0.2
+KEY_FONTSIZE = 13.5
 
 
 def swath_key_width() -> float:
     return 2 * KEY_PAD + KEY_LABEL_W + KEY_COL_W * len(SPEEDS)
 
 
-def swath_key(fig, x_in: float, top_in: float, rows: list) -> None:
+def swath_key(fig, x_in: float, top_in: float, rows: list) -> float:
     """Boxed key for the swath layers: a row per layer, a swatch per wind
     speed; a row with alpha None is the trigger window's outline, in the
     64 kt column only. Placed by its top-left corner, in inches from the
-    figure's bottom-left."""
+    figure's bottom-left. Returns its height in inches."""
     fw, fh = fig.get_size_inches()
     w = swath_key_width()
     h = 2 * KEY_PAD + KEY_TITLE_H + KEY_HEAD_H + KEY_ROW_H * len(rows)
@@ -663,15 +663,22 @@ def swath_key(fig, x_in: float, top_in: float, rows: list) -> None:
                 )
             )
         y += KEY_ROW_H
+    return h
 
 
-def boxed_legend(fig, handles, title, ncol=1):
-    """A legend in the same box style as swath_key. Returns it and its
-    width in inches; place it with set_bbox_to_anchor."""
+def boxed_legend(fig, handles, title, x_in, top_in, width_in, ncol=1):
+    """A legend in the same box style as swath_key, placed by its top-left
+    corner (inches from the figure's bottom-left) and stretched to
+    ``width_in``. Returns it and its height in inches."""
+    fw, fh = fig.get_size_inches()
     leg = fig.legend(
         handles=handles,
         title=title,
         loc="upper left",
+        bbox_to_anchor=(x_in / fw, top_in / fh, width_in / fw, 0),
+        bbox_transform=fig.transFigure,
+        mode="expand",
+        borderaxespad=0,  # flush with the anchor, like swath_key
         ncol=ncol,
         frameon=True,
         fancybox=False,
@@ -688,8 +695,8 @@ def boxed_legend(fig, handles, title, ncol=1):
     leg.get_frame().set_linewidth(1)
     leg.get_title().set_fontweight("bold")
     leg.get_title().set_color(INK)
-    width = leg.get_window_extent(fig.canvas.get_renderer()).width
-    return leg, width / fig.dpi
+    height = leg.get_window_extent(fig.canvas.get_renderer()).height
+    return leg, height / fig.dpi
 
 
 def plot_thermometer(
@@ -871,6 +878,16 @@ def fig_to_base64(fig) -> str:
     return img_base64
 
 
+# The swath and bubble figure is a table (sizes in inches): a header row
+# over three scenario columns, a header column beside two rows (swaths,
+# bubbles), light cell lines, and the keys in a column to the right.
+GRID_ROWHEAD_W, GRID_COL_W, GRID_COLHEAD_H = 0.8, 5.0, 0.95
+GRID_ROW_H = (5.0, 5.4)  # swath maps (square), bubbles
+GRID_TITLE_H, GRID_BOTTOM, GRID_PAD, GRID_KEY_GAP = 1.0, 0.15, 0.14, 0.35
+GRID_LINE = dict(color="#d3d9dc", linewidth=1)
+GRID_HEAD_FILL = "#f4f6f7"
+
+
 def plot_bubbles_and_swaths(
     layers: list,
     gdf_adm_swath_plot: gpd.GeoDataFrame,
@@ -892,12 +909,41 @@ def plot_bubbles_and_swaths(
     swath_note: str = "",
     window_label: str = "Trigger window",
 ):
-    """Three columns (most likely, worst case, best case): wind swath maps
-    on top, population exposure bubbles below, boxed keys under each row
-    (map style from ds-storms-alerts). ``layers``: per column, the
+    """A table of three columns (most likely, worst case, best case) and
+    two rows (wind swath maps, population exposure bubbles), with header
+    cells and light cell lines, and the keys in a column to its right (map
+    style from ds-storms-alerts). ``layers``: per column, the
     "observed", "forecast" and "window" swath GeoDataFrames
     (plot_wind_buffers)."""
-    fig, axes = plt.subplots(2, 3, figsize=(18, 13.5))
+    key_w = swath_key_width()
+    table_w = GRID_ROWHEAD_W + 3 * GRID_COL_W
+    table_h = GRID_COLHEAD_H + sum(GRID_ROW_H)
+    fw = table_w + GRID_KEY_GAP + key_w + 0.1
+    fh = GRID_TITLE_H + table_h + GRID_BOTTOM
+    fig = plt.figure(figsize=(fw, fh))
+
+    def frac(x0, y0, w, h):  # inches from the bottom-left -> figure fraction
+        return [x0 / fw, y0 / fh, w / fw, h / fh]
+
+    # y of the table's lines, top down: header top, header bottom, row edges
+    head_top = fh - GRID_TITLE_H
+    row_tops = [head_top - GRID_COLHEAD_H]
+    for h in GRID_ROW_H:
+        row_tops.append(row_tops[-1] - h)
+    bottom = row_tops[-1]
+    col_lefts = [GRID_ROWHEAD_W + i * GRID_COL_W for i in range(4)]
+
+    def cell_axes(row, col):
+        x0, y1 = col_lefts[col], row_tops[row]
+        h = GRID_ROW_H[row]
+        return fig.add_axes(
+            frac(
+                x0 + GRID_PAD,
+                y1 - h + GRID_PAD,
+                GRID_COL_W - 2 * GRID_PAD,
+                h - 2 * GRID_PAD,
+            )
+        )
 
     gdf_adm = gdf_adm.copy()
     gdf_adm["adm_label"] = gdf_adm[name_col].apply(
@@ -914,22 +960,19 @@ def plot_bubbles_and_swaths(
         last_obs = (last.x, last.y)
 
     columns = [
-        ("middle", "Most likely track", INK, "bold"),
-        (
-            "worst",
-            "Upper bound exposure\n(worst case scenario)",
-            "#c0392b",
-            "normal",
-        ),
-        (
-            "best",
-            "Lower bound exposure\n(best case scenario)",
-            "#2e7d32",
-            "normal",
-        ),
+        ("middle", "Most likely track", INK),
+        ("worst", "Upper bound exposure\n(worst case scenario)", "#c0392b"),
+        ("best", "Lower bound exposure\n(best case scenario)", "#2e7d32"),
     ]
-    for col, (limit, title, color, weight) in enumerate(columns):
-        top_ax, bottom_ax = axes[0, col], axes[1, col]
+    row_labels = [
+        "Wind swaths",
+        "Population exposure,\n"
+        + ("observed + forecast" if has_obs else "forecast"),
+    ]
+    axes = np.empty((2, 3), dtype=object)
+    for col, (limit, _, _) in enumerate(columns):
+        top_ax, bottom_ax = cell_axes(0, col), cell_axes(1, col)
+        axes[0, col], axes[1, col] = top_ax, bottom_ax
         plot_wind_buffers(gdf_adm_swath_plot, layers[col], ax=top_ax)
         if uncertainty_cone is not None:
             gpd.GeoSeries([uncertainty_cone], crs=gdf_adm.crs).plot(
@@ -948,9 +991,6 @@ def plot_bubbles_and_swaths(
                 start=last_obs if col == 0 else None,
                 label_hours=True,
             )
-        top_ax.set_title(
-            title, fontsize=20, fontweight=weight, color=color, pad=6
-        )
         plot_bullseye_exposures(
             df_adm_template.merge(gdf_adm[[id_col, "adm_label"]]),
             df_exp_adm[df_exp_adm["limit"] == limit],
@@ -962,39 +1002,102 @@ def plot_bubbles_and_swaths(
             show_legend=False,
             ax=bottom_ax,
         )
+        for ax in (top_ax, bottom_ax):
+            ax.set_anchor("C")
 
-    for row_idx, row_label in enumerate(
-        [
-            "Wind swaths",
-            "Population exposure,\n"
-            + ("observed + forecast" if has_obs else "forecast"),
-        ]
-    ):
-        axes[row_idx, 0].text(
-            -0.02,
-            0.5,
-            row_label,
-            fontsize=18,
-            va="center",
-            ha="right",
-            rotation=90,
-            transform=axes[row_idx, 0].transAxes,
+    # Header cells (shaded), then the cell lines; the corner stays blank
+    def shade(x0, y0, w, h):
+        fig.add_artist(
+            mpatches.Rectangle(
+                (x0 / fw, y0 / fh),
+                w / fw,
+                h / fh,
+                transform=fig.transFigure,
+                facecolor=GRID_HEAD_FILL,
+                edgecolor="none",
+                zorder=-1,
+            )
         )
 
-    fig.suptitle(
+    def line(x0, y0, x1, y1):
+        fig.add_artist(
+            Line2D(
+                [x0 / fw, x1 / fw],
+                [y0 / fh, y1 / fh],
+                transform=fig.transFigure,
+                **GRID_LINE,
+            )
+        )
+
+    shade(GRID_ROWHEAD_W, row_tops[0], 3 * GRID_COL_W, GRID_COLHEAD_H)
+    shade(0, bottom, GRID_ROWHEAD_W, sum(GRID_ROW_H))
+    line(GRID_ROWHEAD_W, head_top, table_w, head_top)
+    for y in row_tops:
+        line(0, y, table_w, y)
+    line(0, bottom, 0, row_tops[0])
+    for x in col_lefts:
+        line(x, bottom, x, head_top)
+
+    for col, (_, title, color) in enumerate(columns):
+        fig.text(
+            (col_lefts[col] + GRID_COL_W / 2) / fw,
+            (row_tops[0] + GRID_COLHEAD_H / 2) / fh,
+            title,
+            fontsize=17,
+            fontweight="bold",
+            color=color,
+            ha="center",
+            va="center",
+            linespacing=1.15,
+        )
+    for row, label in enumerate(row_labels):
+        fig.text(
+            GRID_ROWHEAD_W / 2 / fw,
+            (row_tops[row] - GRID_ROW_H[row] / 2) / fh,
+            label,
+            fontsize=15,
+            fontweight="bold",
+            color=INK,
+            ha="center",
+            va="center",
+            rotation=90,
+            linespacing=1.15,
+        )
+
+    # Title and note, left-aligned with the table
+    fig.text(
+        0,
+        (fh - 0.12) / fh,
         f"{cyclone_name}: forecast issued {forecast_display_str}",
         fontsize=22,
         fontweight="bold",
-        y=1,
+        color=INK,
+        ha="left",
+        va="top",
     )
     if swath_note:
-        fig.text(0.5, 0.967, swath_note, ha="center", fontsize=13)
+        fig.text(
+            0,
+            (fh - 0.62) / fh,
+            swath_note,
+            fontsize=13,
+            color=INK_2,
+            ha="left",
+            va="top",
+        )
 
-    # room between and under the rows for the boxed keys
-    fig.tight_layout(rect=[0, 0.08, 1, 0.985], h_pad=14)
-    fw, fh = fig.get_size_inches()
+    # The keys, in a column right of the table: swaths and track beside the
+    # maps, population beside the bubbles
+    key_x = table_w + GRID_KEY_GAP
+    rows = []
+    if has_obs_swath:
+        rows.append(("Observed so far", LAYER_ALPHA["observed"]))
+    rows.append(("Forecast", LAYER_ALPHA["forecast"]))
+    if any(_valid(lay.get("window")) is not None for lay in layers):
+        rows.append((window_label, None))
+    top = row_tops[0] - GRID_PAD
+    top -= swath_key(fig, key_x, top, rows) + 0.25
 
-    # Under the maps: the swath key and the track key, side by side, centred
     track_handles = []
     if has_obs:
         track_handles.append(
@@ -1022,38 +1125,30 @@ def plot_bubbles_and_swaths(
         ),
         Patch(**CONE, label="Uncertainty cone"),
     ]
-    rows = []
-    if has_obs_swath:
-        rows.append(("Observed so far", LAYER_ALPHA["observed"]))
-    rows.append(("Forecast", LAYER_ALPHA["forecast"]))
-    if any(_valid(lay.get("window")) is not None for lay in layers):
-        rows.append((window_label, None))
-    top_in = axes[0, 0].get_position().y0 * fh - 0.2
-    track_leg, track_w = boxed_legend(fig, track_handles, "Track")
-    gap = 0.35
-    x_in = (fw - swath_key_width() - gap - track_w) / 2
-    swath_key(fig, x_in, top_in, rows)
-    track_leg.set_bbox_to_anchor(
-        ((x_in + swath_key_width() + gap) / fw, top_in / fh),
-        transform=fig.transFigure,
-    )
+    boxed_legend(fig, track_handles, "Track", key_x, top, key_w)
 
-    # Under the bubbles: the population key, centred
     pale = {s: lighten(WIND_COLORS[s]) for s in SPEEDS}
     pop_handles = [
         Patch(facecolor=PANEL, edgecolor=GREY_EDGE, label="< 34 kt"),
         *[Patch(facecolor=pale[s], label=f"≥ {s} kt") for s in SPEEDS],
     ]
-    pop_leg, pop_w = boxed_legend(
+    top = row_tops[1] - GRID_PAD
+    _, pop_h = boxed_legend(
         fig,
         pop_handles,
-        "Population exposed to wind speed "
-        "(circle size proportional to population)",
-        ncol=len(pop_handles),
+        "Population exposed to wind speed",
+        key_x,
+        top,
+        key_w,
     )
-    top_in = axes[1, 0].get_position().y0 * fh - 0.2
-    pop_leg.set_bbox_to_anchor(
-        ((fw - pop_w) / 2 / fw, top_in / fh), transform=fig.transFigure
+    fig.text(
+        key_x / fw,
+        (top - pop_h - 0.18) / fh,
+        "Circle size is proportional to the\nprovince's total population.",
+        fontsize=KEY_FONTSIZE - 0.5,
+        color=INK_2,
+        ha="left",
+        va="top",
     )
 
     if save_local:
