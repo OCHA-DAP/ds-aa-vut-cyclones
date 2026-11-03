@@ -1,3 +1,5 @@
+import re
+
 from src.monitoring import info_bundle
 from src.monitoring.content import render_template
 
@@ -6,6 +8,17 @@ BASE = {
     "forecast_time_str": "11:00 on 1 February 2026",
     "observed_time_str": "11:00 on 1 February 2026",
 }
+
+
+FRAMEWORK_URL = (
+    "https://www.unocha.org/publications/report/vanuatu/"
+    "vanuatu-anticipatory-action-framework-tropical-cyclones"
+)
+
+
+def text(html):
+    """The words a reader sees: no tags, single spaces."""
+    return " ".join(re.sub(r"<[^>]+>", "", html).split())
 
 
 def test_trigger_emails_follow_the_framework_draft_messages():
@@ -29,7 +42,7 @@ def test_trigger_emails_follow_the_framework_draft_messages():
             "All activities in line with the framework document should now "
             "commence. OCHA may convene a meeting of the participating "
             "partners."
-        ) in " ".join(body.split())
+        ) in text(body)
     o = render_template("observational.html", BASE)
     assert "observational trigger" in o and "all-clear" in o
     for body in (r, a, o):
@@ -97,3 +110,17 @@ def test_vmhs_is_the_only_authority_and_nadi_only_for_readiness():
         assert official in f and "For the readiness trigger only" in f
         assert "extended track forecast of the Regional" not in f
         assert "met.gov.fj" not in f
+
+
+def test_emails_link_the_framework_and_name_the_list_contact():
+    for t in ("readiness.html", "action.html", "observational.html"):
+        assert f'<a href="{FRAMEWORK_URL}">framework document</a>' in (
+            render_template(t, BASE)
+        )
+    for kw in ({}, {"fms": False}, {"vmhs": False}):
+        body = info(**kw)
+        assert f'href="{FRAMEWORK_URL}"' in body
+        assert "section III.2 (Triggers and thresholds)" in body
+        assert "contact Young-Ji Kim at OCHA" in body
+        assert 'href="mailto:young-ji.kim@un.org"' in body
+        assert not re.search(r"annex|pending", text(body), re.I)
