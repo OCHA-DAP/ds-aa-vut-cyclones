@@ -113,6 +113,7 @@ def test_vmhs_is_the_only_authority_and_nadi_only_for_readiness():
 
 
 def test_emails_link_the_framework_and_name_the_list_contact():
+    # the lists' manager (as in Fiji), not Annex 5's contact
     for t in ("readiness.html", "action.html", "observational.html"):
         assert f'<a href="{FRAMEWORK_URL}">framework document</a>' in (
             render_template(t, BASE)
@@ -121,6 +122,7 @@ def test_emails_link_the_framework_and_name_the_list_contact():
         body = info(**kw)
         assert f'href="{FRAMEWORK_URL}"' in body
         assert "section III.2 (Triggers and thresholds)" in body
-        assert "contact Young-Ji Kim at OCHA" in body
-        assert 'href="mailto:young-ji.kim@un.org"' in body
+        assert "please contact Niko Momoka" in body
+        assert 'href="mailto:niko.momoka@un.org"' in body
+        assert "Young-Ji" not in body
         assert not re.search(r"\b(annex|pending)\b", text(body), re.I)
