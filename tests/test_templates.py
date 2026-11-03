@@ -16,6 +16,16 @@ FRAMEWORK_URL = (
 )
 
 
+# the Fiji email's paragraph, typos fixed, without its list domain
+LIST_CONTACT = (
+    "To be added to or removed from the mailing lists for this framework, "
+    "please contact Niko Momoka at niko.momoka@un.org. You are receiving "
+    "this email via one of these mailing lists if the mailing list address "
+    "appears at the bottom of this email. Otherwise, contact OCHA Data "
+    "Science directly at ocha-datascience@un.org to be added or removed."
+)
+
+
 def text(html):
     """The words a reader sees: no tags, single spaces."""
     return " ".join(re.sub(r"<[^>]+>", "", html).split())
@@ -122,7 +132,10 @@ def test_emails_link_the_framework_and_name_the_list_contact():
         body = info(**kw)
         assert f'href="{FRAMEWORK_URL}"' in body
         assert "section III.2 (Triggers and thresholds)" in body
-        assert "please contact Niko Momoka" in body
-        assert 'href="mailto:niko.momoka@un.org"' in body
-        assert "Young-Ji" not in body
+        assert LIST_CONTACT in text(body)
+        assert 'href="mailto:niko.momoka@un.org">niko.momoka@un.org<' in body
+        assert (
+            'href="mailto:ocha-datascience@un.org">ocha-datascience@un.org<'
+        ) in body
+        assert "pacificihumanitarian" not in body  # domain unconfirmed
         assert not re.search(r"\b(annex|pending)\b", text(body), re.I)
