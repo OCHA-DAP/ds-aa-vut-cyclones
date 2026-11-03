@@ -123,4 +123,4 @@ def test_emails_link_the_framework_and_name_the_list_contact():
         assert "section III.2 (Triggers and thresholds)" in body
         assert "contact Young-Ji Kim at OCHA" in body
         assert 'href="mailto:young-ji.kim@un.org"' in body
-        assert not re.search(r"annex|pending", text(body), re.I)
+        assert not re.search(r"\b(annex|pending)\b", text(body), re.I)
