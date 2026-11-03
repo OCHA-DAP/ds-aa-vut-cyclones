@@ -142,7 +142,7 @@ def trigger_time_str(dt: pd.Timestamp) -> str:
     return f"{local:%H:%M} on {local.day} {local:%B %Y}"
 
 
-# The framework's draft activation messages (annex 7); it has none for the
+# The framework's draft activation messages (Annex 3); it has none for the
 # observational trigger, which follows the action one.
 TRIGGER_SUBJECTS = {
     "readiness": "Readiness Trigger Threshold Reached",

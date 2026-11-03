@@ -32,8 +32,10 @@ blob) — set the path at the top of the script.
 ## Monitoring
 
 Live trigger monitoring for the endorsed framework (2026/27 and 2027/28
-seasons). All three triggers count people exposed to winds of at least
-64 knots, threshold **15,000**:
+seasons;
+[framework document](https://www.unocha.org/publications/report/vanuatu/vanuatu-anticipatory-action-framework-tropical-cyclones)).
+All three triggers count people exposed to winds of at least 64 knots,
+threshold **15,000**:
 
 | Trigger | Forecast | Part of the track | Where |
 |---|---|---|---|

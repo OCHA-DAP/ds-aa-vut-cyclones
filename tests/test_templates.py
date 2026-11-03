@@ -1,3 +1,5 @@
+import re
+
 from src.monitoring import info_bundle
 from src.monitoring.content import render_template
 
@@ -6,6 +8,27 @@ BASE = {
     "forecast_time_str": "11:00 on 1 February 2026",
     "observed_time_str": "11:00 on 1 February 2026",
 }
+
+
+FRAMEWORK_URL = (
+    "https://www.unocha.org/publications/report/vanuatu/"
+    "vanuatu-anticipatory-action-framework-tropical-cyclones"
+)
+
+
+# the Fiji email's paragraph, typos fixed, without its list domain
+LIST_CONTACT = (
+    "To be added to or removed from the mailing lists for this framework, "
+    "please contact Niko Momoka at niko.momoka@un.org. You are receiving "
+    "this email via one of these mailing lists if the mailing list address "
+    "appears at the bottom of this email. Otherwise, contact OCHA Data "
+    "Science directly at ocha-datascience@un.org to be added or removed."
+)
+
+
+def text(html):
+    """The words a reader sees: no tags, single spaces."""
+    return " ".join(re.sub(r"<[^>]+>", "", html).split())
 
 
 def test_trigger_emails_follow_the_framework_draft_messages():
@@ -29,7 +52,7 @@ def test_trigger_emails_follow_the_framework_draft_messages():
             "All activities in line with the framework document should now "
             "commence. OCHA may convene a meeting of the participating "
             "partners."
-        ) in " ".join(body.split())
+        ) in text(body)
     o = render_template("observational.html", BASE)
     assert "observational trigger" in o and "all-clear" in o
     for body in (r, a, o):
@@ -97,3 +120,22 @@ def test_vmhs_is_the_only_authority_and_nadi_only_for_readiness():
         assert official in f and "For the readiness trigger only" in f
         assert "extended track forecast of the Regional" not in f
         assert "met.gov.fj" not in f
+
+
+def test_emails_link_the_framework_and_name_the_list_contact():
+    # the lists' manager (as in Fiji), not Annex 5's contact
+    for t in ("readiness.html", "action.html", "observational.html"):
+        assert f'<a href="{FRAMEWORK_URL}">framework document</a>' in (
+            render_template(t, BASE)
+        )
+    for kw in ({}, {"fms": False}, {"vmhs": False}):
+        body = info(**kw)
+        assert f'href="{FRAMEWORK_URL}"' in body
+        assert "section III.2 (Triggers and thresholds)" in body
+        assert LIST_CONTACT in text(body)
+        assert 'href="mailto:niko.momoka@un.org">niko.momoka@un.org<' in body
+        assert (
+            'href="mailto:ocha-datascience@un.org">ocha-datascience@un.org<'
+        ) in body
+        assert "pacificihumanitarian" not in body  # domain unconfirmed
+        assert not re.search(r"\b(annex|pending)\b", text(body), re.I)
