@@ -3,22 +3,34 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>How the Vanuatu cyclone trigger works</title>
+<title>Vanuatu cyclone trigger: historical activations</title>
+<meta name="description" content="The trigger of the Vanuatu anticipatory action framework for tropical cyclones, its historical activations (framework Annex 2) and the analysis behind it." />
 <link rel="icon" href="../favicon.ico" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="stylesheet" href="../forecast-check/style.css" />
+<link rel="stylesheet" href="../assets/historical.css" />
 <style>
 /* page-specific additions on top of the shared stylesheet */
-.hero { max-width: 72ch; }
-.hero p { font-size: 1.05rem; }
-.window-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.2rem 0; }
-@media (max-width: 820px) { .window-cards { grid-template-columns: 1fr; } }
-.wcard { border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.1rem; background: var(--surface-2); }
-.wcard h3 { margin: 0 0 .3rem; font-size: 1rem; color: var(--text-primary); }
-.wcard .lead { font-size: 1.35rem; font-weight: 700; margin: .1rem 0 .4rem; }
-.wcard p { margin: .25rem 0; font-size: .88rem; color: var(--text-secondary); }
-.wcard .src { color: var(--text-muted); font-size: .8rem; }
+.eyebrow { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0 0 .3rem; font-weight: 650; }
+.prose { max-width: 78ch; }
+.prose p { margin: .5rem 0; }
+.toc { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin: 1rem 0 0; padding: 0;
+  list-style: none; font-size: .92rem; }
+
+table.def { border-collapse: collapse; width: 100%; max-width: 1050px; font-size: .92rem; }
+table.def th, table.def td { border: 1px solid var(--border); padding: .45rem .65rem;
+  text-align: left; vertical-align: middle; }
+table.def thead th { background: var(--surface-2); font-weight: 650; }
+table.def td.big { font-weight: 650; text-align: center; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .9rem; margin: 1rem 0 1.4rem; }
+.fact { border: 1px solid var(--border); border-radius: 8px; padding: .8rem 1rem;
+  background: var(--surface-2); }
+.fact .v { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.fact .k { font-size: .86rem; color: var(--text-secondary); margin-top: .2rem; }
 
 .act-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .9rem; margin: 1rem 0; }
 .acard { border: 1px solid var(--border); border-radius: 8px; padding: .9rem 1rem; }
@@ -28,29 +40,12 @@
 .badge.action { background: var(--fcst); }
 .badge.obsv { background: var(--obs); }
 .badge.cerf { background: var(--critical); }
+.badge.false { background: var(--text-muted); }
 .badge.assumed { background: var(--text-muted); }
 .acard dl { display: grid; grid-template-columns: auto 1fr; gap: .1rem .6rem; margin: 0; font-size: .82rem; }
 .acard dt { color: var(--text-muted); }
 .acard dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .acard.assumed-card { border-style: dashed; opacity: .85; }
-
-/* the standard "Trigger Mechanism Statistics" panel — fixed light figure */
-.tms { background: #f0f0f0; color: #000; padding: 1.3rem 1.9rem 1.5rem;
-  max-width: 1050px; font-family: Arial, Helvetica, sans-serif; border-radius: 2px; }
-.tms .tms-title { font-weight: 700; font-style: italic; font-size: 1.02rem; margin: 0 0 1.4rem; }
-.tms .secbar { display: flex; justify-content: space-between; align-items: baseline;
-  border-bottom: 2px solid #000; padding-bottom: 2px; }
-.tms .secbar .sec { font-weight: 700; }
-.tms .secbar .yrs { font-style: italic; }
-.tms table { border-collapse: collapse; width: 100%; background: none; font-size: .95rem; }
-.tms table th, .tms table td { border: none; background: none; padding: 4px 10px; text-align: center; }
-.tms thead th { font-style: italic; font-weight: 400; border-bottom: 1.5px solid #000; background: none; }
-.tms tbody tr:last-child td { border-bottom: 2px solid #000; }
-.tms .overall { margin-top: 1.6rem; max-width: 460px; }
-.tms .overall .sec { font-weight: 700; border-bottom: 1.5px solid #000; display: block; padding-bottom: 2px; }
-.tms .overall table td.lbl { font-style: italic; text-align: right; width: 68%; }
-.tms .overall table td.val { text-align: left; }
-.tms .overall tbody tr:last-child td { border-bottom: 2px solid #000; }
 
 #xMap { height: 420px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
 .explorer-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.4rem; }
@@ -59,115 +54,153 @@
 .big-verdict { font-size: 1.05rem; margin: .6rem 0; }
 .big-verdict strong.yes { color: var(--critical); }
 section { margin-top: 2.6rem; }
+h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
 </style>
 </head>
 <body>
+<a class="home-link" href="../">&larr; Vanuatu cyclone anticipatory action</a>
+
 <header class="page-head">
-  <h1>How the Vanuatu cyclone trigger works</h1>
-  <p class="lede hero-lede">Anticipatory action for tropical cyclones — explained</p>
+  <p class="eyebrow">National Anticipatory Action Framework for Tropical Cyclones in Vanuatu</p>
+  <h1>The trigger and its historical activations</h1>
+  <p class="lede prose">
+    The trigger of the framework endorsed by the Emergency Relief Coordinator on
+    15&nbsp;October 2026, for the 2026/27 and 2027/28 cyclone seasons, and how it would
+    have performed on every cyclone season from 2006 to 2025. The
+    <a href="https://www.unocha.org/publications/report/vanuatu/vanuatu-anticipatory-action-framework-tropical-cyclones">framework document</a>
+    is the reference; this page shows the analysis behind its trigger (section III.2) and
+    its historical activations (Annex 2).
+  </p>
+  <ul class="toc">
+    <li><a href="#trigger">The trigger</a></li>
+    <li><a href="#activations">Historical activations</a></li>
+    <li><a href="#performance">How well it performs</a></li>
+    <li><a href="#explorer">Explore the historical forecasts</a></li>
+    <li><a href="#notes">Technical notes</a></li>
+  </ul>
 </header>
 
-<div class="hero">
-  <p>
-    When a dangerous cyclone approaches Vanuatu, help is most valuable <em>before</em> landfall:
-    moving supplies, securing shelters, warning communities. The anticipatory action framework
-    pre-arranges <strong>$1.5&nbsp;million</strong> so that money moves automatically when
-    agreed conditions — the <strong>trigger</strong> — are met, instead of waiting for damage
-    reports afterwards.
+<section id="trigger">
+  <h2>The trigger</h2>
+  <p class="prose">
+    Each of the three triggers asks the same question at a different time: are at least
+    <strong>15,000 people</strong> expected to be exposed, or have they been exposed, to
+    maximum sustained winds of <strong>64&nbsp;knots</strong> (about 119&nbsp;km/h) or more?
   </p>
-  <p>
-    The trigger asks one question, in three windows:
-    <strong>are at least 15,000 people expected to face hurricane-force winds
-    (64&nbsp;knots and above)?</strong>
+  <table class="def">
+    <thead>
+      <tr><th>Trigger</th><th>Lead time</th><th>Wind speed</th>
+          <th>Number of people exposed</th><th>Provinces</th><th>Data source</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Readiness</strong></td>
+        <td>72 to 120 hours</td>
+        <td class="big" rowspan="3">&ge; 64 knots</td>
+        <td class="big" rowspan="3">&ge; 15,000 people</td>
+        <td rowspan="2">Shefa, Sanma, Tafea</td>
+        <td>RSMC Nadi extended track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Action</strong></td>
+        <td>24 to 72 hours</td>
+        <td>VMHS track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Observational</strong></td>
+        <td>n/a</td>
+        <td>All of Vanuatu</td>
+        <td>VMHS observed track</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="prose">
+    <p class="note">
+      Lead time is the time before landfall. Wind speeds are 10-minute sustained winds, as
+      used by RSMC Nadi and VMHS. No anticipatory activities begin in the 24 hours before
+      landfall (NDMO's operational cut-off); activities under the observational trigger start
+      after landfall and NDMO's all-clear. Triggers are monitored from 1&nbsp;October to
+      31&nbsp;May. CERF has pre-arranged up to $1.5&nbsp;million, disbursed once, on the
+      first trigger reached: a readiness activation authorises the readiness share of the
+      funds, an action or observational activation all of them.
+    </p>
+  </div>
+</section>
+
+<section id="activations">
+  <h2>Historical activations</h2>
+  <p class="prose">
+    The storms that came closest to Vanuatu from 2006 to 2025, as listed in the framework's
+    Annex 2. Red cells met the trigger: at least 15,000 people exposed to 64-knot winds in
+    the forecasts of 1 to 3 days ahead (Shefa, Sanma and Tafea), or in the observed track
+    (all of Vanuatu). Pale red cells are the two storms carried as one assumed activation:
+    no forecast record survives from before 2012. Seasons are named by the year they end
+    (Lola struck in October 2023, in the 2023/24 season).
   </p>
-</div>
+  <div class="scroll-x" id="annex"></div>
+  <p class="note prose">
+    Forecast exposure: JTWC official forecasts (the framework's forecast sources archive no
+    wind sizes), 24&ndash;72&nbsp;h track segment, WorldPop population inside the forecast
+    64&nbsp;kt swath in Shefa, Sanma and Tafea. Observed exposure: IBTrACS best track, whole
+    country. People affected: EM-DAT. Gene 2008 and Atu 2011 both caused damage that EM-DAT
+    does not record for Vanuatu. Storms shown: all with any 64&nbsp;kt exposure, impact or
+    CERF allocation, plus the closest remaining passes.
+  </p>
 
-<div class="window-cards">
-  <div class="wcard">
-    <h3>&#9200; Readiness</h3>
-    <div class="lead">3&ndash;5 days before</div>
-    <p>Early heads-up from long-range forecasts. Agencies mobilise staff and pre-position
-      supplies for Shefa, Sanma and Tafea provinces.</p>
-    <p class="src">Source: RSMC Nadi extended track forecast</p>
-  </div>
-  <div class="wcard">
-    <h3>&#9889; Action</h3>
-    <div class="lead">1&ndash;3 days before</div>
-    <p>The main trigger. If forecasts put &ge;15,000 people in Shefa, Sanma or Tafea inside
-      the hurricane-force wind area, the full amount is released — with time to act.</p>
-    <p class="src">Source: VMHS track forecast</p>
-  </div>
-  <div class="wcard">
-    <h3>&#128301; Observational</h3>
-    <div class="lead">as it happens</div>
-    <p>The safety net, and it covers <strong>all of Vanuatu</strong>: if a storm actually
-      exposes &ge;15,000 people anywhere in the country, the framework activates even if the
-      forecasts missed it.</p>
-    <p class="src">Source: VMHS observed track</p>
-  </div>
-</div>
-
-<section>
-  <h2>How often would it have activated?</h2>
-  <p class="lede">
-    We replayed every cyclone season from 2006 to 2025 — rebuilding the wind footprint of each
-    storm from forecast archives and best-track data, and counting the people inside it.
+  <h3 class="sub">Return periods</h3>
+  <p class="prose">
+    The return periods in section III.2 of the framework, counted by season: the readiness
+    trigger is not assessed (too few archived long-range forecasts), so the overall figures
+    are bounds.
   </p>
   <div id="tms"></div>
-  <p class="note" id="tmsFoot"></p>
 </section>
 
-<section>
-  <h2>The storms that would have activated it</h2>
-  <p class="lede">
-    Six seasons in twenty. Every cyclone that received a CERF humanitarian allocation is
-    among them — and one activation (Jasmine 2012) would have been a false alarm.
+<section id="performance">
+  <h2>How well it performs</h2>
+  <p class="prose">
+    The framework set the trigger to catch most of the cyclones for which international
+    humanitarian assistance was needed, with CERF's past allocations for cyclones in
+    Vanuatu as the measure, while activating about once in four years.
   </p>
+  <div class="facts" id="facts"></div>
   <div class="act-cards" id="actCards"></div>
-</section>
 
-<section>
-  <h2>Every close call, at a glance</h2>
-  <p class="lede">
-    Each storm that came near: the tall bar is what the forecasts predicted at 1&ndash;3 days
-    out, the second bar what actually happened. The line is the 15,000-person trigger.
+  <h3 class="sub">Every storm with hurricane-force winds near Vanuatu</h3>
+  <p class="prose">
+    For each storm, the upper bar is the most people the forecasts of 1 to 3 days ahead
+    put inside the 64-knot wind area (Shefa, Sanma and Tafea); the lower bar is how many
+    were exposed (all of Vanuatu). The line is the 15,000-person threshold.
   </p>
   <div id="xBars"></div>
-</section>
 
-<section>
-  <h2>Why isn&rsquo;t rainfall part of the trigger?</h2>
-  <div class="hero">
+  <h3 class="sub">Why wind, and not rainfall</h3>
+  <div class="prose">
     <p>
-      Cyclones hurt through wind, rain and storm surge together — so why trigger on wind alone?
-      The working group considered adding a rainfall condition and decided against it, for two
-      reasons. First, <strong>simplicity</strong>: a trigger everyone can verify at a glance
-      (one number, one map) is easier to operate, audit and trust at 2&nbsp;a.m. than a
-      multi-condition rule. Second, <strong>it didn&rsquo;t add accuracy</strong>: in
-      backtesting, the destructive storms were already caught by wind exposure — adding
-      rainfall thresholds changed little or nothing about which storms activated, while making
-      every activation decision harder to explain. Heavy-rain events without dangerous winds
-      are real, but they are a different hazard, better served by other response tools.
+      Cyclones do harm through wind, rain and storm surge together. The working group
+      considered adding a rainfall condition and decided against it. A trigger on one number
+      is easier to operate, check and explain; and in the backtest the destructive storms
+      were already caught by wind exposure, so a rainfall threshold changed little or
+      nothing about which storms activated it.
     </p>
     <p>
-      The evidence behind that decision: for every storm in the record we compared each
-      candidate indicator against how many people the storm actually affected, and against
-      whether it led to a CERF humanitarian allocation. Wind exposure — especially at
-      hurricane force — tracks real impact far more closely than rainfall does:
+      For every storm in the 2006&ndash;2025 record, each candidate indicator against the
+      people the storm affected and against whether it led to a CERF allocation: exposure
+      to hurricane-force winds tracks both far more closely than rainfall does.
     </p>
   </div>
   <div id="corr" class="corr-grid"></div>
-  <p class="note">Correlation (Pearson r, 0 = no relationship, 1 = perfect) of each candidate
-    indicator with recorded impact, over all storms in the 2006&ndash;2025 record. &ldquo;Exp&rdquo;
-    = people exposed at that wind speed in the trigger provinces.</p>
+  <p class="note prose">Correlation (Pearson r: 0 = no relationship, 1 = perfect) of each
+    indicator with recorded impact, over all storms in the record. &ldquo;Exp&rdquo; = people
+    exposed at that wind speed in Shefa, Sanma and Tafea (observed track).</p>
 </section>
 
-<section>
-  <h2>Explore the historical forecasts yourself</h2>
-  <p class="lede">
-    Pick a storm and step through the forecasts as they were issued. The blue area is where
-    hurricane-force winds were predicted (1&ndash;3 days ahead); the orange area is where they
-    actually occurred; the green outline marks the three trigger provinces.
+<section id="explorer">
+  <h2>Explore the historical forecasts</h2>
+  <p class="lede prose">
+    Pick a storm and step through its forecasts as they were issued. The blue area is where
+    the forecast put 64-knot winds 1 to 3 days ahead; the orange area is where they
+    occurred; the green outline marks Shefa, Sanma and Tafea.
   </p>
   <section class="controls">
     <label>Storm
@@ -183,40 +216,44 @@ section { margin-top: 2.6rem; }
         <span id="xCycleLabel" class="cycle-label">&nbsp;</span>
       </div>
       <ul class="legend">
-        <li><span class="sw sw-fcst"></span>Forecast hurricane-force area (1&ndash;3 days ahead)</li>
-        <li><span class="sw sw-obs"></span>Where it actually happened</li>
-        <li><span class="sw sw-aoi"></span>Trigger provinces (Shefa, Sanma, Tafea)</li>
+        <li><span class="sw sw-fcst"></span>Forecast 64-knot wind area (1&ndash;3 days ahead)</li>
+        <li><span class="sw sw-obs"></span>Observed 64-knot wind area</li>
+        <li><span class="sw sw-aoi"></span>Shefa, Sanma and Tafea</li>
       </ul>
+      <p class="note">The boundaries and names shown and the designations used on this map
+        do not imply official endorsement or acceptance by the United Nations.</p>
     </div>
     <div>
       <h3 style="margin-top:0">This forecast</h3>
       <div class="big-verdict" id="xVerdict"></div>
       <div class="cycle-info" id="xInfo"></div>
       <p class="note" style="margin-top:1rem">
-        Forecasts shown are JTWC official forecasts (the closest archived stand-in for the
-        RSMC Nadi / VMHS products the framework will use operationally — those are not archived
-        with wind sizes). &ldquo;People exposed&rdquo; counts residents of Shefa, Sanma and
-        Tafea inside the predicted hurricane-force area, using WorldPop population data.
+        Forecasts shown are JTWC official forecasts, the closest archived stand-in for the
+        RSMC Nadi and VMHS forecasts the framework uses (those are not archived with wind
+        sizes). &ldquo;People exposed&rdquo; counts residents of Shefa, Sanma and Tafea inside
+        the forecast 64-knot area, from WorldPop population data. Every storm and forecast,
+        with the design-stage alternatives, is in the
+        <a href="../forecast-check/">technical analysis</a>.
       </p>
     </div>
   </div>
 </section>
 
-<section>
-  <h2>Technical notes: how we reconstructed the historical forecasts</h2>
+<section id="notes">
+  <h2>Technical notes: how the historical forecasts were reconstructed</h2>
   <details class="caveat" style="max-width:none">
-    <summary>Why JTWC forecasts stand in for RSMC Nadi / VMHS &mdash; and how the backtest works</summary>
+    <summary>Why JTWC forecasts stand in for RSMC Nadi and VMHS, and how the backtest works</summary>
     <div>
       <p>
         <strong>The substitution problem.</strong> Operationally, the trigger reads RSMC Nadi and
         VMHS forecasts. But to test the trigger against history we need the forecasts <em>as they
         were issued at the time</em>, including the predicted <em>size</em> of the hurricane-force
-        wind area — and neither source archives that. VMGD kindly shared their complete historical
+        wind area, and neither source archives that. VMGD kindly shared their complete historical
         archive (9&nbsp;GB, sixteen seasons): their own Forecast Track Maps record position and
         intensity category, but the wind boundaries exist only as circles drawn on the map images,
         not as numbers. The one archived source that does tabulate forecast wind extents is the
-        <strong>US Joint Typhoon Warning Center (JTWC)</strong>, whose official forecasts — with
-        wind radii in four quadrants at 34/50/64&nbsp;kt — were preserved inside VMGD's own archive
+        <strong>US Joint Typhoon Warning Center (JTWC)</strong>, whose official forecasts (with
+        wind radii in four quadrants at 34/50/64&nbsp;kt) were preserved inside VMGD's own archive
         for 2012&ndash;2024 and in a public research mirror for 2025. JTWC is a close stand-in:
         it forecasts the same storms at the same times, and its skill is comparable to the
         operational sources.
@@ -224,34 +261,35 @@ section { margin-top: 2.6rem; }
       <p>
         <strong>From a forecast to a number of people.</strong> For every forecast issued
         (543 forecast cycles across 47 storms), we take only the <strong>24&ndash;72&nbsp;hour
-        portion</strong> of the predicted track — the action window; anything closer gives too
-        little warning to act on. We sweep the predicted hurricane-force wind radii along that
-        track segment into a footprint, and count the residents of Shefa, Sanma and Tafea inside
-        it using WorldPop 1&nbsp;km population data. The observed side is computed the same way
-        from IBTrACS best-track data, so forecast and reality are directly comparable. One
-        conversion matters: JTWC reports 1-minute average winds while Nadi/VMHS use 10-minute
-        averages, so &ldquo;64&nbsp;kt&rdquo; is evaluated at its 1-minute equivalent
-        (&asymp;73&nbsp;kt, factor 0.88), with the radii interpolated to that contour.
-        We checked the whole pipeline by rebuilding a storm's wind footprint two independent
-        ways (96% area agreement) and by verifying every would-be false alarm against
-        contemporaneous damage reports.
+        portion</strong> of the predicted track: the action window. We sweep the predicted
+        hurricane-force wind radii along that track segment into a footprint, and count the
+        residents of Shefa, Sanma and Tafea inside it using WorldPop 1&nbsp;km population data.
+        The observed side is computed the same way from IBTrACS best-track data, so forecast and
+        reality are directly comparable. One conversion matters: JTWC reports 1-minute average
+        winds while Nadi and VMHS use 10-minute averages, so &ldquo;64&nbsp;kt&rdquo; is
+        evaluated at its 1-minute equivalent (&asymp;73&nbsp;kt, factor 0.88), with the radii
+        interpolated to that contour. We checked the whole pipeline by rebuilding a storm's wind
+        footprint two independent ways (96% area agreement) and by checking every would-be false
+        alarm against damage reports from the time.
       </p>
       <p>
         <strong>What the archive can't tell us.</strong> No forecast records survive for
-        2006&ndash;2011 (six seasons), so the action trigger simply cannot be scored there —
-        two storms in those years (Gene 2008, Atu 2011) brought hurricane-force winds to or
-        beside the trigger provinces and caused documented damage, so the statistics above carry
-        <strong>one assumed activation</strong> for that period. Season 2005 is excluded
-        outright: forecast files exist for that single year alone among 2003&ndash;2011, with
-        unclear provenance. And the readiness window (3&ndash;5 days) is not assessed at all —
-        archived long-range forecasts with wind sizes are too sparse before 2017 to score it
-        fairly. These gaps are why the overall return period is reported as
-        &ldquo;&le;&rdquo; rather than an exact value.
+        2006&ndash;2011 (six seasons), so the action trigger cannot be scored there. Two storms
+        in those years (Gene 2008, Atu 2011) brought hurricane-force winds to or beside the
+        trigger provinces and caused documented damage, so the statistics carry
+        <strong>one assumed activation</strong> for that period. Season 2005 is excluded: forecast
+        files exist for that single year alone among 2003&ndash;2011, with unclear provenance.
+        The readiness window (3&ndash;5 days) is not assessed at all: archived long-range
+        forecasts with wind sizes are too sparse before 2017 to score it fairly. These gaps are
+        why the overall return period is reported as &ldquo;&le;&rdquo; rather than an exact
+        value.
       </p>
       <p>
-        Everything on this page regenerates from the same data files as the
-        <a href="../forecast-check/">full technical analysis</a>, where each of these choices
-        can be inspected storm by storm and forecast by forecast.
+        Everything on this page is drawn from the same data files as the
+        <a href="../forecast-check/">technical analysis</a>, where each of these choices can be
+        inspected storm by storm and forecast by forecast. The code is in the
+        <a href="https://github.com/OCHA-DAP/ds-aa-vut-cyclones">ds-aa-vut-cyclones</a>
+        repository.
       </p>
     </div>
   </details>
@@ -259,8 +297,8 @@ section { margin-top: 2.6rem; }
 
 <footer class="page-foot">
   <p>
-    Prepared by OCHA Centre for Humanitarian Data &middot;
-    <a href="../forecast-check/">full technical analysis</a> &middot;
+    Prepared by the OCHA Centre for Humanitarian Data &middot;
+    <a href="../forecast-check/">technical analysis</a> &middot;
     <a href="../slides/">summary slides</a>
     <span id="generated"></span>
   </p>
@@ -268,6 +306,7 @@ section { margin-top: 2.6rem; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="../assets/historical.js"></script>
 <script src="trigger.js"></script>
 </body>
 </html>

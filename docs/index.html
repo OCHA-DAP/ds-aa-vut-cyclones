@@ -1,14 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Vanuatu cyclone trigger</title>
-<meta http-equiv="refresh" content="0; url=./forecast-check/" />
-<link rel="icon" href="./favicon.ico" />
-<script>location.replace("./forecast-check/" + location.hash);</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanuatu cyclone anticipatory action — OCHA Centre for Humanitarian Data</title>
+<meta name="description" content="The trigger of the Vanuatu anticipatory action framework for tropical cyclones, its historical activations and the analysis behind it.">
+<link rel="icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script>
+// Until November 2026 the root redirected to forecast-check/, keeping the hash,
+// so saved links to its two tabs point here. Forward only those; a plain
+// visit to "/" shows this page.
+(function () {
+  if (location.hash === "#design" || location.hash === "#forecast") {
+    location.replace("forecast-check/" + location.hash);
+  }
+})();
+</script>
 </head>
 <body>
-<p>The trigger explorer has moved to
-  <a href="./forecast-check/">forecast-check</a>.</p>
+<div class="wrap">
+
+  <header class="hero">
+    <canvas id="bg" aria-hidden="true"></canvas>
+    <div class="inner">
+      <p class="eyebrow">OCHA Centre for Humanitarian Data</p>
+      <h1>Vanuatu anticipatory action: tropical cyclones</h1>
+      <p>The trigger of the National Anticipatory Action Framework for Tropical Cyclones in
+         Vanuatu, endorsed in October 2026 for the 2026/27 and 2027/28 cyclone seasons: at
+         least 15,000 people exposed to 64-knot winds, in the RSMC Nadi and VMHS forecasts or
+         the VMHS observed track.</p>
+    </div>
+  </header>
+
+  <main>
+    <p class="label">The trigger</p>
+    <div class="grid grid-one">
+
+      <a class="k k-feature" href="trigger/">
+        <h2>The trigger and its historical activations</h2>
+        <p>The trigger as endorsed, the storms that would have activated it from 2006 to
+           2025 (the table in the framework's Annex 2) with its return periods, how well it
+           catches the cyclones that needed international assistance, and a map to step
+           through the historical forecasts storm by storm.</p>
+        <span class="views">Trigger · Historical activations · Performance ·
+           Forecast explorer · Technical notes</span>
+        <span class="foot"><em>/trigger/</em><span>Linked from the framework document</span></span>
+      </a>
+
+    </div>
+
+    <p class="label label-2">Analysis</p>
+    <div class="grid">
+
+      <a class="k" href="forecast-check/">
+        <h2>Technical analysis</h2>
+        <p>How the trigger was designed and checked. The design tab tests thresholds, wind
+           speeds and rainfall on the observed record; the forecast tab scores the action
+           trigger against every archived forecast, storm by storm and forecast by
+           forecast.</p>
+        <span class="foot"><em>/forecast-check/</em></span>
+      </a>
+
+      <a class="k" href="slides/">
+        <h2>Summary slides</h2>
+        <p>Two slides for presentations: the trigger with its Trigger Mechanism Statistics,
+           and the historical storm table.</p>
+        <span class="foot"><em>/slides/</em></span>
+      </a>
+
+      <a class="k" href="https://www.unocha.org/publications/report/vanuatu/vanuatu-anticipatory-action-framework-tropical-cyclones">
+        <h2>Framework document<span class="chip chip-ext">unocha.org</span></h2>
+        <p>The National Anticipatory Action Framework for Tropical Cyclones in Vanuatu,
+           co-led by the National Disaster Management Office and OCHA: the trigger,
+           the pre-agreed activities and the pre-arranged financing.</p>
+        <span class="foot"><em>unocha.org</em><span>Published Oct 2026</span></span>
+      </a>
+
+    </div>
+  </main>
+
+  <div class="note">
+    <p><strong>Access.</strong> Everything listed here is public.</p>
+    <p><strong>Code.</strong> The analysis, the data scripts and the live trigger monitoring
+       are in <a href="https://github.com/OCHA-DAP/ds-aa-vut-cyclones">OCHA-DAP/ds-aa-vut-cyclones</a>.
+       This site is served from <code>docs/</code> on <code>main</code>; to add a page, create
+       a directory there with an <code>index.html</code> and add a card above.</p>
+  </div>
+
+</div>
+
+<script src="assets/hero.js" defer></script>
 </body>
 </html>
