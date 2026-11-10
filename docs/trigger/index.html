@@ -50,10 +50,14 @@ table.def td.big { font-weight: 650; text-align: center; }
 #xMap { height: 420px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
 .explorer-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.4rem; }
 @media (max-width: 860px) { .explorer-grid { grid-template-columns: 1fr; } }
+.explorer-grid > div { min-width: 0; }
+@media (max-width: 480px) { .cycle-ctl { flex-wrap: wrap; } .cycle-label { min-width: 0; } }
 #xBars svg { display: block; width: 100%; height: auto; }
 .big-verdict { font-size: 1.05rem; margin: .6rem 0; }
 .big-verdict strong.yes { color: var(--critical); }
 section { margin-top: 2.6rem; }
+.summary-trigger { margin: .6rem 0 0; padding: .6rem .8rem; background: var(--surface-2);
+  border-left: 4px solid var(--critical); border-radius: 2px; }
 h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
 </style>
 </head>
@@ -68,64 +72,24 @@ h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
     15&nbsp;October 2026, for the 2026/27 and 2027/28 cyclone seasons, and how it would
     have performed on every cyclone season from 2006 to 2025. The
     <a href="https://www.unocha.org/publications/report/vanuatu/vanuatu-anticipatory-action-framework-tropical-cyclones">framework document</a>
-    is the reference; this page shows the analysis behind its trigger (section III.2) and
-    its historical activations (Annex 2).
+    is the reference: this page shows its historical activations (Annex 2) and the
+    analysis behind its trigger (section III.2).
+  </p>
+  <p class="prose summary-trigger">
+    <strong>The trigger:</strong> at least <strong>15,000 people</strong> exposed to winds of
+    <strong>64&nbsp;knots</strong> (about 119&nbsp;km/h) or more, in the RSMC Nadi forecast
+    72 to 120 hours ahead (readiness) or the VMHS forecast 24 to 72 hours ahead (action),
+    counted in Shefa, Sanma and Tafea; or in the VMHS observed track, anywhere in Vanuatu
+    (observational). <a href="#trigger">In full</a>.
   </p>
   <ul class="toc">
-    <li><a href="#trigger">The trigger</a></li>
     <li><a href="#activations">Historical activations</a></li>
-    <li><a href="#performance">How well it performs</a></li>
     <li><a href="#explorer">Explore the historical forecasts</a></li>
+    <li><a href="#performance">How well it performs</a></li>
+    <li><a href="#trigger">The trigger in full</a></li>
     <li><a href="#notes">Technical notes</a></li>
   </ul>
 </header>
-
-<section id="trigger">
-  <h2>The trigger</h2>
-  <p class="prose">
-    Each of the three triggers asks the same question at a different time: are at least
-    <strong>15,000 people</strong> expected to be exposed, or have they been exposed, to
-    maximum sustained winds of <strong>64&nbsp;knots</strong> (about 119&nbsp;km/h) or more?
-  </p>
-  <table class="def">
-    <thead>
-      <tr><th>Trigger</th><th>Lead time</th><th>Wind speed</th>
-          <th>Number of people exposed</th><th>Provinces</th><th>Data source</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Readiness</strong></td>
-        <td>72 to 120 hours</td>
-        <td class="big" rowspan="3">&ge; 64 knots</td>
-        <td class="big" rowspan="3">&ge; 15,000 people</td>
-        <td rowspan="2">Shefa, Sanma, Tafea</td>
-        <td>RSMC Nadi extended track forecast</td>
-      </tr>
-      <tr>
-        <td><strong>Action</strong></td>
-        <td>24 to 72 hours</td>
-        <td>VMHS track forecast</td>
-      </tr>
-      <tr>
-        <td><strong>Observational</strong></td>
-        <td>n/a</td>
-        <td>All of Vanuatu</td>
-        <td>VMHS observed track</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="prose">
-    <p class="note">
-      Lead time is the time before landfall. Wind speeds are 10-minute sustained winds, as
-      used by RSMC Nadi and VMHS. No anticipatory activities begin in the 24 hours before
-      landfall (NDMO's operational cut-off); activities under the observational trigger start
-      after landfall and NDMO's all-clear. Triggers are monitored from 1&nbsp;October to
-      31&nbsp;May. CERF has pre-arranged up to $1.5&nbsp;million, disbursed once, on the
-      first trigger reached: a readiness activation authorises the readiness share of the
-      funds, an action or observational activation all of them.
-    </p>
-  </div>
-</section>
 
 <section id="activations">
   <h2>Historical activations</h2>
@@ -133,9 +97,10 @@ h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
     The storms that came closest to Vanuatu from 2006 to 2025, as listed in the framework's
     Annex 2. Red cells met the trigger: at least 15,000 people exposed to 64-knot winds in
     the forecasts of 1 to 3 days ahead (Shefa, Sanma and Tafea), or in the observed track
-    (all of Vanuatu). Pale red cells are the two storms carried as one assumed activation:
-    no forecast record survives from before 2012. Seasons are named by the year they end
-    (Lola struck in October 2023, in the 2023/24 season).
+    (all of Vanuatu). No forecast record survives from before 2012, nor for two later
+    systems (Tam 2025 and an unnamed 2024 system); pale red cells are the two of those
+    storms carried as one assumed activation. Seasons are named by the year they end (Lola
+    struck in October 2023, in the 2023/24 season).
   </p>
   <div class="scroll-x" id="annex"></div>
   <p class="note prose">
@@ -143,8 +108,10 @@ h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
     wind sizes), 24&ndash;72&nbsp;h track segment, WorldPop population inside the forecast
     64&nbsp;kt swath in Shefa, Sanma and Tafea. Observed exposure: IBTrACS best track, whole
     country. People affected: EM-DAT. Gene 2008 and Atu 2011 both caused damage that EM-DAT
-    does not record for Vanuatu. Storms shown: all with any 64&nbsp;kt exposure, impact or
-    CERF allocation, plus the closest remaining passes.
+    does not record for Vanuatu. Storms without a forecast record show 0 observed exposure,
+    as in the framework; the observational trigger was checked for all 20 seasons and none
+    of them reached 15,000. Storms shown: all with any 64&nbsp;kt exposure, impact or CERF
+    allocation, plus the closest remaining passes.
   </p>
 
   <h3 class="sub">Return periods</h3>
@@ -153,46 +120,7 @@ h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
     trigger is not assessed (too few archived long-range forecasts), so the overall figures
     are bounds.
   </p>
-  <div id="tms"></div>
-</section>
-
-<section id="performance">
-  <h2>How well it performs</h2>
-  <p class="prose">
-    The framework set the trigger to catch most of the cyclones for which international
-    humanitarian assistance was needed, with CERF's past allocations for cyclones in
-    Vanuatu as the measure, while activating about once in four years.
-  </p>
-  <div class="facts" id="facts"></div>
-  <div class="act-cards" id="actCards"></div>
-
-  <h3 class="sub">Every storm with hurricane-force winds near Vanuatu</h3>
-  <p class="prose">
-    For each storm, the upper bar is the most people the forecasts of 1 to 3 days ahead
-    put inside the 64-knot wind area (Shefa, Sanma and Tafea); the lower bar is how many
-    were exposed (all of Vanuatu). The line is the 15,000-person threshold.
-  </p>
-  <div id="xBars"></div>
-
-  <h3 class="sub">Why wind, and not rainfall</h3>
-  <div class="prose">
-    <p>
-      Cyclones do harm through wind, rain and storm surge together. The working group
-      considered adding a rainfall condition and decided against it. A trigger on one number
-      is easier to operate, check and explain; and in the backtest the destructive storms
-      were already caught by wind exposure, so a rainfall threshold changed little or
-      nothing about which storms activated it.
-    </p>
-    <p>
-      For every storm in the 2006&ndash;2025 record, each candidate indicator against the
-      people the storm affected and against whether it led to a CERF allocation: exposure
-      to hurricane-force winds tracks both far more closely than rainfall does.
-    </p>
-  </div>
-  <div id="corr" class="corr-grid"></div>
-  <p class="note prose">Correlation (Pearson r: 0 = no relationship, 1 = perfect) of each
-    indicator with recorded impact, over all storms in the record. &ldquo;Exp&rdquo; = people
-    exposed at that wind speed in Shefa, Sanma and Tafea (observed track).</p>
+  <div class="scroll-x"><div id="tms"></div></div>
 </section>
 
 <section id="explorer">
@@ -239,6 +167,96 @@ h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
   </div>
 </section>
 
+<section id="performance">
+  <h2>How well it performs</h2>
+  <p class="prose">
+    The framework set the trigger to catch most of the cyclones for which international
+    humanitarian assistance was needed, with CERF's past allocations for cyclones in
+    Vanuatu as the measure, while activating about once in four years.
+  </p>
+  <div class="facts" id="facts"></div>
+  <div class="act-cards" id="actCards"></div>
+
+  <h3 class="sub">Every storm with hurricane-force winds near Vanuatu</h3>
+  <p class="prose">
+    For each storm, the upper bar is the most people the forecasts of 1 to 3 days ahead
+    put inside the 64-knot wind area (Shefa, Sanma and Tafea); the lower bar is how many
+    were exposed (all of Vanuatu). The line is the 15,000-person threshold.
+  </p>
+  <div id="xBars"></div>
+
+  <h3 class="sub">Why wind, and not rainfall</h3>
+  <div class="prose">
+    <p>
+      Cyclones do harm through wind, rain and storm surge together. The working group
+      considered adding a rainfall condition and decided against it. A trigger on one number
+      is easier to operate, check and explain; and in the backtest the destructive storms
+      were already caught by wind exposure, so a rainfall threshold changed little or
+      nothing about which storms activated it.
+    </p>
+    <p>
+      For every storm in the 2006&ndash;2025 record, each candidate indicator against the
+      people the storm affected and against whether it led to a CERF allocation: exposure
+      to hurricane-force winds tracks both far more closely than rainfall does.
+    </p>
+  </div>
+  <div id="corr" class="corr-grid"></div>
+  <p class="note prose">Correlation (Pearson r: 0 = no relationship, 1 = perfect) of each
+    indicator with recorded impact, over all storms in the record. &ldquo;Exp&rdquo; = people
+    exposed at that wind speed in Shefa, Sanma and Tafea (observed track).</p>
+</section>
+
+<section id="trigger">
+  <h2>The trigger in full</h2>
+  <p class="prose">
+    Each of the three triggers asks the same question at a different time: are at least
+    <strong>15,000 people</strong> expected to be exposed, or have they been exposed, to
+    maximum sustained winds of <strong>64&nbsp;knots</strong> (about 119&nbsp;km/h) or more?
+  </p>
+  <div class="scroll-x">
+  <table class="def">
+    <thead>
+      <tr><th>Trigger</th><th>Lead time</th><th>Wind speed</th>
+          <th>Number of people exposed</th><th>Provinces</th><th>Data source</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Readiness</strong></td>
+        <td>72 to 120 hours</td>
+        <td class="big" rowspan="3">&ge; 64 knots</td>
+        <td class="big" rowspan="3">&ge; 15,000 people</td>
+        <td rowspan="2">Shefa, Sanma, Tafea</td>
+        <td>RSMC Nadi extended track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Action</strong></td>
+        <td>24 to 72 hours</td>
+        <td>VMHS track forecast</td>
+      </tr>
+      <tr>
+        <td><strong>Observational</strong></td>
+        <td>n/a</td>
+        <td>All of Vanuatu</td>
+        <td>VMHS observed track</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="prose">
+    <p class="note">
+      Lead time is the time before landfall. Wind speeds are 10-minute sustained winds, as
+      used by RSMC Nadi and VMHS. No anticipatory activities begin in the 24 hours before
+      landfall (NDMO's operational cut-off); activities under the observational trigger start
+      after landfall and NDMO's all-clear. Triggers are monitored from 1&nbsp;October to
+      31&nbsp;May. CERF has pre-arranged up to $1.5&nbsp;million, disbursed once, on the
+      first trigger reached: a readiness activation authorises the readiness share of the
+      funds, an action or observational activation all of them. The Regional Humanitarian
+      Pooled Fund for Asia and the Pacific adds $1.2&nbsp;million for NGOs and the Vanuatu
+      Red Cross.
+    </p>
+  </div>
+</section>
+
 <section id="notes">
   <h2>Technical notes: how the historical forecasts were reconstructed</h2>
   <details class="caveat" style="max-width:none">
@@ -260,7 +278,7 @@ h3.sub { margin: 1.8rem 0 .3rem; font-size: 1.05rem; }
       </p>
       <p>
         <strong>From a forecast to a number of people.</strong> For every forecast issued
-        (543 forecast cycles across 47 storms), we take only the <strong>24&ndash;72&nbsp;hour
+        (534 forecast cycles across 47 storms), we take only the <strong>24&ndash;72&nbsp;hour
         portion</strong> of the predicted track: the action window. We sweep the predicted
         hurricane-force wind radii along that track segment into a footprint, and count the
         residents of Shefa, Sanma and Tafea inside it using WorldPop 1&nbsp;km population data.

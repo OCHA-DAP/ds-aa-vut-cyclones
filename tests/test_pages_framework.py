@@ -3,16 +3,26 @@
 docs/trigger/ is linked from the published framework (Annex 2, "Evaluation of
 trigger performance"), and its storm table and Trigger Mechanism Statistics
 are drawn from docs/forecast-check/data/{rp,hist}.json by
-docs/assets/historical.js. These tests repeat that selection in Python and
-compare it with the figures printed in the framework (endorsed by the ERC on
-15 October 2026), so regenerating the data cannot silently change them.
+docs/assets/historical.js. These tests compare them with the figures printed
+in the framework (endorsed by the ERC on 15 October 2026), twice: the data,
+through the same selection in Python, and the page script itself, run under
+node, so neither regenerated data nor a change to the script can silently
+change them.
 """
 
+import html
 import json
 import math
+import os
+import re
+import shutil
+import subprocess
 from pathlib import Path
 
-DATA = Path(__file__).resolve().parents[1] / "docs" / "forecast-check" / "data"
+import pytest
+
+DOCS = Path(__file__).resolve().parents[1] / "docs"
+DATA = DOCS / "forecast-check" / "data"
 T = 15_000
 ASSUMED = {"GENE2008", "ATU2011"}
 ROWS = 20
@@ -145,11 +155,8 @@ def test_statistics_are_the_frameworks():
     rp = load("rp.json")
     n, extra = rp["n_seasons"], rp["combined"]["extra_default"]
 
-    def seasons(f):
-        return sorted({s["season"] for s in rp["scored_storms"] if f(s)})
-
-    act = seasons(lambda s: s["peakA"] >= T)
-    obs = seasons(lambda s: s["obs"] >= T)
+    act = sorted({s["season"] for s in rp["scored_storms"] if s["peakA"] >= T})
+    obs = sorted(rp["observational"]["activated_seasons"])
     rp_act = (n + 1) / (len(act) + extra)
     rp_obs = (n + 1) / len(obs)
     rp_all = (n + 1) / (len(set(act) | set(obs)) + extra)
@@ -160,4 +167,120 @@ def test_statistics_are_the_frameworks():
     assert (years(rp_obs), pct(rp_obs), obs) == STATS["observational"]
     assert (years(rp_all), pct(rp_all), f"${1.5 / rp_all:.1f}M") == STATS[
         "overall"
+    ]
+
+
+# What historical.js draws, run under node: the rows of the storm table and
+# the text of the statistics panel.
+NODE_SCRIPT = """
+const fs = require("fs"), vm = require("vm");
+const [js, rp, hist] = process.argv.slice(1);
+const ctx = { window: {} };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(js, "utf8"), ctx);
+const R = ctx.window.VutRecord;
+const read = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+console.log(JSON.stringify({
+  T: R.T,
+  table: R.annexTable(read(rp), read(hist)),
+  panel: R.tmsPanel(read(rp)),
+}));
+"""
+
+
+def text(fragment):
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", fragment)).split())
+
+
+@pytest.fixture(scope="module")
+def drawn():
+    node = shutil.which("node")
+    if node is None:
+        if os.environ.get("REQUIRE_NODE"):
+            pytest.fail("node is needed to run docs/assets/historical.js")
+        pytest.skip("node not installed")
+    out = subprocess.run(
+        [
+            node,
+            "-e",
+            NODE_SCRIPT,
+            str(DOCS / "assets" / "historical.js"),
+            str(DATA / "rp.json"),
+            str(DATA / "hist.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return json.loads(out.stdout)
+
+
+def test_the_page_script_draws_annex_2(drawn):
+    assert drawn["T"] == T
+    body = drawn["table"].split("<tbody>")[1]
+    rows = re.findall(r"<tr>(.*?)</tr>", body, re.S)
+    got = [
+        [text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
+        for r in rows
+    ]
+
+    def cell(v):
+        if v is None:
+            return "no record"
+        return "no record*" if v == "*" else f"{v:,}"
+
+    want = [
+        [name, cell(f), f"{o:,}", "\u2713" if cerf else "\u2014", f"{a:,}"]
+        for name, f, o, cerf, a in ANNEX_2
+    ]
+    assert got == want
+    # the cells that met the trigger are the ones marked
+    met = [
+        [
+            text(c)
+            for c in re.findall(r'<td class="num met">(.*?)</td>', r, re.S)
+        ]
+        for r in rows
+    ]
+    assert met == [
+        [f"{v:,}" for v in (f, o) if isinstance(v, int) and v >= T]
+        for _, f, o, _, _ in ANNEX_2
+    ]
+
+
+def test_the_page_script_draws_the_statistics(drawn):
+    panel = text(drawn["panel"])
+    act_years, act_pct, act = STATS["action"]
+    obs_years, obs_pct, obs = STATS["observational"]
+    all_years, all_pct, spend = STATS["overall"]
+    for want in [
+        f"Analysis years: {STATS['years']}",
+        f"Action {act_years} {act_pct} {', '.join(map(str, act))}, +1 assumed*",
+        f"Observational {obs_years} {obs_pct} {', '.join(map(str, obs))}",
+        f"Overall return period \u2264 {all_years}",
+        f"Overall probability of activation \u2265 {all_pct}",
+        f"Average total spending per year \u2265 {spend}",
+        # the panel's footnote, word for word
+        "*One assumed action activation in 2008 (Gene) or 2011 (Atu): both "
+        "storms' hurricane-force winds reached or nearly reached the trigger "
+        "provinces, but no forecast records survive for 2006\u201311. The "
+        "readiness window is not assessed (too little archived long-range "
+        "data), so the overall return period is reported as \u2264 the "
+        "computed value. Pre-arranged financing: $1.5M, disbursed in full on "
+        "either an action or an observational activation.",
+    ]:
+        assert want in panel
+
+
+def test_the_trigger_page_defines_the_endorsed_trigger():
+    page = (DOCS / "trigger" / "index.html").read_text()
+    table = re.search(r'<table class="def">(.*?)</table>', page, re.S).group(1)
+    rows = [text(r) for r in re.findall(r"<tr>(.*?)</tr>", table, re.S)]
+    assert rows == [
+        "Trigger Lead time Wind speed Number of people exposed Provinces "
+        "Data source",
+        "Readiness 72 to 120 hours \u2265 64 knots \u2265 15,000 people "
+        "Shefa, Sanma, Tafea RSMC Nadi extended track forecast",
+        "Action 24 to 72 hours VMHS track forecast",
+        "Observational n/a All of Vanuatu VMHS observed track",
     ]

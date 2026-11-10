@@ -12,7 +12,7 @@ let geomCache = {};
 let map, layers = {}, playTimer = null;
 let dMap, dLayers = {}, dSelected = null, obsGeomCache = {};
 
-// the proposed trigger — locked on the forecast tab
+// the endorsed trigger — locked on the forecast tab
 const THRESH = 15000;
 const peak = (s) => s.cycles.reduce((m, c) => Math.max(m, +c.exp[SPEED]), 0);
 const peakLeg = (s, k) => s.cycles.reduce((m, c) => Math.max(m, +(c[k] || 0)), 0);

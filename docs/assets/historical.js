@@ -18,12 +18,13 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   /* Return periods by season (Weibull, (N + 1) / activated seasons), with the
-     one assumed action activation added to the action and overall counts. */
+     one assumed action activation added to the action and overall counts. The
+     action trigger is scored where forecasts survive (scored_storms); the
+     observational trigger over every season. */
   function stats(rp) {
     const N = rp.n_seasons, extra = rp.combined.extra_default ?? 1;
-    const seasons = (f) => [...new Set(rp.scored_storms.filter(f).map((s) => s.season))].sort();
-    const act = seasons((s) => s.peakA >= T);
-    const obs = seasons((s) => s.obs >= T);
+    const act = [...new Set(rp.scored_storms.filter((s) => s.peakA >= T).map((s) => s.season))].sort();
+    const obs = [...rp.observational.activated_seasons].sort();
     const all = [...new Set([...act, ...obs])].sort();
     return {
       first: rp.first_season, last: rp.last_season, act, obs,

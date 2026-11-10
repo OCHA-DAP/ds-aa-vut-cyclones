@@ -35,7 +35,8 @@ Promise.all([
   drawCorr(hist);
   initExplorer();
   // the page fills in after load, so a link to a section lands short of it
-  if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+  const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
 });
 
 /* ---------------- performance in numbers ---------------- */
@@ -191,7 +192,10 @@ function ensureMap() {
   if (map) return;
   map = L.map("xMap", { scrollWheelZoom: false }).setView([-16.2, 167.7], 6);
   // Esri's key-free canvas: CARTO's basemaps now need an API key
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (document.documentElement.dataset.theme !== "light" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
   L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
       `${dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base"}/MapServer/tile/{z}/{y}/{x}`,

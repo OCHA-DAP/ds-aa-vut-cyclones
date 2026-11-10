@@ -1,6 +1,6 @@
 # Vanuatu Anticipatory Action: tropical cyclones
 
-[![Generic badge](https://img.shields.io/badge/STATUS-UNDER%20DEVELOPMENT-%23007CE0)](https://shields.io/)
+[![Generic badge](https://img.shields.io/badge/STATUS-ENDORSED-%231EBFB3)](https://shields.io/)
 
 **Site:** <https://ocha-dap.github.io/ds-aa-vut-cyclones/>
 
@@ -31,9 +31,11 @@ an API key). To add a page, create a directory under `docs/` with an
 **The figures are locked to the framework.** The Trigger Mechanism Statistics
 panel and the historical storm table are drawn by `docs/assets/historical.js`
 (for `/trigger/` and `/slides/`) from `docs/forecast-check/data/`.
-`tests/test_pages_framework.py` checks that this data still gives the figures
-printed in the framework (section III.2 and Annex 2), and the "Check pages
-against the framework" workflow runs it on every change to `docs/`. If
+`tests/test_pages_framework.py` checks that this data, and what
+`historical.js` draws from it (run under node), still give the figures printed
+in the framework (section III.2 and Annex 2), and that `/trigger/` defines the
+endorsed trigger; the "Check pages against the framework" workflow runs it on
+every change to `docs/`. If
 regenerated data fails it, the pages no longer show the endorsed figures:
 change the expected values only for a new version of the framework.
 

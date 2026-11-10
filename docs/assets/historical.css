@@ -21,6 +21,8 @@
 .tms .overall table td.lbl { font-style: italic; text-align: right; width: 68%; }
 .tms .overall table td.val { text-align: left; }
 .tms .overall tbody tr:last-child td { border-bottom: 2px solid #000; }
+/* inside a .scroll-x wrapper, scroll the whole panel on narrow screens */
+.scroll-x .tms { min-width: 36rem; }
 .tms-foot { font-size: .78rem; color: var(--rec-muted); margin-top: .6rem; max-width: 100ch; }
 
 /* the Annex 2 storm table */
