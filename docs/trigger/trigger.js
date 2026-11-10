@@ -12,12 +12,12 @@ let map, layers = {}, geomCache = {}, playTimer = null, curStorm = null;
 const peakA = (s) => s.cycles.reduce((m, c) => Math.max(m, +(c.expA64 || 0)), 0);
 
 const STORY = {
-  "Jasmine 2012": "Forecasts put hurricane-force winds over the trigger provinces, but the storm curved away: a false alarm. Minor crop damage only.",
-  "Pam 2015": "Category 5, among the worst disasters in Vanuatu's history. Activated by the observational trigger: the forecasts of 1 to 3 days ahead put no more than 2,478 people in the trigger provinces inside the hurricane-force wind area.",
-  "Harold 2020": "Category 5 across Sanma and Pentecost. Both the action trigger, from the forecasts, and the observational trigger activated.",
-  "Judy 2023": "First of two cyclones in one week. The action trigger activated from the forecasts 1 to 3 days ahead; the observational trigger confirmed it.",
-  "Kevin 2023": "Struck days after Judy. The action trigger activated again; two activations in one season count once in the statistics.",
-  "Lola 2024": "An out-of-season Category 5 (October 2023) that hit Torba and Penama, outside the trigger provinces: activated nationally by the observational trigger.",
+  "Jasmine 2012": "Forecasts put 64-knot winds over the trigger provinces, but the storm turned away. False alarm; minor crop damage only.",
+  "Pam 2015": "Category 5, one of the worst disasters in Vanuatu's history. Activated by the observational trigger; forecast exposure 1 to 3 days ahead was at most 2,478 people.",
+  "Harold 2020": "Category 5 over Sanma and Pentecost. Both the action and the observational trigger activated.",
+  "Judy 2023": "First of two cyclones in one week. Both the action and the observational trigger activated.",
+  "Kevin 2023": "Days after Judy. Both triggers activated again; the statistics count one activation per season.",
+  "Lola 2024": "Category 5 in October 2023, before the official season, over Torba and Penama, outside the trigger provinces. Activated by the observational trigger, which covers all of Vanuatu.",
 };
 
 Promise.all([
@@ -49,15 +49,15 @@ function drawFacts(rp) {
   const fact = (v, k) => `<div class="fact"><div class="v">${v}</div><div class="k">${k}</div></div>`;
   $("#facts").innerHTML = [
     fact(`${caught.length} of ${cerf.length}`,
-      "cyclones with a CERF allocation activated the framework"),
+      "cyclones with a CERF allocation would have activated the framework"),
     fact(`${ahead.length} of ${cerf.length}`,
-      "of them through the action trigger, 1 to 3 days ahead; the others through the observational trigger"),
+      "through the action trigger (the others through the observational trigger)"),
     fact(falseAlarms.length,
-      `false alarm${falseAlarms.length === 1 ? "" : "s"}: ` +
+      `false alarm${falseAlarms.length === 1 ? "" : "s"} (` +
       (falseAlarms.map((r) => `${esc(r.name)} ${r.season}`).join(", ") || "none") +
-      `, in ${rp.action.n_scored_seasons} seasons with forecasts`),
-    fact(`1 in ${(Math.round(s.rpAll * 10) / 10).toFixed(1).replace(/\.0$/, "")} years`,
-      "or more often: how often the framework would have activated, against a target of about 1 in 4"),
+      `), in ${rp.action.n_scored_seasons} seasons with forecasts`),
+    fact(`&le; ${(Math.round(s.rpAll * 10) / 10).toFixed(1).replace(/\.0$/, "")} years`,
+      "overall return period (framework target: around 4 years)"),
   ].join("");
 }
 
@@ -90,10 +90,9 @@ function drawActivations(rp, hist) {
   h += `<div class="acard assumed-card">
     <h3><span>Gene 2008 / Atu 2011</span></h3>
     <div class="badges"><span class="badge assumed">1 ASSUMED ACTIVATION</span></div>
-    <p class="note" style="margin-top:.4rem">Both storms' hurricane-force winds reached or nearly
-    reached the trigger provinces, and both caused documented damage, but no forecast records
-    survive from 2006&ndash;11, so one of these two seasons is carried as an assumed activation
-    in the statistics.</p>
+    <p class="note" style="margin-top:.4rem">Both storms brought 64-knot winds to or near the
+    trigger provinces and caused documented damage. There are no forecast records for
+    2006&ndash;11, so the statistics count one assumed activation for these two seasons.</p>
   </div>`;
   $("#actCards").innerHTML = h;
 }
@@ -171,8 +170,8 @@ function drawCorr(hist) {
     return sv + "</svg>";
   };
   $("#corr").innerHTML =
-    `<div>${panel("How well it tracks people affected", ta)}</div>` +
-    `<div>${panel("How well it tracks CERF allocations", cerf)}</div>`;
+    `<div>${panel("Correlation with people affected", ta)}</div>` +
+    `<div>${panel("Correlation with CERF allocations", cerf)}</div>`;
 }
 
 /* ---------------- interactive forecast explorer ---------------- */
