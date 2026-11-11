@@ -12,7 +12,7 @@ let geomCache = {};
 let map, layers = {}, playTimer = null;
 let dMap, dLayers = {}, dSelected = null, obsGeomCache = {};
 
-// the proposed trigger — locked on the forecast tab
+// the endorsed trigger — locked on the forecast tab
 const THRESH = 15000;
 const peak = (s) => s.cycles.reduce((m, c) => Math.max(m, +c.exp[SPEED]), 0);
 const peakLeg = (s, k) => s.cycles.reduce((m, c) => Math.max(m, +(c[k] || 0)), 0);
@@ -101,10 +101,10 @@ function renderDesign() {
 
   $("#dStats").innerHTML = [
     stat(target, "target activations (≤)", false),
-    stat(n, "storms would have triggered" + (n > target ? " — too many" : ""),
+    stat(n, "storms would have activated it" + (n > target ? " — too many" : ""),
          n > target),
     stat(rp ? rp.toFixed(1) : "∞", "seasons return period (Weibull)", false),
-    stat(fmt(ta), "total people affected by triggered storms", false),
+    stat(fmt(ta), "total people affected by the storms that activate it", false),
     stat(`${cerfHit}/${nCerf}`, "CERF-allocation storms captured",
          cerfHit < nCerf),
   ].join("");
@@ -166,7 +166,7 @@ function drawScatter(storms, p) {
     const sel = s.sid === dSelected;
     sv += `<circle class="d-pt" data-sid="${s.sid}" cx="${cx}" cy="${cy}" r="${r}"
             fill="${col}" opacity="0.3"${sel ? ' stroke="var(--text-primary)" stroke-width="1.5"' : ""}>
-            <title>${esc(cap(s.name))} ${s.season} — exp${p.k} ${fmt(s["exp" + p.k])}, rain ${s.rain} mm, affected ${fmt(s.affected)}${s.cerf ? ", CERF" : ""}${s.trig ? " — TRIGGERED" : ""}. Click to map.</title></circle>`;
+            <title>${esc(cap(s.name))} ${s.season} — exp${p.k} ${fmt(s["exp" + p.k])}, rain ${s.rain} mm, affected ${fmt(s.affected)}${s.cerf ? ", CERF" : ""}${s.trig ? " — ACTIVATED" : ""}. Click to map.</title></circle>`;
     const labelled =
       s.trig || s.cerf || s.affected > 0 ||
       s["exp" + p.k] > xmax * 0.05 || s.rain > ymax * 0.55;
@@ -186,7 +186,7 @@ function drawScatter(storms, p) {
   const legend =
     `<ul class="legend"><li><span class="dot" style="background:var(--critical)"></span>CERF allocation</li>
      <li><span class="dot" style="background:var(--text-muted)"></span>no CERF</li>
-     <li><strong>bold</strong>&nbsp;= triggered</li>
+     <li><strong>bold</strong>&nbsp;= activated</li>
      <li>bubble size = total affected (EM-DAT)</li>
      <li><span class="ln" style="border-color:var(--wind);border-top-style:dashed"></span>wind threshold</li>
      <li><span class="ln" style="border-color:var(--rain);border-top-style:dashed"></span>rain threshold</li></ul>`;
@@ -208,7 +208,7 @@ function drawDesignTable(storms, p) {
     `background:color-mix(in srgb, ${rgb} ${Math.round((v / max) * 45)}%, transparent)`;
   let h = `<table><thead><tr><th>Cyclone</th>
     <th>Pop. exposed ${p.k} kt (AOI)</th><th>2-day rainfall (mm)</th>
-    <th>Trigger?</th><th>CERF?</th><th>Total affected</th></tr></thead><tbody>`;
+    <th>Activated?</th><th>CERF?</th><th>Total affected</th></tr></thead><tbody>`;
   for (const s of rows) {
     h += `<tr class="d-row ${s.trig ? "trig-row" : ""}${s.sid === dSelected ? " sel-row" : ""}" data-sid="${s.sid}">
       <td>${esc(cap(s.name))} ${s.season}</td>
@@ -240,9 +240,12 @@ function ensureDMap() {
     document.documentElement.dataset.theme === "dark" ||
     (document.documentElement.dataset.theme !== "light" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
+  // Esri's key-free canvas: CARTO's basemaps now need an API key
   L.tileLayer(
-    `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`,
-    { attribution: "&copy; OpenStreetMap, &copy; CARTO", maxZoom: 11 }
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
+      `${dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base"}/MapServer/tile/{z}/{y}/{x}`,
+    { attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors",
+      maxZoom: 11 }
   ).addTo(dMap);
 }
 
@@ -670,7 +673,7 @@ function render() {
   const cerfHit = cerf.filter((r) => r.fcst);
 
   $("#stats").innerHTML = [
-    stat(act.length, "would have triggered the action leg (24–72 h, AOI)", act.length > 0),
+    stat(act.length, "would have met the action trigger (24–72 h, AOI)", act.length > 0),
     stat(falseAlarm.length, "of those stayed below threshold observed, anywhere in the country", falseAlarm.length > 0),
     stat(obsOnly.length, "caught only by the observational trigger (national, no leadtime)", obsOnly.length > 0),
     stat(`${cerfHit.length}/${cerf.length}`, "CERF-allocation storms captured by the action leg",
@@ -827,9 +830,12 @@ function ensureMap() {
     document.documentElement.dataset.theme === "dark" ||
     (document.documentElement.dataset.theme !== "light" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
+  // Esri's key-free canvas: CARTO's basemaps now need an API key
   L.tileLayer(
-    `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`,
-    { attribution: "&copy; OpenStreetMap, &copy; CARTO", maxZoom: 11 }
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
+      `${dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base"}/MapServer/tile/{z}/{y}/{x}`,
+    { attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors",
+      maxZoom: 11 }
   ).addTo(map);
 }
 

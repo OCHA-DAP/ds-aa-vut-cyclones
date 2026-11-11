@@ -1,22 +1,45 @@
 # Vanuatu Anticipatory Action: tropical cyclones
 
-[![Generic badge](https://img.shields.io/badge/STATUS-UNDER%20DEVELOPMENT-%23007CE0)](https://shields.io/)
+[![Generic badge](https://img.shields.io/badge/STATUS-ENDORSED-%231EBFB3)](https://shields.io/)
 
-## Published pages
+**Site:** <https://ocha-dap.github.io/ds-aa-vut-cyclones/>
 
-Both are served from `docs/` on GitHub Pages:
+Analysis and live trigger monitoring for the National Anticipatory Action
+Framework for Tropical Cyclones in Vanuatu
+([framework document](https://www.unocha.org/publications/report/vanuatu/vanuatu-anticipatory-action-framework-tropical-cyclones),
+endorsed by the ERC on 15 October 2026).
 
-| Page | What it is |
+## Pages site
+
+GitHub Pages serves `docs/` from `main`. It follows the team's landing-page
+convention: a landing page at the root (`docs/index.html`, HDX v2 styles in
+`docs/assets/site.css` and `hero.js`, one card per product) and each product
+under its own path:
+
+| Path | What it is |
 |---|---|
-| [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Trigger design on the observed record **and** the forecast check (plain JS + Leaflet, two tabs) |
-| [`/trigger/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/trigger/) | Plain-language explainer: how the trigger works, historical activations, why no rainfall, interactive forecast explorer |
-| [`/slides/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/slides/) | Summary deck: trigger definition + Trigger Mechanism Statistics, historical storm table (reads the forecast-check data) |
+| [`/trigger/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/trigger/) | The trigger, its historical activations (framework Annex 2), how well it performs, and a forecast explorer. **The framework document links here: keep this URL.** |
+| [`/forecast-check/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/forecast-check/) | Technical analysis: trigger design on the observed record and the forecast check (plain JS + Leaflet, two tabs) |
+| [`/slides/`](https://ocha-dap.github.io/ds-aa-vut-cyclones/slides/) | Two summary slides: the trigger with its statistics, and the historical storm table |
 
-`/` redirects there — the old marimo WASM explorer was retired 2026-08-11
-(slow to load; fully superseded).
+Old links to the root's tabs (`/#design`, `/#forecast`) are forwarded to
+`/forecast-check/`. Every product page starts with a back link to the
+landing page. Maps use Esri's key-free canvas basemap (CARTO's tiles now need
+an API key). To add a page, create a directory under `docs/` with an
+`index.html` and add a card to `docs/index.html`.
 
-The forecast-check page is a static JS app with its data pre-baked into
-`docs/forecast-check/data/`:
+**The figures are locked to the framework.** The Trigger Mechanism Statistics
+panel and the historical storm table are drawn by `docs/assets/historical.js`
+(for `/trigger/` and `/slides/`) from `docs/forecast-check/data/`.
+`tests/test_pages_framework.py` checks that this data, and what
+`historical.js` draws from it (run under node), still give the figures printed
+in the framework (section III.2 and Annex 2), and that `/trigger/` defines the
+endorsed trigger; the "Check pages against the framework" workflow runs it on
+every change to `docs/`. If
+regenerated data fails it, the pages no longer show the endorsed figures:
+change the expected values only for a new version of the framework.
+
+The pages' data is pre-baked into `docs/forecast-check/data/`:
 
 ```shell
 # observed-record trigger data (hist.json, obsgeom/, plus a provenance CSV)

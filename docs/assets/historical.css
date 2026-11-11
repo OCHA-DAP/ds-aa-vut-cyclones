@@ -1,0 +1,58 @@
+/* Styles for the figures drawn by historical.js. Self-contained, so the
+   statistics panel and the Annex 2 table look the same on every page. */
+
+/* the standard "Trigger Mechanism Statistics" panel: a fixed light figure */
+.tms { background: #f0f0f0; color: #000; padding: 1.3rem 1.9rem 1.5rem;
+  max-width: 1050px; font-family: Arial, Helvetica, sans-serif; border-radius: 2px; }
+.tms .tms-title { font-weight: 700; font-style: italic; font-size: 1.02rem; margin: 0 0 1.4rem; }
+.tms .secbar { display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 2px solid #000; padding-bottom: 2px; }
+.tms .secbar .sec { font-weight: 700; }
+.tms .secbar .yrs { font-style: italic; }
+.tms table { border-collapse: collapse; width: 100%; background: none; font-size: .95rem; margin: 0; }
+.tms table th, .tms table td { border: none; background: none; padding: 4px 10px;
+  text-align: center; color: #000; }
+.tms thead th { font-style: italic; font-weight: 400; border-bottom: 1.5px solid #000;
+  white-space: normal; }
+.tms tbody tr:last-child td { border-bottom: 2px solid #000; }
+.tms .overall { margin-top: 1.6rem; max-width: 460px; }
+.tms .overall .sec { font-weight: 700; border-bottom: 1.5px solid #000;
+  display: block; padding-bottom: 2px; }
+.tms .overall table td.lbl { font-style: italic; text-align: right; width: 68%; }
+.tms .overall table td.val { text-align: left; }
+.tms .overall tbody tr:last-child td { border-bottom: 2px solid #000; }
+/* inside a .scroll-x wrapper, scroll the whole panel on narrow screens */
+.scroll-x .tms { min-width: 36rem; }
+.tms-foot { font-size: .78rem; color: var(--rec-muted); margin-top: .6rem; max-width: 100ch; }
+
+/* the Annex 2 storm table */
+:root {
+  --rec-border: #d8d8d2; --rec-head: #e4e4e0; --rec-muted: #767570;
+  --rec-met: #c02526; --rec-assumed: #f2c9c9; --rec-cerf: #2a78d6; --rec-impact: #8e44ad;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    --rec-border: #3d3d3a; --rec-head: #33332f; --rec-muted: #9a998f;
+    --rec-met: #e66767; --rec-assumed: #5c2f2f; --rec-cerf: #3987e5; --rec-impact: #a86fc7;
+  }
+}
+:root[data-theme="dark"] {
+  --rec-border: #3d3d3a; --rec-head: #33332f; --rec-muted: #9a998f;
+  --rec-met: #e66767; --rec-assumed: #5c2f2f; --rec-cerf: #3987e5; --rec-impact: #a86fc7;
+}
+table.annex { border-collapse: collapse; width: 100%; font-size: .88rem; margin: 0; }
+table.annex th, table.annex td { border: 1px solid var(--rec-border); padding: .3rem .55rem;
+  text-align: left; vertical-align: middle; }
+table.annex thead th { background: var(--rec-head); font-weight: 650; }
+table.annex .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.annex .center { text-align: center; }
+table.annex .muted { color: var(--rec-muted); font-weight: 400; font-size: .85em; }
+table.annex td.met { background: var(--rec-met); color: #fff; font-weight: 650; }
+table.annex td.assumed { background: var(--rec-assumed); }
+table.annex td.cerf { background: var(--rec-cerf); color: #fff; font-weight: 650; }
+table.annex .impact-bar {
+  display: inline-block; min-width: 9.5em; text-align: right; padding-right: .3em;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--rec-impact) 32%, transparent) var(--w), transparent var(--w));
+}

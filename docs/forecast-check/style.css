@@ -233,3 +233,15 @@ td.over { color: var(--critical); font-weight: 650; }
 #rpChart svg { display: block; width: 100%; height: auto; }
 
 #rpxScatter svg { max-width: 640px; }
+
+/* back to the site landing page (team Pages convention) */
+.home-link { display: inline-block; margin: 10px 0 0; padding: 6px 12px;
+  font: 500 13px/1 'Roboto', system-ui, sans-serif; color: #1e795f;
+  background: #e9f5f1; border: 1px solid #d4eae4; border-radius: 4px;
+  text-decoration: none; }
+.home-link:hover { background: #d4eae4; }
+
+/* the endorsed trigger, above the design-stage controls */
+.endorsed { max-width: 82ch; margin: .4rem 0 1rem; padding: .7rem .9rem;
+  border-left: 4px solid var(--critical); background: var(--surface-2);
+  font-size: .92rem; color: var(--text-secondary); }

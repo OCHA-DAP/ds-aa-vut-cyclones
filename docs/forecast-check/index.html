@@ -3,15 +3,24 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vanuatu cyclone trigger — design &amp; forecast check</title>
+<title>Technical analysis of the Vanuatu cyclone trigger</title>
 <link rel="icon" href="../favicon.ico" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+<a class="home-link" href="../">&larr; Vanuatu cyclone anticipatory action</a>
 <header class="page-head">
-  <h1>Vanuatu cyclone trigger</h1>
+  <h1>Technical analysis of the Vanuatu cyclone trigger</h1>
+  <p class="endorsed">
+    <strong>Endorsed trigger:</strong> at least 15,000 people exposed to 64-knot winds
+    (readiness: RSMC Nadi, 72&ndash;120&nbsp;h; action: VMHS, 24&ndash;72&nbsp;h;
+    observational: VMHS observed track). The historical activations listed in the framework
+    are on the <a href="../trigger/">trigger page</a>. This page contains the design
+    analysis; the controls on the design tab show alternatives considered during the design
+    and do not change the trigger.
+  </p>
   <nav class="tabs" role="tablist">
     <button class="tab active" role="tab" data-tab="design" id="tabbtn-design">Trigger design (observed record)</button>
     <button class="tab" role="tab" data-tab="forecast" id="tabbtn-forecast">Forecast check</button>
@@ -22,19 +31,19 @@
 <div class="tabpanel" id="panel-design" role="tabpanel">
 
   <p class="lede">
-    How the trigger was set: every cyclone season since <strong>2006</strong> (20 seasons),
-    each storm placed by its <strong>wind exposure</strong> (population inside the observed
+    Every cyclone season since <strong>2006</strong> (20 seasons), each storm placed by its
+    <strong>wind exposure</strong> (population inside the observed
     IBTrACS wind swath, Shefa + Sanma + Tafea) and the country-mean
-    <strong>2-day rainfall</strong> (IMERG). The controls start on the adopted trigger —
+    <strong>2-day rainfall</strong> (IMERG). The controls start on the endorsed trigger —
     <strong>15,000 people exposed to 64&nbsp;kt (10-minute) winds</strong>, no rainfall condition —
-    adjust them to see how alternatives would have behaved, and click any storm to see its
+    change them to see how alternatives would have performed, and click a storm to see its
     observed wind swaths on the map.
   </p>
   <details class="caveat">
-    <summary>How to use, and where the numbers come from</summary>
+    <summary>How to use this tab, and data sources</summary>
     <div>
       <p>
-        <strong>The framework in development defines three triggers</strong>, all at
+        <strong>The endorsed framework defines three triggers</strong>, all at
         &ge;64&nbsp;kt (10-minute) / &ge;15,000 people exposed: a <strong>readiness trigger</strong>
         (72&ndash;120&nbsp;h leadtime, RSMC Nadi extended track forecast, Shefa/Sanma/Tafea), an
         <strong>action trigger</strong> (24&ndash;72&nbsp;h, VMHS track forecast, same provinces),
@@ -46,9 +55,9 @@
       <p>
         <strong>How to use:</strong> set a wind-exposure and/or rainfall threshold, choose whether
         both (<strong>AND</strong>) or either (<strong>OR</strong>) must be met, and pick the wind
-        speed. Storms meeting the rule are <strong>triggered</strong> (bold labels). Aim for the
-        target number of triggers — staying at or below it — while maximising the total people
-        affected by the triggered storms. Red labels are storms that received a CERF allocation;
+        speed. Storms meeting the rule <strong>activate</strong> it (bold labels). Aim for the
+        target number of activations — staying at or below it — while maximising the total people
+        affected by the storms that activate it. Red labels are storms that received a CERF allocation;
         dashed lines are your thresholds; the shaded region is the trigger zone.
       </p>
       <p>
@@ -135,8 +144,8 @@
     <div>
       <p>
         For each trigger structure, the threshold combination that activates on
-        <strong>exactly 5 storms</strong> in the 21-season record (return period 4.4 seasons)
-        while maximising the total people affected by the triggered storms.
+        <strong>exactly 5 storms</strong> in the 20-season record (return period 4.2 seasons)
+        while maximising the total people affected by the storms that activate it.
       </p>
       <div id="dOpt" class="scroll-x"></div>
     </div>
@@ -148,12 +157,12 @@
 <div class="tabpanel" id="panel-forecast" role="tabpanel" hidden>
 
   <p class="lede">
-    The trigger above was designed on <em>observed</em> storm tracks. This tab re-runs it
-    against the <em>forecasts</em> that were actually on the table at the time, to see which
-    storms would have triggered an activation in real time.
+    The design tab uses <em>observed</em> storm tracks. This tab applies the trigger to the
+    <em>forecasts</em> issued at the time, to show which storms would have activated the
+    framework.
   </p>
   <details class="caveat">
-    <summary>What the numbers are, and what they are not</summary>
+    <summary>Data and methods</summary>
     <div>
       <p>
         Forecast exposure is computed from <strong>JTWC official forecasts</strong> in the VMGD
@@ -200,7 +209,7 @@
       </p>
       <p>
         Each storm's <strong>peak</strong> value is the highest exposure across all of its forecast
-        cycles &mdash; i.e. would the trigger have fired at <em>any</em> point during the event.
+        cycles &mdash; i.e. would the action trigger have been met at <em>any</em> point during the event.
         Invest-numbered decks (90&ndash;99) are excluded because they duplicate the named storm.
       </p>
       <p>
@@ -217,7 +226,7 @@
 
   <section class="controls" aria-label="Controls">
     <span class="locked-trigger">Trigger: <strong>15,000 people at 64&nbsp;kt (10-min)</strong>
-      <span class="unit">(adopted by the working group — explore alternatives on the design tab)</span></span>
+      <span class="unit">(endorsed in the framework; the alternatives considered in design are on the design tab)</span></span>
     <label>Sort
       <select id="sort">
         <option value="peak">Peak forecast exposure</option>
@@ -251,7 +260,7 @@
     <div id="rpChart" role="img" aria-label="Estimated combined return period as a function of the exposure threshold"></div>
     <p class="note" id="rpNote"></p>
 
-    <h3 class="rp-chart-title">Interactive: pick a threshold, read off the RP</h3>
+    <h3 class="rp-chart-title">Return period by threshold</h3>
     <section class="controls" aria-label="RP explorer controls">
       <label class="thr">Threshold
         <input type="range" id="rpxT" min="1000" max="80000" step="1000" value="15000" />

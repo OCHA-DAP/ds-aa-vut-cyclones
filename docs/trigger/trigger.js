@@ -1,24 +1,23 @@
-/* How-the-trigger-works explainer page.
-   Reads the pre-baked data from ../forecast-check/data/. */
+/* The trigger page: the framework's historical activations first, then the
+   analysis and the forecast explorer. Reads the pre-baked data from
+   ../forecast-check/data/; the statistics panel and the Annex 2 table come
+   from ../assets/historical.js. */
 
-const T = 15000;
-const fmt = (n) => n.toLocaleString("en-US");
+const { T, fmt, esc } = VutRecord;
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-let CORE = null, RP = null;
+let CORE = null;
 let map, layers = {}, geomCache = {}, playTimer = null, curStorm = null;
 
 const peakA = (s) => s.cycles.reduce((m, c) => Math.max(m, +(c.expA64 || 0)), 0);
 
 const STORY = {
-  "Jasmine 2012": "Forecasts placed hurricane-force winds over the trigger provinces, but the storm curved away — a false alarm. Minor crop damage only.",
-  "Pam 2015": "Category 5, among the worst disasters in Vanuatu's history. Caught by the observational trigger; its forecasts kept the worst winds just under the threshold until late.",
-  "Harold 2020": "Category 5 across Sanma and Pentecost. Both forecast and observational triggers fire — with days of leadtime.",
-  "Judy 2023": "First of two cyclones in one week. Forecast trigger fires ~2 days ahead; observational confirms.",
-  "Kevin 2023": "Struck days after Judy. Forecast trigger fires again — back-to-back activations in the same season count once.",
-  "Lola 2024": "An out-of-season Category 5 that hit Torba and Penama — outside the forecast provinces, caught nationally by the observational trigger.",
+  "Jasmine 2012": "Forecasts put 64-knot winds over the trigger provinces, but the storm turned away. False alarm; minor crop damage only.",
+  "Pam 2015": "Category 5, one of the worst disasters in Vanuatu's history. Activated by the observational trigger; forecast exposure 1 to 3 days ahead was at most 2,478 people.",
+  "Harold 2020": "Category 5 over Sanma and Pentecost. Both the action and the observational trigger activated.",
+  "Judy 2023": "First of two cyclones in one week. Both the action and the observational trigger activated.",
+  "Kevin 2023": "Days after Judy. Both triggers activated again; the statistics count one activation per season.",
+  "Lola 2024": "Category 5 in October 2023, before the official season, over Torba and Penama, outside the trigger provinces. Activated by the observational trigger, which covers all of Vanuatu.",
 };
 
 Promise.all([
@@ -26,59 +25,43 @@ Promise.all([
   fetch("../forecast-check/data/rp.json").then((r) => r.json()),
   fetch("../forecast-check/data/hist.json").then((r) => r.json()),
 ]).then(([core, rp, hist]) => {
-  CORE = core; RP = rp;
+  CORE = core;
   $("#generated").textContent = " · data generated " + core.generated;
-  drawTMS(rp);
+  $("#annex").innerHTML = VutRecord.annexTable(rp, hist);
+  $("#tms").innerHTML = VutRecord.tmsPanel(rp);
+  drawFacts(rp);
   drawActivations(rp, hist);
   drawBars(rp);
   drawCorr(hist);
   initExplorer();
+  // the page fills in after load, so a link to a section lands short of it
+  const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
 });
 
-/* ---------------- Trigger Mechanism Statistics panel ---------------- */
-function drawTMS(rp) {
-  const N = rp.n_seasons, EXTRA = rp.combined.extra_default ?? 1;
-  const rpv = (k) => (N + 1) / k;
-  const yrs = (v) => (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "") + " years";
-  const pct = (v) => Math.round(100 / v) + "%";
-  const act = [...new Set(rp.scored_storms.filter((s) => s.peakA >= T).map((s) => s.season))].sort();
-  const obs = [...new Set(rp.scored_storms.filter((s) => s.obs >= T).map((s) => s.season))].sort();
-  const all = [...new Set([...act, ...obs])].sort();
-  const rpAct = rpv(act.length + EXTRA), rpObs = rpv(obs.length), rpAll = rpv(all.length + EXTRA);
-  $("#tms").innerHTML = `
-  <div class="tms">
-    <p class="tms-title">Trigger Mechanism Statistics</p>
-    <div class="secbar"><span class="sec">Stats by trigger</span>
-      <span class="yrs">Analysis years: ${rp.first_season}-${rp.last_season}</span></div>
-    <table>
-      <thead><tr><th>Trigger</th><th>Return period</th>
-        <th>Activation<br>probability</th><th>Years activated</th></tr></thead>
-      <tbody>
-        <tr><td>Action</td><td>${yrs(rpAct)}</td><td>${pct(rpAct)}</td>
-            <td>${act.join(", ")}, +1 assumed*</td></tr>
-        <tr><td>Observational</td><td>${yrs(rpObs)}</td><td>${pct(rpObs)}</td>
-            <td>${obs.join(", ")}</td></tr>
-      </tbody>
-    </table>
-    <div class="overall">
-      <span class="sec">Overall stats</span>
-      <table><tbody>
-        <tr><td class="lbl">Overall return period</td><td class="val">&le; ${yrs(rpAll)}</td></tr>
-        <tr><td class="lbl">Overall probability of activation</td><td class="val">&ge; ${pct(rpAll)}</td></tr>
-        <tr><td class="lbl">Average total spending per year</td><td class="val">&ge; $${(1.5 / rpAll).toFixed(1)}M</td></tr>
-      </tbody></table>
-    </div>
-  </div>`;
-  $("#tmsFoot").innerHTML =
-    `*One assumed action activation in 2008 (Gene) or 2011 (Atu): both storms' hurricane-force ` +
-    `winds reached or nearly reached the trigger provinces, but no forecast records survive for ` +
-    `2006&ndash;11. The readiness window is not assessed (too little archived long-range data), ` +
-    `so the overall return period is reported as &le; the computed value. Pre-arranged ` +
-    `financing: $1.5M, disbursed in full on either an action or an observational activation.`;
+/* ---------------- performance in numbers ---------------- */
+function drawFacts(rp) {
+  const s = VutRecord.stats(rp);
+  const cerf = rp.scored_storms.filter((r) => r.cerf);
+  const caught = cerf.filter((r) => r.peakA >= T || r.obs >= T);
+  const ahead = cerf.filter((r) => r.peakA >= T);
+  const falseAlarms = rp.scored_storms.filter((r) => r.peakA >= T && r.obs < T);
+  const fact = (v, k) => `<div class="fact"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  $("#facts").innerHTML = [
+    fact(`${caught.length} of ${cerf.length}`,
+      "cyclones with a CERF allocation would have activated the framework"),
+    fact(`${ahead.length} of ${cerf.length}`,
+      "through the action trigger (the others through the observational trigger)"),
+    fact(falseAlarms.length,
+      `false alarm${falseAlarms.length === 1 ? "" : "s"} (` +
+      (falseAlarms.map((r) => `${esc(r.name)} ${r.season}`).join(", ") || "none") +
+      `), in ${rp.action.n_scored_seasons} seasons with forecasts`),
+    fact(`&le; ${(Math.round(s.rpAll * 10) / 10).toFixed(1).replace(/\.0$/, "")} years`,
+      "overall return period (framework target: around 4 years)"),
+  ].join("");
 }
 
 /* ---------------- activation cards ---------------- */
-
 function drawActivations(rp, hist) {
   const affected = new Map(hist.storms.map((h) => [h.name.toUpperCase() + h.season, h.affected]));
   const storms = rp.scored_storms
@@ -91,8 +74,9 @@ function drawActivations(rp, hist) {
     h += `<div class="acard">
       <h3><span>${esc(key)}</span></h3>
       <div class="badges">
-        ${s.peakA >= T ? '<span class="badge action">ACTION — forecast</span>' : ""}
+        ${s.peakA >= T ? '<span class="badge action">ACTION</span>' : ""}
         ${s.obs >= T ? '<span class="badge obsv">OBSERVATIONAL</span>' : ""}
+        ${s.peakA >= T && s.obs < T ? '<span class="badge false">FALSE ALARM</span>' : ""}
         ${s.cerf ? '<span class="badge cerf">CERF ALLOCATION</span>' : ""}
       </div>
       <dl>
@@ -106,15 +90,14 @@ function drawActivations(rp, hist) {
   h += `<div class="acard assumed-card">
     <h3><span>Gene 2008 / Atu 2011</span></h3>
     <div class="badges"><span class="badge assumed">1 ASSUMED ACTIVATION</span></div>
-    <p class="note" style="margin-top:.4rem">Both storms' hurricane-force winds reached or nearly
-    reached the trigger provinces, and both caused documented damage — but no forecast archives
-    survive from 2006&ndash;11, so one of these two seasons is carried as an assumed activation
-    in the statistics above.</p>
+    <p class="note" style="margin-top:.4rem">Both storms brought 64-knot winds to or near the
+    trigger provinces and caused documented damage. There are no forecast records for
+    2006&ndash;11, so the statistics count one assumed activation for these two seasons.</p>
   </div>`;
   $("#actCards").innerHTML = h;
 }
 
-/* ---------------- close-calls bar chart ---------------- */
+/* ---------------- forecast vs observed bars ---------------- */
 function drawBars(rp) {
   const rows = rp.scored_storms
     .filter((s) => s.peakA > 0 || s.obs > 0)
@@ -140,11 +123,11 @@ function drawBars(rp) {
     sv += `<title>${esc(r.name)} ${r.season}: forecast ${fmt(r.peakA)}, observed ${fmt(r.obs)}</title>`;
   });
   sv += `<line class="threshline" x1="${x(T)}" y1="${padT - 10}" x2="${x(T)}" y2="${H - 28}"/>`;
-  sv += `<text class="threshlabel" x="${x(T)}" y="${padT - 13}" text-anchor="middle">trigger: ${fmt(T)} people</text>`;
+  sv += `<text class="threshlabel" x="${x(T)}" y="${padT - 13}" text-anchor="middle">threshold: ${fmt(T)} people</text>`;
   sv += `</svg>`;
   sv += `<ul class="legend">
-    <li><span class="sw" style="background:var(--fcst)"></span>forecast (1–3 days ahead)</li>
-    <li><span class="sw" style="background:var(--obs)"></span>observed</li></ul>`;
+    <li><span class="sw" style="background:var(--fcst)"></span>forecast, 1 to 3 days ahead (Shefa, Sanma, Tafea)</li>
+    <li><span class="sw" style="background:var(--obs)"></span>observed (all of Vanuatu)</li></ul>`;
   $("#xBars").innerHTML = sv;
 }
 
@@ -187,8 +170,8 @@ function drawCorr(hist) {
     return sv + "</svg>";
   };
   $("#corr").innerHTML =
-    `<div>${panel("How well it tracks people affected", ta)}</div>` +
-    `<div>${panel("How well it tracks CERF allocations", cerf)}</div>`;
+    `<div>${panel("Correlation with people affected", ta)}</div>` +
+    `<div>${panel("Correlation with CERF allocations", cerf)}</div>`;
 }
 
 /* ---------------- interactive forecast explorer ---------------- */
@@ -207,10 +190,16 @@ function initExplorer() {
 function ensureMap() {
   if (map) return;
   map = L.map("xMap", { scrollWheelZoom: false }).setView([-16.2, 167.7], 6);
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // Esri's key-free canvas: CARTO's basemaps now need an API key
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (document.documentElement.dataset.theme !== "light" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
   L.tileLayer(
-    `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`,
-    { attribution: "&copy; OpenStreetMap, &copy; CARTO", maxZoom: 11 }
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
+      `${dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base"}/MapServer/tile/{z}/{y}/{x}`,
+    { attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors",
+      maxZoom: 11 }
   ).addTo(map);
 }
 
@@ -272,13 +261,13 @@ function showCycle(i) {
   const d = new Date(c.init);
   const nice = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) +
     ", " + String(d.getUTCHours()).padStart(2, "0") + ":00 UTC";
-  $("#xCycleLabel").textContent = `forecast ${i + 1} of ${curStorm.cycles.length} — issued ${nice}`;
+  $("#xCycleLabel").textContent = `forecast ${i + 1} of ${curStorm.cycles.length}, issued ${nice}`;
   $("#xVerdict").innerHTML = eA >= T
-    ? `<strong class="yes">TRIGGERS</strong> — ${fmt(eA)} people in the predicted hurricane-force area`
-    : `does not trigger — ${fmt(eA)} people predicted (needs ${fmt(T)})`;
+    ? `<strong class="yes">Action trigger threshold met</strong>: ${fmt(eA)} people in the forecast 64-knot area`
+    : `Below the action trigger threshold: ${fmt(eA)} people forecast (${fmt(T)} needed)`;
   $("#xInfo").innerHTML = `<dl>
-    <dt>Predicted exposure (1–3 days ahead)</dt><dd>${fmt(eA)}</dd>
-    <dt>What actually happened (whole country)</dt><dd>${fmt(+(curStorm.obs["64"] || 0))}</dd>
+    <dt>Forecast exposure (1 to 3 days ahead)</dt><dd>${fmt(eA)}</dd>
+    <dt>Observed exposure (all of Vanuatu)</dt><dd>${fmt(+(curStorm.obs["64"] || 0))}</dd>
     <dt>Peak forecast wind this cycle</dt><dd>${c.vmax} kt</dd></dl>`;
 }
 

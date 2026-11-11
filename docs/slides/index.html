@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vanuatu AA — cyclone trigger (draft)</title>
+<title>Vanuatu cyclone trigger summary slides</title>
 <link rel="icon" href="../favicon.ico" />
+<link rel="stylesheet" href="../assets/historical.css" />
 <style>
 :root {
   color-scheme: light;
@@ -51,39 +52,6 @@ thead th { background: var(--grey-head); font-weight: 650; }
 
 .muted { color: var(--text-muted); font-weight: 400; font-size: .85rem; }
 
-/* the standard "Trigger Mechanism Statistics" panel — fixed light figure */
-.tms { background: #f0f0f0; color: #000; padding: 1.3rem 1.9rem 1.5rem;
-  max-width: 1050px; font-family: Arial, Helvetica, sans-serif; border-radius: 2px; }
-.tms .tms-title { font-weight: 700; font-style: italic; font-size: 1.02rem; margin: 0 0 1.4rem; }
-.tms .secbar { display: flex; justify-content: space-between; align-items: baseline;
-  border-bottom: 2px solid #000; padding-bottom: 2px; }
-.tms .secbar .sec { font-weight: 700; }
-.tms .secbar .yrs { font-style: italic; }
-.tms table { border-collapse: collapse; width: 100%; background: none; font-size: .95rem; }
-.tms table th, .tms table td { border: none; background: none; padding: 4px 10px;
-  text-align: center; }
-.tms thead th { font-style: italic; font-weight: 400; border-bottom: 1.5px solid #000;
-  background: none; white-space: normal; }
-.tms tbody tr:last-child td { border-bottom: 2px solid #000; }
-.tms .overall { margin-top: 1.6rem; max-width: 460px; }
-.tms .overall .sec { font-weight: 700; border-bottom: 1.5px solid #000;
-  display: block; padding-bottom: 2px; }
-.tms .overall table td.lbl { font-style: italic; text-align: right; width: 68%; }
-.tms .overall table td.val { text-align: left; }
-.tms .overall tbody tr:last-child td { border-bottom: 2px solid #000; }
-.tms-foot { font-size: .78rem; color: var(--text-muted); margin-top: .6rem; max-width: 100ch; }
-
-.storms td, .storms th { padding: .3rem .55rem; }
-.storms { font-size: .88rem; }
-td.trig { background: var(--critical); color: #fff; font-weight: 650; }
-td.trig-pale { background: var(--critical-pale); }
-td.cerf { background: var(--cerf-blue); color: #fff; font-weight: 650; }
-.impact-bar {
-  display: inline-block; min-width: 9.5em; text-align: right; padding-right: .3em;
-  border-radius: 2px;
-  background: linear-gradient(to right,
-    color-mix(in srgb, var(--impact) 32%, transparent) var(--w), transparent var(--w));
-}
 .footnote { color: var(--text-muted); font-size: .78rem; margin-top: .9rem; max-width: 100ch; }
 
 .nav {
@@ -100,30 +68,36 @@ td.cerf { background: var(--cerf-blue); color: #fff; font-weight: 650; }
   position: fixed; bottom: 1rem; left: 1.3rem; z-index: 10;
   color: var(--text-muted); font-size: .8rem;
 }
+/* back to the site landing page (team Pages convention); fixed, as the deck fills the window */
+.home-link { position: fixed; top: .6rem; left: .8rem; z-index: 10;
+  padding: 6px 12px; font: 500 13px/1 'Roboto', system-ui, sans-serif; color: #1e795f;
+  background: #e9f5f1; border: 1px solid #d4eae4; border-radius: 4px;
+  text-decoration: none; }
+.home-link:hover { background: #d4eae4; }
 @media print {
   .slide { position: static; display: block; page-break-after: always; }
-  .nav, .brand { display: none; }
+  .nav, .brand, .home-link { display: none; }
 }
 </style>
 </head>
 <body>
+<a class="home-link" href="../">&larr; Vanuatu cyclone anticipatory action</a>
 <div class="deck" id="deck"></div>
 
-<div class="brand">Vanuatu AA — cyclones &middot; draft, Aug 2026 &middot;
-  <a href="../forecast-check/" style="color:inherit">full analysis</a></div>
+<div class="brand">Vanuatu AA — cyclones &middot; framework endorsed Oct 2026 &middot;
+  <a href="../trigger/" style="color:inherit">historical activations</a> &middot;
+  <a href="../forecast-check/" style="color:inherit">technical analysis</a></div>
 <div class="nav">
   <button id="prev" aria-label="Previous slide">&larr;</button>
   <span id="pos">1 / 2</span>
   <button id="next" aria-label="Next slide">&rarr;</button>
 </div>
 
+<script src="../assets/historical.js"></script>
 <script>
-const THRESHOLDS = [15000];
-const fmt = (n) => n.toLocaleString("en-US");
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const { T, fmt } = VutRecord;
 
-/* ---------- slide builders (data-driven, per threshold) ---------- */
+/* ---------- slide builders ---------- */
 
 function trigDefTable(T) {
   return `
@@ -157,66 +131,13 @@ function trigDefTable(T) {
   </table>`;
 }
 
-function rpTable(rp, T) {
-  const N = rp.n_seasons, EXTRA = rp.combined.extra_default ?? 1;
-  const rpv = (k) => (N + 1) / k;
-  const yrs = (v) => (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "") + " years";
-  const pct = (v) => Math.round(100 / v) + "%";
-  const act = [...new Set(rp.scored_storms
-    .filter((s) => s.peakA >= T).map((s) => s.season))].sort();
-  const obs = [...new Set(rp.scored_storms
-    .filter((s) => s.obs >= T).map((s) => s.season))].sort();
-  const all = [...new Set([...act, ...obs])].sort();
-  const rpAct = rpv(act.length + EXTRA);
-  const rpObs = rpv(obs.length);
-  const rpAll = rpv(all.length + EXTRA);
-  const spend = "$" + (1.5 / rpAll).toFixed(1) + "M";
-  return `
-  <div class="tms">
-    <p class="tms-title">Trigger Mechanism Statistics</p>
-    <div class="secbar"><span class="sec">Stats by trigger</span>
-      <span class="yrs">Analysis years: ${rp.first_season}-${rp.last_season}</span></div>
-    <table>
-      <thead><tr><th>Trigger</th><th>Return period</th>
-        <th>Activation<br>probability</th><th>Years activated</th></tr></thead>
-      <tbody>
-        <tr><td>Action</td><td>${yrs(rpAct)}</td><td>${pct(rpAct)}</td>
-            <td>${act.join(", ")}, +1 assumed*</td></tr>
-        <tr><td>Observational</td><td>${yrs(rpObs)}</td><td>${pct(rpObs)}</td>
-            <td>${obs.join(", ")}</td></tr>
-      </tbody>
-    </table>
-    <div class="overall">
-      <span class="sec">Overall stats</span>
-      <table>
-        <tbody>
-          <tr><td class="lbl">Overall return period</td>
-              <td class="val">&le; ${yrs(rpAll)}</td></tr>
-          <tr><td class="lbl">Overall probability of activation</td>
-              <td class="val">&ge; ${pct(rpAll)}</td></tr>
-          <tr><td class="lbl">Average total spending per year</td>
-              <td class="val">&ge; $${(1.5 / rpAll).toFixed(1)}M</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <p class="tms-foot">*One assumed action activation in 2008 (Gene) or 2011 (Atu): both
-  storms' observed 64&nbsp;kt swaths reached or nearly reached the AOI, but no forecast
-  records survive for 2006&ndash;11. The readiness window is not assessed (historical
-  long-lead wind radii too sparse), so the overall return period is reported as
-  &le; the computed value. Pre-arranged financing: $1.5M, disbursed in full on either an
-  action or an observational activation — expected spend per activation is $1.5M.</p>`;
-}
-
-
-
-function defSlide(rp, T) {
+function defSlide(rp) {
   return `
   <h1>Vanuatu anticipatory action — tropical cyclones</h1>
-  <p class="sub">Draft trigger mechanism &middot; August 2026</p>
+  <p class="sub">Trigger mechanism &middot; framework endorsed by the ERC, 15 October 2026</p>
   <h2>Trigger definition</h2>
   ${trigDefTable(T)}
-  ${rpTable(rp, T)}
+  ${VutRecord.tmsPanel(rp)}
   <p class="footnote">
     Backtest record: ${rp.first_season}&ndash;${rp.last_season}. IBTrACS 64-kt radii exist
     reliably from 2005; season 2005 itself is excluded (its forecast archive is a single
@@ -227,77 +148,27 @@ function defSlide(rp, T) {
   </p>`;
 }
 
-function stormSlide(rp, hist, T) {
-  const MAXROWS = 20;
-  const scored = new Map(rp.scored_storms.map((s) => [s.name.toUpperCase() + s.season, s]));
-  const pale = new Set(["GENE2008", "ATU2011"]);
-  const all = hist.storms.map((h) => {
-    const key = h.name.toUpperCase() + h.season;
-    const s = scored.get(key);
-    return {
-      name: h.name.charAt(0) + h.name.slice(1).toLowerCase(),
-      season: h.season,
-      peakA: s ? s.peakA : null,
-      obs: s ? s.obs : 0,
-      cerf: h.cerf, affected: h.affected,
-      exp34: h.exp34 || 0,
-      pale: pale.has(key),
-    };
-  });
-  const interesting = all.filter((r) =>
-    (r.peakA || 0) > 0 || r.obs > 0 || r.cerf || r.affected > 0 || r.pale);
-  const negatives = all.filter((r) => !interesting.includes(r))
-    .sort((x, y) => y.exp34 - x.exp34);
-  const rows = interesting
-    .concat(negatives.slice(0, Math.max(0, MAXROWS - interesting.length)))
-    .sort((x, y) => y.affected - x.affected || y.obs - x.obs ||
-      (y.peakA || 0) - (x.peakA || 0) || y.exp34 - x.exp34);
-  const maxTA = Math.max(...rows.map((r) => r.affected), 1);
-
-  const body = rows.map((r) => {
-    const fCell = r.pale
-      ? `<td class="num trig-pale">no record*</td>`
-      : r.peakA === null
-        ? `<td class="num" style="color:var(--text-muted)">no record</td>`
-        : `<td class="num${r.peakA >= T ? " trig" : ""}">${fmt(r.peakA)}</td>`;
-    const oCell = `<td class="num${r.obs >= T ? " trig" : ""}">${fmt(r.obs)}</td>`;
-    return `<tr>
-      <td>${esc(r.name)} ${r.season}</td>
-      ${fCell}${oCell}
-      <td class="center${r.cerf ? " cerf" : ""}">${r.cerf ? "&#10003;" : "—"}</td>
-      <td><span class="impact-bar" style="--w:${Math.round((r.affected / maxTA) * 100)}%">${fmt(r.affected)}</span></td>
-    </tr>`;
-  }).join("");
-
+function stormSlide(rp, hist) {
   return `
   <h1>Historical storms near Vanuatu, ${hist.first_season}&ndash;${hist.last_season}</h1>
   <p class="sub">Exposure to &ge;64&nbsp;kt (10-min) winds &middot;
-    <span style="color:var(--critical);font-weight:650">red</span> = would have triggered
+    <span style="color:var(--critical);font-weight:650">red</span> = trigger threshold met
     (&ge;${fmt(T)} people) &middot;
     <span style="background:var(--critical-pale);padding:0 .35em;border-radius:2px">pale red</span>
-    = no forecast record survives, plausibly triggered</p>
-  <table class="storms">
-    <thead><tr>
-      <th>Storm</th>
-      <th class="num">64&nbsp;kt forecast exposure<br><span class="muted">action window 24&ndash;72&nbsp;h, AOI provinces</span></th>
-      <th class="num">64&nbsp;kt observed exposure<br><span class="muted">whole country</span></th>
-      <th class="center">CERF allocation</th>
-      <th>EM-DAT total affected</th>
-    </tr></thead>
-    <tbody>${body}</tbody>
-  </table>
+    = no forecast record survives, one assumed activation</p>
+  ${VutRecord.annexTable(rp, hist)}
   <p class="footnote">
-    Forecast exposure: JTWC official forecasts (proxy — the framework's forecast sources carry
-    no historical wind radii), 24&ndash;72&nbsp;h track segment, WorldPop population inside the
-    forecast 64&nbsp;kt swath in Shefa/Sanma/Tafea, at the 73&nbsp;kt 1-min-equivalent contour.
-    Observed exposure: IBTrACS best-track radii, same contour, whole country. *Gene 2008 and
-    Atu 2011: observed swaths reached or nearly reached the AOI but no forecast decks survive
-    for 2006&ndash;11 — marked as plausible triggers; both caused documented damage (Gene:
-    severe damage on Futuna, in the AOI; Atu: outer-island damage, transport halted) that
-    EM-DAT does not record for Vanuatu. Donna 2017's impact fell on the Torres Islands
-    (pop&nbsp;~1,000) — no people-exposed threshold can catch a Torres-only hit. Storms shown:
-    all with nonzero 64-kt exposure, impact or CERF, plus the closest remaining passes
-    (largest observed gale-force exposure) as true negatives.
+    Forecast exposure: JTWC official forecasts (RSMC Nadi and VMHS forecasts are not archived
+    with wind radii), 24&ndash;72&nbsp;h track segment, WorldPop population inside the
+    forecast 64&nbsp;kt swath in Shefa/Sanma/Tafea, at the 73&nbsp;kt 1-min-equivalent speed.
+    Observed exposure: IBTrACS best-track radii, same speed, whole country. *Gene 2008 and
+    Atu 2011: observed swaths reached or nearly reached the AOI, but there are no forecast
+    records for 2006&ndash;11, so they count as one assumed activation. Both caused damage
+    that EM-DAT does not record for Vanuatu (Gene: severe damage on Futuna, in the AOI; Atu:
+    damage on outer islands, transport halted). Donna 2017 mainly affected the Torres Islands
+    (population about 1,000), too few people to reach a people-exposed threshold. Storms
+    shown: all with any 64-kt exposure, people affected or a CERF allocation, plus the next
+    closest storms (largest observed exposure to 34-kt winds).
   </p>`;
 }
 
@@ -307,9 +178,7 @@ Promise.all([
   fetch("../forecast-check/data/hist.json").then((r) => r.json()),
 ]).then(([rp, hist]) => {
   const deck = document.getElementById("deck");
-  const defs = THRESHOLDS.map((T) => defSlide(rp, T));
-  const storms = THRESHOLDS.map((T) => stormSlide(rp, hist, T));
-  const slidesHtml = [...defs, ...storms];
+  const slidesHtml = [defSlide(rp), stormSlide(rp, hist)];
   deck.innerHTML = slidesHtml.map((h, i) =>
     `<section class="slide${i === 0 ? " active" : ""}">${h}</section>`).join("");
 
